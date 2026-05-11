@@ -101,6 +101,8 @@ By following these detailed steps, you can correctly connect the ESP32 to the Ha
 
 Create a new ESPHome configuration file (e.g., `pool_heater.yaml`) with the following content:
 
+For a more complete Home Assistant / ESPHome Dashboard configuration with Wi-Fi, API, OTA, fallback AP, safe mode, and restart controls, see [examples/home-assistant-basic.yaml](examples/home-assistant-basic.yaml).
+
 #### Configuration Example
 Assuming you have the level shifter connected to pin 22. 
 

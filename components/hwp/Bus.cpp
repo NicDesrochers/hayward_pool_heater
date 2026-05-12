@@ -457,7 +457,9 @@ void Bus::process_send_queue() {
             return;
         }
         this->previous_sent_packet_ = millis();
-        start_receive();
+        this->current_frame.reset("TX Done");
+        this->reset_pulse_log();
+        this->mode = BUSMODE_RX;
     }
 }
 void IRAM_ATTR Bus::finalize_frame(bool timeout) {

@@ -32,11 +32,11 @@
  */
 #pragma once
 #include "CS.h"
-#include "esphome/components/climate/climate.h"
-#include "esphome/components/climate/climate_mode.h"
-#include "esphome/core/optional.h"
+#include "hwp_climate_adapter.h"
+#include "protocol_core.h"
 #include <bitset>
 #include <cmath>
+#include <cstring>
 #include <cstdint>
 #include <ctime>
 #include <iomanip>
@@ -112,18 +112,18 @@ namespace hwp {
  * excluding the frame type, ensuring data integrity.
  */
 
-static constexpr uint8_t frame_data_length = 12;
-static constexpr uint8_t frame_data_length_short = 9;
+static constexpr uint8_t frame_data_length = protocol::FRAME_DATA_LENGTH;
+static constexpr uint8_t frame_data_length_short = protocol::FRAME_DATA_LENGTH_SHORT;
 
 class FanMode {
   public:
     enum Value : uint8_t {
-        LOW_SPEED = 0x00,         // 0000 - Low speed
-        HIGH_SPEED = 0x01,        // 0001 - High speed
-        AMBIENT = 0x02,           // 0010 - Ambient
-        SCHEDULED = 0x03,         // 0011 - Time
-        AMBIENT_SCHEDULED = 0x04, // 0100 - Ambient and Time
-        UNKNOWN = 0xFF
+        LOW_SPEED = protocol::FAN_MODE_LOW_SPEED,                   // 0000 - Low speed
+        HIGH_SPEED = protocol::FAN_MODE_HIGH_SPEED,                 // 0001 - High speed
+        AMBIENT = protocol::FAN_MODE_AMBIENT,                       // 0010 - Ambient
+        SCHEDULED = protocol::FAN_MODE_SCHEDULED,                   // 0011 - Time
+        AMBIENT_SCHEDULED = protocol::FAN_MODE_AMBIENT_SCHEDULED,   // 0100 - Ambient and Time
+        UNKNOWN = protocol::FAN_MODE_UNKNOWN
     };
     static const FanMode unknown;
     static const FanMode low_speed;
@@ -136,10 +136,7 @@ class FanMode {
     static const char* scheduled_desc;
     FanMode() = default;
     constexpr FanMode(Value value) : value_(value) {}
-    FanMode(uint8_t value) : value_(LOW_SPEED) {
-        if (value <= AMBIENT_SCHEDULED) {
-            this->value_ = static_cast<Value>(value);
-        }
+    FanMode(uint8_t value) : value_(static_cast<Value>(protocol::normalize_fan_mode_raw(value))) {
     }
     uint8_t to_raw() const { return static_cast<uint8_t>(value_); }
     optional<climate::ClimateFanMode> to_climate_fan_mode() const {
@@ -160,16 +157,11 @@ class FanMode {
      * @return optional<std::string>
      */
     optional<std::string> to_custom_fan_mode() const {
-        switch (value_) {
-        case AMBIENT:
-            return make_optional<std::string>(ambient_desc);
-        case SCHEDULED:
-            return make_optional<std::string>(scheduled_desc);
-        case AMBIENT_SCHEDULED:
-            return make_optional<std::string>(ambient_scheduled_desc);
-        default:
+        const char* custom_fan_mode = protocol::fan_mode_custom_string(to_raw());
+        if (custom_fan_mode == nullptr) {
             return nullopt;
         }
+        return make_optional<std::string>(custom_fan_mode);
     }
     /**
      * @brief Converts a climate custom fan mode string to
@@ -178,15 +170,11 @@ class FanMode {
      * @return optional<std::string>
      */
     static optional<FanMode> from_custom_fan_mode(const std::string& fan_mode) {
-        if (fan_mode == ambient_desc) {
-            return make_optional<FanMode>(FanMode::AMBIENT);
-        } else if (fan_mode == scheduled_desc) {
-            return make_optional<FanMode>(FanMode::SCHEDULED);
-        } else if (fan_mode == ambient_scheduled_desc) {
-            return make_optional<FanMode>(FanMode::AMBIENT_SCHEDULED);
-        } else {
+        auto raw = protocol::fan_mode_raw_from_custom_string(fan_mode);
+        if (!raw.has_value()) {
             return nullopt;
         }
+        return make_optional<FanMode>(static_cast<FanMode::Value>(raw.value()));
     }
     /**
      * @brief Converts a climate fan mode to the corresponding
@@ -215,8 +203,9 @@ class FanMode {
      * @return optional<FanMode> The fan mode if conversion was successful, nullopt otherwise
      */
     static optional<FanMode> from_call(const climate::ClimateCall& call) {
-        if (call.get_custom_fan_mode().has_value()) {
-            auto from_custom = from_custom_fan_mode(*call.get_custom_fan_mode());
+        auto custom_fan_mode = call.get_custom_fan_mode();
+        if (!custom_fan_mode.empty()) {
+            auto from_custom = from_custom_fan_mode(custom_fan_mode.c_str());
             if (from_custom.has_value()) {
                 return from_custom;
             }
@@ -247,22 +236,7 @@ class FanMode {
      * @return const char* A string describing the fan mode
      */
 
-    const char* to_string() const {
-        switch (value_) {
-        case LOW_SPEED:
-            return "Low Speed";
-        case HIGH_SPEED:
-            return "High Speed";
-        case AMBIENT:
-            return ambient_desc;
-        case SCHEDULED:
-            return scheduled_desc;
-        case AMBIENT_SCHEDULED:
-            return ambient_scheduled_desc;
-        default:
-            return "Unknown";
-        }
-    }
+    const char* to_string() const { return protocol::fan_mode_to_string(to_raw()); }
     /**
      * @brief Converts the fan mode to a short log string representation.
      *
@@ -271,22 +245,7 @@ class FanMode {
      *
      * @return const char* A short string representing the fan mode for logging.
      */
-    const char* log_string() const {
-        switch (value_) {
-        case LOW_SPEED:
-            return "LOW   ";
-        case HIGH_SPEED:
-            return "HIGH  ";
-        case AMBIENT:
-            return "AMBI  ";
-        case SCHEDULED:
-            return "TIME  ";
-        case AMBIENT_SCHEDULED:
-            return "AMBTME";
-        default:
-            return "UNK ";
-        }
-    }
+    const char* log_string() const { return protocol::fan_mode_log_format(to_raw()); }
     /**
      * @brief Configures the supported fan modes for the climate device.
      *
@@ -300,9 +259,6 @@ class FanMode {
     void set_supported_fan_modes(climate::ClimateTraits& traits) {
         traits.set_supported_fan_modes(
             {climate::ClimateFanMode::CLIMATE_FAN_LOW, climate::ClimateFanMode::CLIMATE_FAN_HIGH});
-        traits.add_supported_custom_fan_mode(scheduled_desc);
-        traits.add_supported_custom_fan_mode(ambient_desc);
-        traits.add_supported_custom_fan_mode(ambient_scheduled_desc);
     }
 
   private:
@@ -452,7 +408,7 @@ typedef struct bits_details {
      * @return A string that describes the differences between the bit
      * fields of the current object and the given reference object.
      */
-    static std::string bit(uint8_t raw, uint8_t ref) {
+    static std::string format_bit(uint8_t raw, uint8_t ref) {
         struct bits_details bits;
         struct bits_details ref_bits;
         bits.raw = raw;
@@ -522,7 +478,7 @@ class DefrostEcoMode {
 
     // Overload assignment from boolean (eco -> true, normal -> false)
     DefrostEcoMode& operator=(bool eco_mode) {
-        this->value_ = eco_mode ? 0 : 1; // 0 for eco, 1 for normal
+        this->value_ = protocol::defrost_eco_raw_from_bool(eco_mode);
         return *this;
     }
 
@@ -540,36 +496,15 @@ class DefrostEcoMode {
 
     // log_format function for returning a fixed-length uppercase string
     const char* log_format() const {
-        switch (this->value_) {
-        case 0:
-            return "ECO ";
-        case 1:
-            return "NORM";
-        default:
-            return "UNKN";
-        }
+        return protocol::defrost_eco_log_format(this->value_);
     }
 
     // Function to convert to string
-    std::string to_string() const {
-        switch (this->value_) {
-        case 0:
-            return DefrostEcoStrEco;
-        case 1:
-            return DefrostEcoStrNormal;
-        default:
-            return "Unknown";
-        }
-    }
+    std::string to_string() const { return protocol::defrost_eco_to_string(this->value_); }
 
     // Static function to convert from string to enum-like class
     static DefrostEcoMode from_string(const std::string& mode_str) {
-        if (mode_str == DefrostEcoStrEco) {
-            return DefrostEcoMode::Eco;
-        } else if (mode_str == DefrostEcoStrNormal) {
-            return DefrostEcoMode::Normal;
-        }
-        return DefrostEcoMode::Normal;
+        return DefrostEcoMode(protocol::defrost_eco_raw_from_string(mode_str));
     }
     DefrostEcoMode() : value_(0) {}
 
@@ -642,34 +577,14 @@ class HeatPumpRestrict {
      * @return A string representation for logging.
      */
     const char* log_format() const {
-        switch (this->value_) {
-        case 0:
-            return "COOLING ONLY";
-        case 1:
-            return "ANY MODE    ";
-        case 2:
-            return "HEATING ONLY";
-        default:
-            return "UNKNOWN     ";
-        }
+        return protocol::heat_pump_restrict_log_format(this->value_);
     }
 
     /**
      * @brief Convert the mode to a string.
      * @return String representation of the mode.
      */
-    std::string to_string() const {
-        switch (this->value_) {
-        case 0:
-            return HeatPumpStrCooling;
-        case 1:
-            return HeatPumpStrAny;
-        case 2:
-            return HeatPumpStrHeating;
-        default:
-            return "Unknown";
-        }
-    }
+    std::string to_string() const { return protocol::heat_pump_restrict_to_string(this->value_); }
 
     /**
      * @brief Static function to convert from string to enum-like class.
@@ -677,14 +592,7 @@ class HeatPumpRestrict {
      * @return A HeatPumpRestrict object corresponding to the string.
      */
     static HeatPumpRestrict from_string(const std::string& mode_str) {
-        if (mode_str == HeatPumpStrCooling) {
-            return HeatPumpRestrict::Cooling;
-        } else if (mode_str == HeatPumpStrAny) {
-            return HeatPumpRestrict::Any;
-        } else if (mode_str == HeatPumpStrHeating) {
-            return HeatPumpRestrict::Heating;
-        }
-        return HeatPumpRestrict::Any;
+        return HeatPumpRestrict(protocol::heat_pump_restrict_raw_from_string(mode_str));
     }
 
     /** @brief Default constructor initializing to 'Any' mode. */
@@ -736,7 +644,7 @@ class FlowMeterEnable {
      * @return A reference to the current object.
      */
     FlowMeterEnable& operator=(bool enabled) {
-        this->value_ = enabled ? Enabled : Disabled; // 0 for enabled, 1 for disabled
+        this->value_ = protocol::flow_meter_raw_from_bool(enabled);
         return *this;
     }
     FlowMeterEnable& operator=(uint8_t value) {
@@ -789,14 +697,7 @@ class FlowMeterEnable {
      * @return A fixed-length uppercase string representing the mode.
      */
     const char* log_format() const {
-        switch (this->value_) {
-        case 0:
-            return "ENBL";
-        case 1:
-            return "DIS ";
-        default:
-            return "UNKN";
-        }
+        return protocol::flow_meter_log_format(this->value_);
     }
 
     // Function to convert to string
@@ -804,16 +705,7 @@ class FlowMeterEnable {
      * @brief Function to convert to string.
      * @return A string representing the mode.
      */
-    std::string to_string() const {
-        switch (this->value_) {
-        case 0:
-            return FlowMeterStrEnabled;
-        case 1:
-            return FlowMeterStrDisabled;
-        default:
-            return "Unknown";
-        }
-    }
+    std::string to_string() const { return protocol::flow_meter_to_string(this->value_); }
 
     // Static function to convert from string to enum-like class
     /**
@@ -822,12 +714,7 @@ class FlowMeterEnable {
      * @return A FlowMeterEnable object representing the mode.
      */
     static FlowMeterEnable from_string(const std::string& mode_str) {
-        if (mode_str == FlowMeterStrEnabled) {
-            return FlowMeterEnable::Enabled;
-        } else if (mode_str == FlowMeterStrDisabled) {
-            return FlowMeterEnable::Disabled;
-        }
-        return FlowMeterEnable::Disabled;
+        return FlowMeterEnable(protocol::flow_meter_raw_from_string(mode_str));
     }
     FlowMeterEnable() : value_(0) {}
 
@@ -836,6 +723,99 @@ class FlowMeterEnable {
     explicit FlowMeterEnable(uint8_t value) : value_(value) {}
 
     uint8_t value_; // Internal representation of the mode (0 for enabled, 1 for disabled)
+};
+
+/**
+ * @brief Represents the source temperature used for fan speed control.
+ *
+ * F10 is encoded as 0 for coil-temperature control and 1 for ambient-temperature control.
+ */
+class FanSpeedControlTempMode {
+  public:
+    static const FanSpeedControlTempMode ControlledByCoilTemperature;
+    static const FanSpeedControlTempMode ControlledByAmbientTemperature;
+    static const char* ControlledByCoilTemperatureStr;
+    static const char* ControlledByAmbientTemperatureStr;
+
+    FanSpeedControlTempMode& operator=(const std::string& mode_str) {
+        *this = from_string(mode_str);
+        return *this;
+    }
+    FanSpeedControlTempMode& operator=(bool ambient_mode) {
+        this->value_ = protocol::fan_speed_control_temp_raw_from_bool(ambient_mode);
+        return *this;
+    }
+    operator std::string() const { return this->to_string(); }
+    operator bool() const { return this->value_ == protocol::FAN_SPEED_CONTROL_AMBIENT; }
+    bool operator==(const FanSpeedControlTempMode& other) const {
+        return this->value_ == other.value_;
+    }
+    bool operator==(const std::string& other) const { return this->to_string() == other; }
+    bool operator!=(const FanSpeedControlTempMode& other) const { return !(*this == other); }
+    bool operator!=(const std::string& other) const { return !(*this == other); }
+    const char* log_format() const {
+        return protocol::fan_speed_control_temp_log_format(this->value_);
+    }
+    std::string to_string() const {
+        return protocol::fan_speed_control_temp_to_string(this->value_);
+    }
+    uint8_t encode() const { return this->value_; }
+    static FanSpeedControlTempMode from_string(const std::string& mode_str) {
+        return FanSpeedControlTempMode(protocol::fan_speed_control_temp_raw_from_string(mode_str));
+    }
+    FanSpeedControlTempMode() : value_(protocol::FAN_SPEED_CONTROL_COIL) {}
+    explicit FanSpeedControlTempMode(uint8_t value)
+        : value_(value == protocol::FAN_SPEED_CONTROL_AMBIENT ? protocol::FAN_SPEED_CONTROL_AMBIENT
+                                                              : protocol::FAN_SPEED_CONTROL_COIL) {}
+
+  private:
+    uint8_t value_;
+};
+
+/**
+ * @brief Represents whether the fan speed control module is enabled.
+ *
+ * F11 is encoded as 0 for enabled and 1 for disabled.
+ */
+class SpeedControlModule {
+  public:
+    static const SpeedControlModule Enabled;
+    static const SpeedControlModule Disabled;
+    static const char* EnabledStr;
+    static const char* DisabledStr;
+
+    SpeedControlModule& operator=(const std::string& mode_str) {
+        *this = from_string(mode_str);
+        return *this;
+    }
+    SpeedControlModule& operator=(bool enabled) {
+        this->value_ = protocol::speed_control_module_raw_from_bool(enabled);
+        return *this;
+    }
+    operator std::string() const { return this->to_string(); }
+    operator bool() const { return this->value_ == protocol::SPEED_CONTROL_MODULE_ENABLED; }
+    bool operator==(const SpeedControlModule& other) const {
+        return this->value_ == other.value_;
+    }
+    bool operator==(const std::string& other) const { return this->to_string() == other; }
+    bool operator!=(const SpeedControlModule& other) const { return !(*this == other); }
+    bool operator!=(const std::string& other) const { return !(*this == other); }
+    const char* log_format() const {
+        return protocol::speed_control_module_log_format(this->value_);
+    }
+    std::string to_string() const { return protocol::speed_control_module_to_string(this->value_); }
+    uint8_t encode() const { return this->value_; }
+    static SpeedControlModule from_string(const std::string& mode_str) {
+        return SpeedControlModule(protocol::speed_control_module_raw_from_string(mode_str));
+    }
+    SpeedControlModule() : value_(protocol::SPEED_CONTROL_MODULE_ENABLED) {}
+    explicit SpeedControlModule(uint8_t value)
+        : value_(value == protocol::SPEED_CONTROL_MODULE_DISABLED
+                      ? protocol::SPEED_CONTROL_MODULE_DISABLED
+                      : protocol::SPEED_CONTROL_MODULE_ENABLED) {}
+
+  private:
+    uint8_t value_;
 };
 
 /**
@@ -1310,6 +1290,43 @@ typedef struct decimal_number {
 } __attribute__((packed)) decimal_number_t;
 
 /**
+ * @brief Represents a one-byte integer value from the heat pump protocol.
+ */
+typedef struct small_integer {
+    uint8_t raw;
+
+    small_integer() : raw(0) {}
+    explicit small_integer(uint8_t value) : raw(value) {}
+    small_integer& operator=(uint8_t value) {
+        this->raw = value;
+        return *this;
+    }
+    small_integer& operator=(float value) {
+        this->raw = static_cast<uint8_t>(std::round(value));
+        return *this;
+    }
+    uint8_t decode() const { return this->raw; }
+    std::string format(const char* sep = "") const {
+        std::ostringstream oss;
+        oss << static_cast<int>(this->decode()) << " (0x" << std::setw(2) << std::setfill('0')
+            << std::hex << static_cast<int>(this->raw) << ")" << sep;
+        return oss.str();
+    }
+    std::string diff(const small_integer& reference, const char* sep = "") const {
+        CS cs;
+        bool changed = this->raw != reference.raw;
+        cs.set_changed_base_color(changed);
+        auto cs_inv = changed ? CS::invert : "";
+        auto cs_inv_rst = changed ? CS::invert_rst : "";
+        cs << cs_inv << static_cast<int>(this->decode()) << cs_inv_rst << sep;
+        return cs.str();
+    }
+    bool operator==(const small_integer& other) const { return this->raw == other.raw; }
+    bool operator!=(const small_integer& other) const { return this->raw != other.raw; }
+} __attribute__((packed)) small_integer_t;
+static_assert(sizeof(small_integer_t) == 1, "small_integer_t size != 1");
+
+/**
  * @brief Structure to represent a short frame (9 bytes) that holds data from short packets exchanged with the heat pump.
  *
  * This structure holds the data from short packets types exchanged with the heat pump.
@@ -1335,14 +1352,7 @@ typedef struct {
      * @return The calculated checksum.
      */
     uint8_t calculate_checksum(size_t length = (frame_data_length_short - 1)) const {
-        unsigned int total = 0;
-
-        // Loop over the range [start_index, length - 1)
-        for (size_t i = 1; i < length - 1; ++i) {
-            total += this->payload[i];
-        }
-        // Return the checksum (modulo 256)
-        return total % 256;
+        return protocol::calculate_short_checksum(this->raw, length);
     }
 
     /**
@@ -1401,13 +1411,7 @@ typedef struct {
      * @return The calculated checksum.
      */
     uint8_t calculate_checksum(size_t length = sizeof(payload) + sizeof(frame_type)) const {
-        unsigned int total = 0;
-
-        for (size_t i = 0; i < length - 1; ++i) {
-            total += this->raw[i];
-        }
-        // Return the checksum (modulo 256)
-        return total % 256;
+        return protocol::calculate_long_checksum(this->raw, length);
     }
 
     /**
@@ -1483,8 +1487,7 @@ typedef struct packet_data {
     }
 
     uint8_t get_checksum_pos() const {
-        uint8_t position = this->data_len >= sizeof(data) ? sizeof(data) - 1 : this->data_len - 1;
-        return position;
+        return protocol::packet_checksum_position(this->data_len);
     }
 
     /// @brief Get a reference to the checksum byte of the packet.
@@ -1551,10 +1554,7 @@ typedef struct packet_data {
      * @return true if the checksum is valid, false otherwise
      */
     bool is_checksum_valid() const {
-        if (this->data_len != frame_data_length_short && this->data_len != frame_data_length) {
-            return false;
-        }
-        return (this->data[this->get_checksum_pos()] == this->calculate_checksum());
+        return protocol::is_packet_checksum_valid(this->data, this->data_len);
     }
     /**
      * @brief Reset the packet data structure to its initial state.
@@ -1652,6 +1652,44 @@ typedef struct {
     /// This is the heat pump's fan mode.
     /// @see FanMode
     optional<FanMode> fan_mode;
+
+    /// @brief Fan speed control temperature source.
+    /// @see FanSpeedControlTempMode
+    optional<FanSpeedControlTempMode> f10_fan_speed_control_temp;
+
+    /// @brief Fan speed control module enablement.
+    /// @see SpeedControlModule
+    optional<SpeedControlModule> f11_speed_control_module;
+
+    /// @brief Fan high-speed temperature in cooling setpoint.
+    optional<float> f02_fan_high_speed_cool_setpoint;
+
+    /// @brief Fan low-speed temperature in cooling setpoint.
+    optional<float> f03_fan_low_speed_temp_in_cooling_set_point;
+
+    /// @brief Fan stop temperature in cooling setpoint.
+    optional<float> f04_fan_stop_temp_in_cooling_set_point;
+
+    /// @brief Fan high-speed temperature in heating setpoint.
+    optional<float> f05_fan_high_speed_temp_in_heating_set_point;
+
+    /// @brief Fan low-speed temperature in heating setpoint.
+    optional<float> f06_fan_low_speed_temp_in_heating_set_point;
+
+    /// @brief Fan stop temperature in heating setpoint.
+    optional<float> f07_fan_stop_temp_in_heating_set_point;
+
+    /// @brief Fan low-speed running time.
+    optional<float> f08_fan_low_speed_running_time;
+
+    /// @brief Fan stop low-speed running time.
+    optional<float> f09_fan_stop_low_speed_running_time;
+
+    /// @brief Minimum fan voltage limit percentage.
+    optional<float> f12_min_fan_voltage_pct;
+
+    /// @brief Maximum fan voltage limit percentage.
+    optional<float> f13_max_fan_voltage_pct;
 
     /// @brief Climate action
     /// This is the current activity being performed by the heat pump

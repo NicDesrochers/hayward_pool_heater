@@ -1,3 +1,29 @@
+# Copyright (c) 2024 S. Leclerc (sle118@hotmail.com)
+#
+# This file is part of the Pool Heater Controller component project.
+#
+# @project Pool Heater Controller Component
+# @developer S. Leclerc (sle118@hotmail.com)
+# @license MIT License
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
 import re
 import threading
 import logging
@@ -5,8 +31,12 @@ from logging.handlers import TimedRotatingFileHandler
 import os
 from multiprocessing import Manager
 
-from TagEntry import TagEntry, TagType
-from utils import Colors, TimedLogLine, colored_print, get_formatted_time
+try:
+    from .TagEntry import TagEntry, TagType
+    from .utils import Colors, TimedLogLine, colored_print, get_formatted_time
+except ImportError:
+    from TagEntry import TagEntry, TagType
+    from utils import Colors, TimedLogLine, colored_print, get_formatted_time
 
 # Enum for Tag Types
 
@@ -148,4 +178,3 @@ class LogsTagger:
             colored_print(f"No logs found between {get_formatted_time(tag.get_start_time())} and {get_formatted_time(tag.get_end_time())}", Colors.dk_white)
             for logline in fullfound:
                 colored_print(f"Excluded: [{get_formatted_time(logline.time)}]{logline.text}", Colors.dk_white)
-

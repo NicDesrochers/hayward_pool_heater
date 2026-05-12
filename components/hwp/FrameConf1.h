@@ -36,8 +36,7 @@
 #include "CS.h"
 #include "Schema.h"
 #include "base_frame.h"
-#include "esphome/components/climate/climate.h"
-#include "esphome/components/climate/climate_mode.h"
+#include "hwp_climate_adapter.h"
 static constexpr char TAG_TEMP[] = "hwp";
 namespace esphome {
 namespace hwp {
@@ -117,7 +116,7 @@ typedef struct conf_1 {
         r06_return_diff_heating; // low_range. Return temperature difference for heating
     temperature_extended_t
         r07_shutdown_diff_heating; // low_range. Shutdown temperature difference when heating
-    bits_details_t reserved_7;     // Reserved for future use
+    small_integer_t f12_min_fan_voltage_pct; // Minimum fan voltage limit percent
 
     bool operator==(const optional<struct conf_1>& other) const {
         return other.has_value() && *this == other.value();
@@ -130,7 +129,7 @@ typedef struct conf_1 {
                r05_shutdown_temp_diff_when_cooling == other.r05_shutdown_temp_diff_when_cooling &&
                r06_return_diff_heating == other.r06_return_diff_heating &&
                r07_shutdown_diff_heating == other.r07_shutdown_diff_heating &&
-               reserved_7 == other.reserved_7;
+               f12_min_fan_voltage_pct == other.f12_min_fan_voltage_pct;
     }
     bool operator!=(const struct conf_1& other) const { return !(*this == other); }
     bool operator!=(const optional<struct conf_1>& other) const { return !(*this == other); }

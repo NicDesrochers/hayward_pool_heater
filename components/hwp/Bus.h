@@ -1,6 +1,6 @@
 /**
  * @file Bus.h
- * @brief Defines the Bus class for handling bus communication using bit-banging technique.
+ * @brief Defines the Bus class for handling bus communication using ESP-IDF RMT.
  *
  * Copyright (c) 2024 S. Leclerc (sle118@hotmail.com)
  *
@@ -36,6 +36,7 @@
 #pragma once
 
 // #include <atomic>
+#include <array>
 #include <cstddef>
 #include <cstring> // for std::memcpy
 // #include <deque>
@@ -44,24 +45,24 @@
 // #include <iomanip>
 #include "Schema.h"
 #include "base_frame.h"
-#include "esphome/components/logger/logger.h"
-#include "esphome/core/optional.h"
+#include "hwp_climate_adapter.h"
+#include "hwp_logger_adapter.h"
+#include "hwp_rmt_adapter.h"
 #include <map>
 #include <sstream>
 
 #include "Decoder.h"
 
 #include "SpinLockQueue.h"
+#ifndef HWP_NATIVE_TEST
 #include "esphome/core/gpio.h"
 #include "esphome/core/hal.h"
 #include "esphome/core/helpers.h"
-
-// Uncomment the line below to enable debugging the bus pulses
-#define PULSE_DEBUG
+#endif
 
 namespace esphome {
 namespace hwp {
-#ifdef PULSE_DEBUG
+#ifdef HWP_PULSE_DEBUG
 static constexpr char TAG_PULSES[] = "hwp.pulses";
 #endif
 static constexpr char TAG_BUS[] = "hwp";
@@ -77,11 +78,11 @@ typedef enum { BUSMODE_TX, BUSMODE_RX, BUSMODE_ERROR } bus_mode_t;
 
 /**
  * @class Bus
- * @brief Handles bus communication using the bit-banging technique.
+ * @brief Handles bus communication using ESP-IDF RMT receive and transmit channels.
  *
- * This class is responsible for managing bus communication by transmitting and
- * receiving data using the bit-banging method. It uses queues to manage incoming
- * and outgoing data and handles synchronization using FreeRTOS.
+ * This class manages half-duplex bus communication by receiving and transmitting
+ * timed pulse symbols through ESP-IDF RMT. It uses queues to manage incoming and
+ * outgoing data and handles synchronization using FreeRTOS.
  */
 class Bus {
   public:
@@ -109,7 +110,7 @@ class Bus {
     InternalGPIOPin* get_gpio_pin() { return this->gpio_pin_; }
 
     /**
-     * @brief Initializes the bit-banging interface.
+     * @brief Initializes the RMT bus interface.
      */
     void setup();
 
@@ -210,14 +211,14 @@ class Bus {
 
   protected:
     
-    heat_pump_data_t* hp_data_;
+    heat_pump_data_t* hp_data_{nullptr};
     optional<bool> controler_packets_received_;
     optional<uint32_t> previous_controller_packet_time_;
     optional<uint32_t> previous_sent_packet_;
     volatile bus_mode_t mode;            ///< The current mode of the bus (transmit or receive).
     InternalGPIOPin* gpio_pin_{nullptr}; ///< The GPIO pin used for bus communication.
-    TaskHandle_t TxTaskHandle;           ///< Handle to the I/O task.
-    TaskHandle_t RxTaskHandle;           ///< Handle to the I/O task.
+    TaskHandle_t TxTaskHandle{nullptr};  ///< Handle to the I/O task.
+    TaskHandle_t RxTaskHandle{nullptr};  ///< Handle to the I/O task.
     Decoder current_frame;               ///< The current frame being processed.
     size_t transmit_count;               ///< The number of times to repeat transmission.
     // uint8_t maxBufferCount;              ///< Maximum buffer count for the received frames.
@@ -225,36 +226,39 @@ class Bus {
     SpinLockQueue<std::shared_ptr<BaseFrame>> received_frames; ///< Queue for received frames.
     SpinLockQueue<std::shared_ptr<BaseFrame>>
         tx_packets_queue; ///< Queue for frames to be transmitted.
-    rmt_config_t rmt_tx_config_;
-    rmt_config_t rmt_rx_config_;
-    RingbufHandle_t rb_;
-#ifdef PULSE_DEBUG
+    RingbufHandle_t rb_{nullptr};
+    rmt_channel_handle_t rmt_rx_channel_{nullptr};
+    rmt_channel_handle_t rmt_tx_channel_{nullptr};
+    rmt_encoder_handle_t rmt_copy_encoder_{nullptr};
+    rmt_receive_config_t rmt_receive_config_{};
+    rmt_transmit_config_t rmt_transmit_config_{};
+    std::array<rmt_symbol_word_t, 256> rmt_rx_symbols_{};
+    bool rmt_rx_enabled_{false};
+    bool rmt_tx_enabled_{false};
+#ifdef HWP_PULSE_DEBUG
     std::vector<std::string> pulse_strings_; // Vector to store formatted pulse strings
 #endif
-    uint64_t last_change_us_;
-    volatile rmt_item32_t current_pulse_;
-
-    inline uint64_t elapsed(uint64_t now) {
-        if (now >= this->last_change_us_) {
-            return now - this->last_change_us_;
-        } else {
-            return UINT64_MAX - this->last_change_us_ + now + 1;
-        }
-    }
 
   private:
     void start_receive();
+    bool setup_rmt();
+    bool arm_receive();
+    void stop_receive();
+    void resume_receive();
+    bool transmit_frame(BaseFrame& packet);
+    static hwp_pulse_symbol_t normalize_symbol(const rmt_symbol_word_t& symbol);
+    static rmt_symbol_word_t make_rmt_symbol_ms(uint32_t low_ms, uint32_t high_ms);
+    static rmt_symbol_word_t make_rmt_symbol_us(uint32_t low_us, uint32_t high_us);
+    static bool rmt_rx_done_callback(
+        rmt_channel_handle_t channel, const rmt_rx_done_event_data_t* event_data, void* user_data);
     /**
      * @brief Processes the send queue.
      *
      * This function processes the send queue by dequeuing packets and transmitting them
-     * using the bit-banging technique. It handles sending headers, individual bits, and
-     * spacing between frames and groups. It also manages the transmission count.
+     * as RMT symbols. It handles headers, individual bits, spacing between frames and
+     * groups, and the transmission count.
      */
     void process_send_queue();
-    static void isr_handler(Bus* instance);
-
-    void isr_handler();
     /**
      * @brief Task function for I/O operations.
      *
@@ -328,10 +332,10 @@ class Bus {
         delayMicroseconds(ms * 1000);
     }
 
-    void process_pulse(rmt_item32_t* item);
+    void process_pulse(hwp_pulse_symbol_t* item);
     void finalize_frame(bool timeout);
 
-    std::string format_pulse_item(const rmt_item32_t* item) {
+    std::string format_pulse_item(const hwp_pulse_symbol_t* item) {
         if (item == nullptr) {
             return "";
         }
@@ -351,14 +355,13 @@ class Bus {
         // Store the result in the vector
         return oss.str();
     }
-    void log_pulse_item(const rmt_item32_t* item) {
-#ifdef PULSE_DEBUG
+    void log_pulse_item(const hwp_pulse_symbol_t* item) {
+#ifdef HWP_PULSE_DEBUG
         if (item == nullptr) {
             return;
         }
 
-        auto* log = logger::global_logger;
-        if (log == nullptr || log->level_for(TAG_PULSES) < ESPHOME_LOG_LEVEL_VERBOSE) {
+        if (!hwp_log_active(TAG_PULSES, ESPHOME_LOG_LEVEL_VERBOSE)) {
             return;
         }
 
@@ -368,13 +371,12 @@ class Bus {
     }
 
     void log_pulses() {
-#ifdef PULSE_DEBUG
+#ifdef HWP_PULSE_DEBUG
         if (pulse_strings_.empty()) {
             return;
         }
 
-        auto* log = logger::global_logger;
-        if (log == nullptr || log->level_for(TAG_PULSES) < ESPHOME_LOG_LEVEL_VERBOSE) {
+        if (!hwp_log_active(TAG_PULSES, ESPHOME_LOG_LEVEL_VERBOSE)) {
             return;
         }
 
@@ -424,7 +426,7 @@ class Bus {
     }
 
     void reset_pulse_log() {
-#ifdef PULSE_DEBUG
+#ifdef HWP_PULSE_DEBUG
         pulse_strings_.clear();
 #endif
     }

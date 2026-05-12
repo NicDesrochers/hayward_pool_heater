@@ -2,9 +2,17 @@
 # This is an example and may include too much for your use-case.
 # You can modify this file to suit your needs.
 /.esphome/
+**/.esphome/
+/.esphome-config/
+/.cache/
+__pycache__/
+*.py[cod]
 /secrets.yaml
-/esphome_build
+/esphome_build/
+/build/
+/dist/
 /backup
+/tmp/
 analysis/startlog.sh
 analysis/.vscode/launch.json
 .vscode/launch.json
@@ -13,3 +21,5 @@ analysis/piscine_esphome_logs.log
 components/hwp/.vscode/launch.json
 components/hwp/.vscode/tasks.json
 hayward-heater-test.yaml
+*-local.yaml
+*-secrets.yaml

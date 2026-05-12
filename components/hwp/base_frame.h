@@ -35,13 +35,11 @@
 #include "CS.h"
 #include "HPUtils.h"
 #include "Schema.h"
-#include "esphome/components/climate/climate.h"
-#include "esphome/components/logger/logger.h"
-#include "esphome/core/log.h"
+#include "hwp_climate_adapter.h"
 #include "hwp_call.h"
+#include "hwp_logger_adapter.h"
 #include <bitset>
 #include <cstring>
-#include <driver/rmt.h>
 #include <iomanip>
 #include <memory>
 #include <stdint.h>
@@ -425,7 +423,7 @@ class BaseFrame {
      * @param traits The climate traits to set.
      * @param hp_data The heat pump data to set the traits from.
      */
-    virtual void traits(climate::ClimateTraits& traits, heat_pump_data_t& hp_data) {}
+    virtual void traits(climate::ClimateTraits&, heat_pump_data_t&) {}
 
     /**
      * @brief Returns true if the frame is a long frame.
@@ -703,11 +701,7 @@ class BaseFrame {
      * @return True if logging is active for the specified tag and level, false otherwise.
      */
     static inline bool log_active(const char* tag, int min_level = ESPHOME_LOG_LEVEL_VERBOSE) {
-        auto* log = logger::global_logger;
-        if (log == nullptr || log->level_for(tag) < min_level) {
-            return false;
-        }
-        return true;
+        return hwp_log_active(tag, min_level);
     }
 
     /**

@@ -87,6 +87,56 @@ void r07_shutdown_diff_heating_number::control(float value) {
     call_data.r07_shutdown_diff_heating = value;
     this->get_parent()->control(call_data);
 }
+void f02_fan_high_speed_cool_setpoint_number::control(float value) {
+    HWPCall call_data = this->get_parent()->instantiate_call();
+    call_data.f02_fan_high_speed_cool_setpoint = value;
+    this->get_parent()->control(call_data);
+}
+void f03_fan_low_speed_temp_in_cooling_set_point_number::control(float value) {
+    HWPCall call_data = this->get_parent()->instantiate_call();
+    call_data.f03_fan_low_speed_temp_in_cooling_set_point = value;
+    this->get_parent()->control(call_data);
+}
+void f04_fan_stop_temp_in_cooling_set_point_number::control(float value) {
+    HWPCall call_data = this->get_parent()->instantiate_call();
+    call_data.f04_fan_stop_temp_in_cooling_set_point = value;
+    this->get_parent()->control(call_data);
+}
+void f05_fan_high_speed_temp_in_heating_set_point_number::control(float value) {
+    HWPCall call_data = this->get_parent()->instantiate_call();
+    call_data.f05_fan_high_speed_temp_in_heating_set_point = value;
+    this->get_parent()->control(call_data);
+}
+void f06_fan_low_speed_temp_in_heating_set_point_number::control(float value) {
+    HWPCall call_data = this->get_parent()->instantiate_call();
+    call_data.f06_fan_low_speed_temp_in_heating_set_point = value;
+    this->get_parent()->control(call_data);
+}
+void f07_fan_stop_temp_in_heating_set_point_number::control(float value) {
+    HWPCall call_data = this->get_parent()->instantiate_call();
+    call_data.f07_fan_stop_temp_in_heating_set_point = value;
+    this->get_parent()->control(call_data);
+}
+void f08_fan_low_speed_running_time_number::control(float value) {
+    HWPCall call_data = this->get_parent()->instantiate_call();
+    call_data.f08_fan_low_speed_running_time = value;
+    this->get_parent()->control(call_data);
+}
+void f09_fan_stop_low_speed_running_time_number::control(float value) {
+    HWPCall call_data = this->get_parent()->instantiate_call();
+    call_data.f09_fan_stop_low_speed_running_time = value;
+    this->get_parent()->control(call_data);
+}
+void f12_min_fan_voltage_pct_number::control(float value) {
+    HWPCall call_data = this->get_parent()->instantiate_call();
+    call_data.f12_min_fan_voltage_pct = value;
+    this->get_parent()->control(call_data);
+}
+void f13_max_fan_voltage_pct_number::control(float value) {
+    HWPCall call_data = this->get_parent()->instantiate_call();
+    call_data.f13_max_fan_voltage_pct = value;
+    this->get_parent()->control(call_data);
+}
 void u02_pulses_per_liter_number::control(float value) {
     HWPCall call_data = this->get_parent()->instantiate_call();
     call_data.u02_pulses_per_liter = value;
@@ -95,17 +145,27 @@ void u02_pulses_per_liter_number::control(float value) {
 
 void d06_defrost_eco_mode_select::control(const std::string& value) {
     HWPCall call_data = this->get_parent()->instantiate_call();
-    call_data.d06_defrost_eco_mode = make_optional(value);
+    call_data.d06_defrost_eco_mode = DefrostEcoMode::from_string(value);
     this->get_parent()->control(call_data);
 }
 void u01_flow_meter_select::control(const std::string& value) {
     HWPCall call_data = this->get_parent()->instantiate_call();
-    call_data.u01_flow_meter = make_optional(value);
+    call_data.u01_flow_meter = FlowMeterEnable::from_string(value);
     this->get_parent()->control(call_data);
 }
 void h02_mode_restrictions_select::control(const std::string& value) {
     HWPCall call_data = this->get_parent()->instantiate_call();
-    call_data.h02_mode_restrictions = make_optional(value);
+    call_data.h02_mode_restrictions = HeatPumpRestrict::from_string(value);
+    this->get_parent()->control(call_data);
+}
+void f10_fan_speed_control_temp_select::control(const std::string& value) {
+    HWPCall call_data = this->get_parent()->instantiate_call();
+    call_data.f10_fan_speed_control_temp = FanSpeedControlTempMode::from_string(value);
+    this->get_parent()->control(call_data);
+}
+void f11_speed_control_module_select::control(const std::string& value) {
+    HWPCall call_data = this->get_parent()->instantiate_call();
+    call_data.f11_speed_control_module = SpeedControlModule::from_string(value);
     this->get_parent()->control(call_data);
 }
 

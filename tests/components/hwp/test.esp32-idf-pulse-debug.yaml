@@ -1,0 +1,21 @@
+substitutions:
+  device_name: hayward-heater-test-pulse-debug
+  friendly_name: Hayward Heater Test Pulse Debug
+  pin_txrx: GPIO22
+
+<<: !include common.yaml
+
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}
+  platformio_options:
+    build_flags:
+      - -DHWP_PULSE_DEBUG
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+logger:
+  level: VERBOSE

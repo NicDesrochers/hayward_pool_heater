@@ -64,6 +64,9 @@ std::string FrameConf2::format(const conf_2_t& val, const conf_2_t& ref) const {
 
     oss << "F01 Fan mode "
         << format_diff(val.fan_mode.get_fan_mode().log_string(), ref.fan_mode.get_fan_mode().log_string())
+        << " F10 Fan speed source "
+        << format_diff(val.fan_mode.get_fan_speed_control_temp_mode().log_format(),
+               ref.fan_mode.get_fan_speed_control_temp_mode().log_format())
         << ", Defrost: d01-start " << val.d01_defrost_start.diff(ref.d01_defrost_start)
         << " d03-time "
         << val.d03_defrosting_cycle_time_minutes.diff(ref.d03_defrosting_cycle_time_minutes)
@@ -72,7 +75,8 @@ std::string FrameConf2::format(const conf_2_t& val, const conf_2_t& ref) const {
         << val.d02_defrost_end.diff(ref.d02_defrost_end) << " [ "
         << val.fan_mode.raw.diff(ref.fan_mode.raw, ", ") << val.unknown_5.diff(ref.unknown_5, ", ")
         << val.unknown_6.diff(ref.unknown_6, ", ") << val.unknown_7.diff(ref.unknown_7, ", ")
-        << val.unknown_8.diff(ref.unknown_8, "] ");
+        << "] F13 max fan voltage pct "
+        << val.f13_max_fan_voltage_pct.diff(ref.f13_max_fan_voltage_pct);
 
     return oss.str();
 }
@@ -107,6 +111,17 @@ optional<std::shared_ptr<BaseFrame>> FrameConf2::control(const HWPCall& call) {
     if (fan_mode.has_value()) {
         ESP_LOGD(TAG, "control: setting fan mode to %s", fan_mode->to_string());
         fan_mode_frame.set_fan_mode(fan_mode.value());
+    }
+    if (call.f10_fan_speed_control_temp.has_value()) {
+        ESP_LOGD(TAG, "control: setting fan speed control temp source to %s",
+            call.f10_fan_speed_control_temp->to_string().c_str());
+        fan_mode_frame.data().fan_mode.f10_speed_source =
+            call.f10_fan_speed_control_temp->encode();
+    }
+    if (call.f13_max_fan_voltage_pct.has_value()) {
+        ESP_LOGD(TAG, "control: setting fan max voltage percent to %.0f",
+            *call.f13_max_fan_voltage_pct);
+        fan_mode_frame.data().f13_max_fan_voltage_pct = *call.f13_max_fan_voltage_pct;
     }
 
     if (!fan_mode_frame.is_changed() && has_data) {
@@ -144,6 +159,9 @@ void FrameConf2::parse(heat_pump_data_t& hp_data) {
     hp_data.d02_defrost_end = data_->d02_defrost_end.decode();
     hp_data.d02_defrost_end = data_->d02_defrost_end.decode();
     hp_data.fan_mode = make_optional(data_->fan_mode.get_fan_mode());
+    hp_data.f10_fan_speed_control_temp =
+        make_optional(data_->fan_mode.get_fan_speed_control_temp_mode());
+    hp_data.f13_max_fan_voltage_pct = data_->f13_max_fan_voltage_pct.decode();
 }
 } // namespace hwp
 } // namespace esphome

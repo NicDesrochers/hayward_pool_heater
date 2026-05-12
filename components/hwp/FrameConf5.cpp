@@ -96,6 +96,10 @@ optional<std::shared_ptr<BaseFrame>> FrameConf5::control(const HWPCall& call) {
     if (call.u02_pulses_per_liter.has_value()) {
         command_frame.data().U02_pulses_per_liter = call.u02_pulses_per_liter.value();
     }
+    if (call.f11_speed_control_module.has_value()) {
+        command_frame.data().flags_a.set_f11_speed_control_module(
+            call.f11_speed_control_module.value());
+    }
     if(!command_frame.is_changed() && has_data)  {
         ESP_LOGD(TAG, "No changes for frame ConfA");
         return nullopt;
@@ -128,6 +132,7 @@ void FrameConf5::parse(heat_pump_data_t& hp_data) {
     hp_data.d05_min_economy_defrost_time_minutes =
         data_->d05_min_economy_defrost_time_minutes.decode();
     hp_data.U02_pulses_per_liter = data_->U02_pulses_per_liter.decode();
+    hp_data.f11_speed_control_module = data_->get_f11_speed_control_module();
 }
 } // namespace hwp
 } // namespace esphome

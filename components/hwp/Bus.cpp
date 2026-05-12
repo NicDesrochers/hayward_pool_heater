@@ -31,12 +31,15 @@
  * for any damage or loss caused by the use of this software.
  */
 #include "Bus.h"
+#include <algorithm>
 #include <memory>
 
 #include "HPUtils.h"
 #include "base_frame.h"
+#include "hwp_logger_adapter.h"
+#ifndef HWP_NATIVE_TEST
 #include "esphome/core/hal.h"
-#include "esphome/core/log.h"
+#endif
 
 #ifdef USE_ESP32
 #include <freertos/FreeRTOS.h>
@@ -60,15 +63,172 @@ const uint32_t single_frame_max_duration_ms =
     controler_frame_spacing_duration_ms + frame_heading_total_duration_ms;
 
 Bus::Bus(size_t maxWriteLength, size_t transmitCount)
-    : mode(BUSMODE_RX), TxTaskHandle(nullptr), RxTaskHandle(nullptr), transmit_count(transmitCount),
+    : mode(BUSMODE_RX), transmit_count(transmitCount),
       // maxBufferCount(maxBufferCount),
       maxWriteLength(maxWriteLength), tx_packets_queue(maxWriteLength) {}
+
+rmt_symbol_word_t Bus::make_rmt_symbol_us(uint32_t low_us, uint32_t high_us) {
+    auto to_ticks = [](uint32_t duration_us) -> uint32_t {
+        uint32_t ticks = (duration_us + hwp_rmt_tick_us - 1) / hwp_rmt_tick_us;
+        return std::max<uint32_t>(1, std::min<uint32_t>(ticks, 0x7FFF));
+    };
+    rmt_symbol_word_t symbol{};
+    symbol.level0 = 0;
+    symbol.duration0 = to_ticks(low_us);
+    symbol.level1 = 1;
+    symbol.duration1 = to_ticks(high_us);
+    return symbol;
+}
+
+rmt_symbol_word_t Bus::make_rmt_symbol_ms(uint32_t low_ms, uint32_t high_ms) {
+    return make_rmt_symbol_us(low_ms * 1000, high_ms * 1000);
+}
+
+hwp_pulse_symbol_t Bus::normalize_symbol(const rmt_symbol_word_t& symbol) {
+    return hwp_pulse_symbol_t{
+        static_cast<uint32_t>(symbol.duration0) * hwp_rmt_tick_us,
+        static_cast<uint32_t>(symbol.level0),
+        static_cast<uint32_t>(symbol.duration1) * hwp_rmt_tick_us,
+        static_cast<uint32_t>(symbol.level1),
+    };
+}
+
+bool Bus::setup_rmt() {
+#ifdef HWP_NATIVE_TEST
+    return false;
+#else
+    gpio_num_t gpio_num = static_cast<gpio_num_t>(this->gpio_pin_->get_pin());
+    this->rmt_receive_config_ = {};
+    this->rmt_receive_config_.signal_range_min_ns = 1000;
+    this->rmt_receive_config_.signal_range_max_ns = 300 * 1000 * 1000;
+    this->rmt_transmit_config_ = {};
+    this->rmt_transmit_config_.loop_count = 0;
+    this->rmt_transmit_config_.flags.eot_level = 1;
+
+    if (this->rmt_rx_channel_ == nullptr) {
+        rmt_rx_channel_config_t rx_config = {};
+        rx_config.gpio_num = gpio_num;
+        rx_config.clk_src = RMT_CLK_SRC_DEFAULT;
+        rx_config.resolution_hz = hwp_rmt_resolution_hz;
+        rx_config.mem_block_symbols = 128;
+        rx_config.intr_priority = 0;
+        esp_err_t err = rmt_new_rx_channel(&rx_config, &this->rmt_rx_channel_);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG_BUS, "Failed to create RMT RX channel: %d", err);
+            return false;
+        }
+
+        rmt_rx_event_callbacks_t callbacks = {};
+        callbacks.on_recv_done = &Bus::rmt_rx_done_callback;
+        err = rmt_rx_register_event_callbacks(this->rmt_rx_channel_, &callbacks, this);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG_BUS, "Failed to register RMT RX callback: %d", err);
+            return false;
+        }
+    }
+
+    if (this->rmt_tx_channel_ == nullptr) {
+        rmt_tx_channel_config_t tx_config = {};
+        tx_config.gpio_num = gpio_num;
+        tx_config.clk_src = RMT_CLK_SRC_DEFAULT;
+        tx_config.resolution_hz = hwp_rmt_resolution_hz;
+        tx_config.mem_block_symbols = 128;
+        tx_config.trans_queue_depth = 1;
+        tx_config.intr_priority = 0;
+        tx_config.flags.io_od_mode = 1;
+        tx_config.flags.init_level = 1;
+        esp_err_t err = rmt_new_tx_channel(&tx_config, &this->rmt_tx_channel_);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG_BUS, "Failed to create RMT TX channel: %d", err);
+            return false;
+        }
+
+        rmt_copy_encoder_config_t copy_config = {};
+        err = rmt_new_copy_encoder(&copy_config, &this->rmt_copy_encoder_);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG_BUS, "Failed to create RMT copy encoder: %d", err);
+            return false;
+        }
+
+        err = rmt_enable(this->rmt_tx_channel_);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG_BUS, "Failed to enable RMT TX channel: %d", err);
+            return false;
+        }
+        this->rmt_tx_enabled_ = true;
+    }
+    return true;
+#endif
+}
+
+bool Bus::arm_receive() {
+#ifdef HWP_NATIVE_TEST
+    return false;
+#else
+    if (this->rmt_rx_channel_ == nullptr) {
+        return false;
+    }
+    esp_err_t err = rmt_receive(this->rmt_rx_channel_, this->rmt_rx_symbols_.data(),
+        this->rmt_rx_symbols_.size() * sizeof(rmt_symbol_word_t), &this->rmt_receive_config_);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG_BUS, "Failed to arm RMT RX: %d", err);
+        return false;
+    }
+    return true;
+#endif
+}
+
+void Bus::stop_receive() {
+#ifndef HWP_NATIVE_TEST
+    if (this->rmt_rx_channel_ != nullptr && this->rmt_rx_enabled_) {
+        rmt_disable(this->rmt_rx_channel_);
+        this->rmt_rx_enabled_ = false;
+    }
+#endif
+}
+
+void Bus::resume_receive() {
+#ifndef HWP_NATIVE_TEST
+    if (this->rmt_rx_channel_ == nullptr) {
+        return;
+    }
+    if (!this->rmt_rx_enabled_) {
+        esp_err_t err = rmt_enable(this->rmt_rx_channel_);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG_BUS, "Failed to enable RMT RX channel: %d", err);
+            this->mode = BUSMODE_ERROR;
+            return;
+        }
+        this->rmt_rx_enabled_ = true;
+    }
+    this->arm_receive();
+#endif
+}
+
+bool IRAM_ATTR Bus::rmt_rx_done_callback(
+    rmt_channel_handle_t channel, const rmt_rx_done_event_data_t* event_data, void* user_data) {
+    Bus* instance = static_cast<Bus*>(user_data);
+    if (instance == nullptr || event_data == nullptr || event_data->received_symbols == nullptr ||
+        instance->rb_ == nullptr) {
+        return false;
+    }
+    BaseType_t high_task_wakeup = pdFALSE;
+    for (size_t i = 0; i < event_data->num_symbols; ++i) {
+        hwp_pulse_symbol_t pulse = normalize_symbol(event_data->received_symbols[i]);
+        if (xRingbufferSendFromISR(
+                instance->rb_, &pulse, sizeof(pulse), &high_task_wakeup) != pdTRUE) {
+            instance->mode = BUSMODE_ERROR;
+            break;
+        }
+    }
+    return high_task_wakeup == pdTRUE;
+}
 
 void Bus::setup() {
     this->current_frame.reset("From setup");
     start_receive();
 }
-void IRAM_ATTR Bus::process_pulse(rmt_item32_t* item) {
+void IRAM_ATTR Bus::process_pulse(hwp_pulse_symbol_t* item) {
     if (!item) return;
     this->log_pulse_item(item);
     if (Decoder::is_start_frame(item)) {
@@ -132,65 +292,64 @@ void IRAM_ATTR Bus::process_pulse(rmt_item32_t* item) {
 }
 
 bool Bus::queue_frame_data(std::shared_ptr<BaseFrame> frame) {
+    if (frame == nullptr) {
+        ESP_LOGE(TAG_BUS, "Cannot queue null frame for transmission");
+        return false;
+    }
     ESP_LOGD(TAG_BUS, "Queueing frame data for transmission");
-    tx_packets_queue.enqueue(frame);
-    return true;
+    return tx_packets_queue.enqueue(frame);
 }
 void Bus::start_receive() {
     this->current_frame.reset();
     if (this->gpio_pin_ == nullptr) {
         ESP_LOGE(TAG_BUS, "Invalid pin. Cannot start receive");
+        this->mode = BUSMODE_ERROR;
 
     } else {
         ESP_LOGI(TAG_BUS, "Starting reception on pin %d", this->gpio_pin_->get_pin());
-        this->gpio_pin_->pin_mode(gpio::Flags::FLAG_PULLUP | gpio::Flags::FLAG_INPUT);
-        this->gpio_pin_->attach_interrupt(&Bus::isr_handler, this, gpio::INTERRUPT_ANY_EDGE);
-        // reset the change detection to what's now on the bus
 
         if (this->RxTaskHandle == nullptr) {
-            size_t ring_buf_size = 12 * frame_data_length * (8 + 2) * sizeof(rmt_item32_t);
+            size_t ring_buf_size = 12 * frame_data_length * (8 + 2) * sizeof(hwp_pulse_symbol_t);
             this->rb_ = xRingbufferCreate(ring_buf_size, RINGBUF_TYPE_NOSPLIT);
+            if (this->rb_ == nullptr) {
+                ESP_LOGE(TAG_BUS, "Failed to create RX ring buffer");
+                this->mode = BUSMODE_ERROR;
+                return;
+            }
             ESP_LOGD(TAG_BUS, "Created ring buffer with size %u (frame data length %u)",
                 ring_buf_size, frame_data_length);
 
+            if (!this->setup_rmt()) {
+                vRingbufferDelete(this->rb_);
+                this->rb_ = nullptr;
+                this->mode = BUSMODE_ERROR;
+                return;
+            }
+
             ESP_LOGD(TAG_BUS, "Creating io Tasks");
-            xTaskCreate(RxTask, "RX", 1024 * 11, this, 1, &this->RxTaskHandle);
-            xTaskCreate(TxTask, "TX", 1024 * 15, this, 1, &this->TxTaskHandle);
+            if (xTaskCreate(RxTask, "RX", 1024 * 11, this, 1, &this->RxTaskHandle) != pdPASS) {
+                ESP_LOGE(TAG_BUS, "Failed to create RX task");
+                vRingbufferDelete(this->rb_);
+                this->rb_ = nullptr;
+                this->mode = BUSMODE_ERROR;
+                return;
+            }
+            if (xTaskCreate(TxTask, "TX", 1024 * 15, this, 1, &this->TxTaskHandle) != pdPASS) {
+                ESP_LOGE(TAG_BUS, "Failed to create TX task");
+                vTaskDelete(this->RxTaskHandle);
+                this->RxTaskHandle = nullptr;
+                vRingbufferDelete(this->rb_);
+                this->rb_ = nullptr;
+                this->mode = BUSMODE_ERROR;
+                return;
+            }
         }
         this->current_frame.reset();
         this->reset_pulse_log();
+        this->resume_receive();
         ESP_LOGI(TAG_BUS, "Done Starting reception on pin %d", this->gpio_pin_->get_pin());
         this->mode = BUSMODE_RX;
     }
-}
-
-void IRAM_ATTR Bus::isr_handler(Bus* instance) { instance->isr_handler(); }
-
-void IRAM_ATTR Bus::isr_handler() {
-    portBASE_TYPE HPTaskAwoken = pdFALSE;
-    if (this->mode == BUSMODE_TX) {
-        return;
-    }
-
-    uint64_t now = esp_timer_get_time();
-    bool level = this->gpio_pin_->digital_read();
-
-    if (this->current_pulse_.duration0 == 0 && level) {
-        this->current_pulse_.level0 = !level;
-        this->current_pulse_.duration0 = this->elapsed(now);
-    } else if (this->current_pulse_.duration0 > 0) {
-        this->current_pulse_.level1 = !level;
-        this->current_pulse_.duration1 = this->elapsed(now);
-        BaseType_t res = xRingbufferSendFromISR(
-            this->rb_, (void*)&this->current_pulse_, sizeof(this->current_pulse_), &HPTaskAwoken);
-        // reset for next pass
-        memset((void*)&this->current_pulse_, 0x00, sizeof(this->current_pulse_));
-    }
-
-    if (HPTaskAwoken == pdTRUE) {
-        portYIELD_FROM_ISR();
-    }
-    this->last_change_us_ = now;
 }
 
 bool Bus::has_time_to_send() {
@@ -224,6 +383,52 @@ bool Bus::has_time_to_send() {
     return result;
 }
 
+bool Bus::transmit_frame(BaseFrame& packet) {
+#ifdef HWP_NATIVE_TEST
+    return false;
+#else
+    if (this->rmt_tx_channel_ == nullptr || this->rmt_copy_encoder_ == nullptr) {
+        ESP_LOGE(TAG_BUS, "RMT TX channel is not ready");
+        return false;
+    }
+
+    std::vector<rmt_symbol_word_t> symbols;
+    symbols.reserve(this->transmit_count * (1 + packet.size() * 8 + 1) + 1);
+
+    for (size_t repeat = 0; repeat < this->transmit_count; ++repeat) {
+        symbols.push_back(make_rmt_symbol_ms(frame_heading_low_duration_ms, frame_heading_high_duration_ms));
+        for (size_t byte_index = 0; byte_index < packet.size(); ++byte_index) {
+            for (int bit_index = 0; bit_index <= 7; ++bit_index) {
+                symbols.push_back(make_rmt_symbol_ms(bit_low_duration_ms,
+                    get_bit(packet[byte_index], bit_index) ? bit_long_high_duration_ms
+                                                           : bit_short_high_duration_ms));
+            }
+        }
+        if (repeat + 1 < this->transmit_count) {
+            symbols.push_back(
+                make_rmt_symbol_ms(bit_low_duration_ms, controler_frame_spacing_duration_ms));
+        }
+    }
+    symbols.push_back(make_rmt_symbol_ms(bit_low_duration_ms, controler_group_spacing_ms));
+
+    this->stop_receive();
+    esp_err_t err = rmt_transmit(this->rmt_tx_channel_, this->rmt_copy_encoder_, symbols.data(),
+        symbols.size() * sizeof(rmt_symbol_word_t), &this->rmt_transmit_config_);
+    if (err == ESP_OK) {
+        const int timeout_ms =
+            static_cast<int>(this->transmit_count * single_frame_max_duration_ms + 1000);
+        err = rmt_tx_wait_all_done(this->rmt_tx_channel_, timeout_ms);
+    }
+    this->resume_receive();
+
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG_BUS, "RMT transmit failed: %d", err);
+        return false;
+    }
+    return true;
+#endif
+}
+
 void Bus::process_send_queue() {
     std::shared_ptr<BaseFrame> packet;
 
@@ -250,30 +455,10 @@ void Bus::process_send_queue() {
         this->current_frame.reset("TX Start");
         this->reset_pulse_log();
         packet->print("SEND", TAG_BUS, ESPHOME_LOG_LEVEL_INFO, __LINE__);
-        auto transmitCount = this->transmit_count;
-        this->gpio_pin_->pin_mode(gpio::Flags::FLAG_OUTPUT | gpio::Flags::FLAG_PULLUP);
-        while (transmitCount > 0) {
-            sendHeader();
-            size_t transmitIndex = 0;
-            while (transmitIndex < packet->size()) {
-                for (int bitIndex = 0; bitIndex <= 7; bitIndex++) {
-                    _sendLow(bit_low_duration_ms);
-                    if (get_bit((*packet)[transmitIndex], bitIndex)) {
-                        _sendHigh(bit_long_high_duration_ms);
-                    } else {
-                        _sendHigh(bit_low_duration_ms);
-                    }
-                }
-                transmitIndex++;
-            }
-
-            if (--transmitCount > 0) {
-                _sendLow(bit_low_duration_ms);
-                _sendHigh(controler_frame_spacing_duration_ms);
-            }
+        if (!this->transmit_frame(*packet)) {
+            this->mode = BUSMODE_ERROR;
+            return;
         }
-        _sendLow(bit_low_duration_ms);
-        _sendHigh(controler_group_spacing_ms);
         this->previous_sent_packet_ = millis();
         start_receive();
     }
@@ -328,11 +513,11 @@ void Bus::RxTask(void* arg) {
     instance->mode = BUSMODE_RX;
 
     while (true) {
-        rmt_item32_t* items =
-            (rmt_item32_t*)xRingbufferReceive(instance->rb_, &rx_size, 120 * portTICK_PERIOD_MS);
+        hwp_pulse_symbol_t* items = (hwp_pulse_symbol_t*)xRingbufferReceive(
+            instance->rb_, &rx_size, 120 * portTICK_PERIOD_MS);
 
         if (items && rx_size > 0) {
-            size_t count = static_cast<size_t>(rx_size / sizeof(rmt_item32_t));
+            size_t count = static_cast<size_t>(rx_size / sizeof(hwp_pulse_symbol_t));
             if (instance->mode == BUSMODE_RX) {
                 instance->current_frame.passes_count++;
 
@@ -352,27 +537,10 @@ void Bus::RxTask(void* arg) {
             }
             // Return the items to the ring buffer
             vRingbufferReturnItem(instance->rb_, (void*)items);
-        } else {
-            if (instance->mode == BUSMODE_RX && instance->current_frame.is_started() &&
-                instance->current_pulse_.duration0 > 0 &&
-                instance->elapsed(esp_timer_get_time()) > (frame_end_threshold_ms * 1000)) {
-                rmt_item32_t pulse;
-                memcpy((void*)&pulse, (void*)&instance->current_pulse_,
-                    sizeof(instance->current_pulse_));
-                memset((void*)&instance->current_pulse_, 0, sizeof(instance->current_pulse_));
-                ESP_LOGV(TAG_BUS, "Bus TIMEOUT. %s", instance->format_pulse_item(&pulse).c_str());
-                received_msg = true;
-                instance->process_pulse(&pulse);
-                if (instance->current_frame.is_complete()) {
-                    instance->finalize_frame(true);
-                } else {
-                    ESP_LOGD(TAG_BUS, "%s", instance->current_frame.to_string("Inco").c_str());
-                    instance->current_frame.debug();
-                    instance->current_frame.reset("Timeout - ");
-                    instance->log_pulses();
-                }
-                instance->reset_pulse_log();
+            if (instance->mode == BUSMODE_RX) {
+                instance->arm_receive();
             }
+        } else {
             if (received_msg) {
                 ESP_LOGVV(TAG_BUS, "No item received from the ring buffer");
                 // only display once

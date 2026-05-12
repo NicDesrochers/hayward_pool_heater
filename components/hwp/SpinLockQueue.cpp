@@ -2,6 +2,8 @@
  * @file SpinLockQueue.cpp
  * @brief Implementation of the SpinLockQueue template class.
  *
+ * Copyright (c) 2024 S. Leclerc (sle118@hotmail.com)
+ *
  * This file is part of the Pool Heater Controller component project.
  *
  * @project Pool Heater Controller Component

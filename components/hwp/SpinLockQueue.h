@@ -1,3 +1,35 @@
+/**
+ *
+ * Copyright (c) 2024 S. Leclerc (sle118@hotmail.com)
+ *
+ * This file is part of the Pool Heater Controller component project.
+ *
+ * @project Pool Heater Controller Component
+ * @developer S. Leclerc (sle118@hotmail.com)
+ *
+ * @license MIT License
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ *
+ * @disclaimer Use at your own risk. The developer assumes no responsibility
+ * for any damage or loss caused by the use of this software.
+ */
 #pragma once
 
 #include <deque>
@@ -77,17 +109,23 @@ template <typename T> class SpinLockQueue {
      *
      * @param element The element to enqueue.
      */
-    void inline enqueue(const T& element) {
+    bool inline enqueue(const T& element) {
         this->spinlock.lock();
         if (this->logging_enabled) {
             ESP_LOGV(SPINLOCK_TAG, "enqueue: Attempting to enqueue element");
         }
 
-        while (this->queue.size() > this->max_len_) {
+        while (this->queue.size() >= this->max_len_ && !this->queue.empty()) {
             this->queue.pop_front();
             if (this->logging_enabled) {
-                ESP_LOGW(SPINLOCK_TAG, "enqueue: Queue exceeded max length, popping front");
+                ESP_LOGW(SPINLOCK_TAG, "enqueue: Queue at max length, dropping oldest element");
             }
+        }
+
+        if (this->max_len_ == 0) {
+            this->spinlock.unlock();
+            ESP_LOGE(SPINLOCK_TAG, "enqueue: Queue max length is zero");
+            return false;
         }
 
         this->queue.push_back(element);
@@ -101,6 +139,7 @@ template <typename T> class SpinLockQueue {
         if (this->task_handle != nullptr) {
             xTaskNotifyGive(this->task_handle);
         }
+        return true;
     }
 
     /**

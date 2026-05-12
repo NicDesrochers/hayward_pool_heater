@@ -1,0 +1,36 @@
+{
+  "name": "Hayward Pool Heater ESPHome",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "initializeCommand": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"New-Item -ItemType Directory -Force -Path '${localWorkspaceFolder}\\\\.esphome-config' | Out-Null\"",
+  "workspaceFolder": "/workspaces/hayward_pool_heater",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/hayward_pool_heater,type=bind,consistency=cached",
+  "mounts": [
+    "source=${localWorkspaceFolder}/.esphome-config,target=/config,type=bind,consistency=cached",
+    "source=hayward-pool-heater-esphome-cache,target=/cache,type=volume",
+    "source=hayward-pool-heater-esphome-build,target=/build,type=volume",
+    "source=hayward-pool-heater-platformio,target=/root/.platformio,type=volume",
+    "source=hayward-pool-heater-cache,target=/root/.cache,type=volume"
+  ],
+  "containerEnv": {
+    "ESPHOME_BUILD_PATH": "/build"
+  },
+  "remoteUser": "root",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "esphome.esphome-vscode",
+        "ms-vscode.cpptools",
+        "ms-python.black-formatter",
+        "ms-vscode.cpp-devtools",
+        "ms-vscode.cpptools-extension-pack",
+        "ms-vscode.cpptools-themes",
+        "openai.chatgpt",
+        "ms-azuretools.vscode-containers",
+        "ms-vscode-remote.remote-containers",
+        "mine.cpplint"
+      ]
+    }
+  }
+}

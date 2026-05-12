@@ -63,15 +63,29 @@ std::string FrameConf4::format(const conf_4_t& val, const conf_4_t& ref) const {
     bool changed = (val != ref);
     oss.set_changed_base_color(changed);
 
-    oss << "[" << data_->unknown_1.diff(this->prev_data_->unknown_1, ", ")
-        << data_->unknown_2.diff(this->prev_data_->unknown_2, ", ")
-        << data_->unknown_3.diff(this->prev_data_->unknown_3, ", ")
-        << data_->unknown_4.diff(this->prev_data_->unknown_4, ", ")
-        << data_->unknown_5.diff(this->prev_data_->unknown_5, ", ") 
-        << data_->unknown_6.diff(this->prev_data_->unknown_6, ", ")
-        << data_->unknown_7.diff(this->prev_data_->unknown_7, ", ")
-        << data_->unknown_8.diff(this->prev_data_->unknown_8, ", ")
-        << data_->unknown_9.diff(this->prev_data_->unknown_9, "]");
+    oss << "F02 high cool " << val.f02_fan_high_speed_cool_setpoint.diff(
+                                     ref.f02_fan_high_speed_cool_setpoint, ", ")
+        << "F03 low cool "
+        << val.f03_fan_low_speed_temp_in_cooling_set_point.diff(
+               ref.f03_fan_low_speed_temp_in_cooling_set_point, ", ")
+        << "F04 stop cool "
+        << val.f04_fan_stop_temp_in_cooling_set_point.diff(
+               ref.f04_fan_stop_temp_in_cooling_set_point, ", ")
+        << "F05 high heat "
+        << val.f05_fan_high_speed_temp_in_heating_set_point.diff(
+               ref.f05_fan_high_speed_temp_in_heating_set_point, ", ")
+        << "F06 low heat "
+        << val.f06_fan_low_speed_temp_in_heating_set_point.diff(
+               ref.f06_fan_low_speed_temp_in_heating_set_point, ", ")
+        << "F07 stop heat "
+        << val.f07_fan_stop_temp_in_heating_set_point.diff(
+               ref.f07_fan_stop_temp_in_heating_set_point, ", ")
+        << "F08 low run " << val.f08_fan_low_speed_running_time.diff(
+                                  ref.f08_fan_low_speed_running_time, ", ")
+        << "F09 stop low run "
+        << val.f09_fan_stop_low_speed_running_time.diff(
+               ref.f09_fan_stop_low_speed_running_time, ", unknown ")
+        << val.unknown.diff(ref.unknown);
     return oss.str();
 }
 /**
@@ -83,14 +97,90 @@ std::string FrameConf4::format(const conf_4_t& val, const conf_4_t& ref) const {
  * 
  * @param hp_data The heat_pump_data_t structure to fill
  * @see heat_pump_data_t
- * @note no current elements identified in this frame
+ * @note identifies fan speed temperature and timing parameters F02-F09
  */
 void FrameConf4::parse(heat_pump_data_t& hp_data) {
-    // N/A
+    hp_data.f02_fan_high_speed_cool_setpoint =
+        data_->f02_fan_high_speed_cool_setpoint.decode();
+    hp_data.f03_fan_low_speed_temp_in_cooling_set_point =
+        data_->f03_fan_low_speed_temp_in_cooling_set_point.decode();
+    hp_data.f04_fan_stop_temp_in_cooling_set_point =
+        data_->f04_fan_stop_temp_in_cooling_set_point.decode();
+    hp_data.f05_fan_high_speed_temp_in_heating_set_point =
+        data_->f05_fan_high_speed_temp_in_heating_set_point.decode();
+    hp_data.f06_fan_low_speed_temp_in_heating_set_point =
+        data_->f06_fan_low_speed_temp_in_heating_set_point.decode();
+    hp_data.f07_fan_stop_temp_in_heating_set_point =
+        data_->f07_fan_stop_temp_in_heating_set_point.decode();
+    hp_data.f08_fan_low_speed_running_time = data_->f08_fan_low_speed_running_time.decode();
+    hp_data.f09_fan_stop_low_speed_running_time =
+        data_->f09_fan_stop_low_speed_running_time.decode();
 }
 optional<std::shared_ptr<BaseFrame>> FrameConf4::control(const HWPCall& call) {
-    // Not supported yet.
-    return nullopt;
+    FrameConf4 fan_speed_control_frame(*this);
+    bool has_data = this->data_.has_value();
+
+    if (call.f02_fan_high_speed_cool_setpoint.has_value()) {
+        ESP_LOGI(TAG, "FrameConf4 control: request for fan high speed cool setpoint %.1f",
+            *call.f02_fan_high_speed_cool_setpoint);
+        fan_speed_control_frame.data().f02_fan_high_speed_cool_setpoint =
+            *call.f02_fan_high_speed_cool_setpoint;
+    }
+    if (call.f03_fan_low_speed_temp_in_cooling_set_point.has_value()) {
+        ESP_LOGI(TAG, "FrameConf4 control: request for fan low speed cooling temp %.1f",
+            *call.f03_fan_low_speed_temp_in_cooling_set_point);
+        fan_speed_control_frame.data().f03_fan_low_speed_temp_in_cooling_set_point =
+            *call.f03_fan_low_speed_temp_in_cooling_set_point;
+    }
+    if (call.f04_fan_stop_temp_in_cooling_set_point.has_value()) {
+        ESP_LOGI(TAG, "FrameConf4 control: request for fan stop cooling temp %.1f",
+            *call.f04_fan_stop_temp_in_cooling_set_point);
+        fan_speed_control_frame.data().f04_fan_stop_temp_in_cooling_set_point =
+            *call.f04_fan_stop_temp_in_cooling_set_point;
+    }
+    if (call.f05_fan_high_speed_temp_in_heating_set_point.has_value()) {
+        ESP_LOGI(TAG, "FrameConf4 control: request for fan high speed heating temp %.1f",
+            *call.f05_fan_high_speed_temp_in_heating_set_point);
+        fan_speed_control_frame.data().f05_fan_high_speed_temp_in_heating_set_point =
+            *call.f05_fan_high_speed_temp_in_heating_set_point;
+    }
+    if (call.f06_fan_low_speed_temp_in_heating_set_point.has_value()) {
+        ESP_LOGI(TAG, "FrameConf4 control: request for fan low speed heating temp %.1f",
+            *call.f06_fan_low_speed_temp_in_heating_set_point);
+        fan_speed_control_frame.data().f06_fan_low_speed_temp_in_heating_set_point =
+            *call.f06_fan_low_speed_temp_in_heating_set_point;
+    }
+    if (call.f07_fan_stop_temp_in_heating_set_point.has_value()) {
+        ESP_LOGI(TAG, "FrameConf4 control: request for fan stop heating temp %.1f",
+            *call.f07_fan_stop_temp_in_heating_set_point);
+        fan_speed_control_frame.data().f07_fan_stop_temp_in_heating_set_point =
+            *call.f07_fan_stop_temp_in_heating_set_point;
+    }
+    if (call.f08_fan_low_speed_running_time.has_value()) {
+        ESP_LOGI(TAG, "FrameConf4 control: request for fan low speed running time %.1f",
+            *call.f08_fan_low_speed_running_time);
+        fan_speed_control_frame.data().f08_fan_low_speed_running_time =
+            *call.f08_fan_low_speed_running_time;
+    }
+    if (call.f09_fan_stop_low_speed_running_time.has_value()) {
+        ESP_LOGI(TAG, "FrameConf4 control: request for fan stop low speed running time %.1f",
+            *call.f09_fan_stop_low_speed_running_time);
+        fan_speed_control_frame.data().f09_fan_stop_low_speed_running_time =
+            *call.f09_fan_stop_low_speed_running_time;
+    }
+    if (!fan_speed_control_frame.is_changed() && has_data) {
+        ESP_LOGV(TAG, "control: no changes to fan speed control");
+        return nullopt;
+    }
+    if (!has_data) {
+        ESP_LOGW(TAG, "Cannot control yet. Waiting for first FrameConf4 packet");
+        call.component.status_momentary_warning("Waiting for first FrameConf4 packet", 5000);
+        return nullopt;
+    }
+    fan_speed_control_frame.finalize();
+    fan_speed_control_frame.print("TXQ", TAG, ESPHOME_LOG_LEVEL_VERBOSE, __LINE__);
+    return optional<std::shared_ptr<FrameConf4>>{
+        std::make_shared<FrameConf4>(fan_speed_control_frame)};
 }
 } // namespace hwp
 } // namespace esphome

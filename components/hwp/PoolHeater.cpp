@@ -46,7 +46,11 @@ namespace esphome {
 namespace hwp {
 
 const char* POOL_HEATER_TAG = "hwp";
-PoolHeater::PoolHeater(InternalGPIOPin* gpio_pin) { this->driver_.set_gpio_pin(gpio_pin); }
+PoolHeater::PoolHeater(InternalGPIOPin* gpio_pin) {
+    this->driver_.set_gpio_pin(gpio_pin);
+    this->set_supported_custom_fan_modes(
+        {FanMode::scheduled_desc, FanMode::ambient_desc, FanMode::ambient_scheduled_desc});
+}
 
 void PoolHeater::setup() {
     ESP_LOGI(POOL_HEATER_TAG, "Restoring state");
@@ -56,10 +60,12 @@ void PoolHeater::setup() {
     this->driver_.set_data_model(hp_data_);
     this->current_temperature = NAN;
 
-    // Using App.get_compilation_time() means these will get reset each time the firmware is
-    // updated, but this is an easy way to prevent wierd conflicts if e.g. select options change.
+    // Using the build time means these will get reset each time the firmware is
+    // updated, but this is an easy way to prevent weird conflicts if e.g. select options change.
+    char build_time[Application::BUILD_TIME_STR_SIZE];
+    App.get_build_time_string(build_time);
     preferences_ = global_preferences->make_preference<PoolHeaterPreferences>(
-        get_object_id_hash() ^ fnv1_hash(App.get_compilation_time()));
+        get_object_id_hash() ^ fnv1_hash(build_time));
     restore_preferences_();
     set_actual_status("Ready");
     this->status_set_warning("Waiting for heater state");
@@ -93,8 +99,10 @@ void PoolHeater::update() {
     if (is_heater_offline()) {
         this->status_set_warning("Heater offline");
         set_actual_status("Waiting for heater");
+    } else {
+        this->status_clear_warning();
+        set_actual_status("Connected to heater");
     }
-    set_actual_status("Connected to heater");
     ESP_LOGVV(POOL_HEATER_TAG, "Setting current temperature");
     this->current_temperature = this->hp_data_.t02_temperature_inlet.value_or(this->current_temperature);
     ESP_LOGVV(POOL_HEATER_TAG, "Setting target temperature");
@@ -107,9 +115,13 @@ void PoolHeater::update() {
         this->action = climate::CLIMATE_ACTION_OFF;
     }
     this->mode = this->hp_data_.mode.value_or(this->mode);
-    if(this->hp_data_.fan_mode.has_value() ) {
-        this->custom_fan_mode = this->hp_data_.fan_mode->to_custom_fan_mode();
-        this->fan_mode = this->hp_data_.fan_mode->to_climate_fan_mode();
+    if (this->hp_data_.fan_mode.has_value()) {
+        if (auto custom_fan_mode = this->hp_data_.fan_mode->to_custom_fan_mode()) {
+            this->set_custom_fan_mode_(custom_fan_mode->c_str());
+        } else {
+            this->fan_mode = this->hp_data_.fan_mode->to_climate_fan_mode();
+            this->clear_custom_fan_mode_();
+        }
     }
 
     //////////////////////////////////////////////
@@ -173,6 +185,34 @@ void PoolHeater::update() {
     publish_sensor_value(this->hp_data_.r11_max_heating_setpoint, this->r11_max_heating_setpoint_);
     ESP_LOGVV(POOL_HEATER_TAG, "Setting pulses per liter");
     publish_sensor_value(this->hp_data_.U02_pulses_per_liter, this->u02_pulses_per_liter_);
+    ESP_LOGVV(POOL_HEATER_TAG, "Setting fan high speed cool setpoint");
+    publish_sensor_value(this->hp_data_.f02_fan_high_speed_cool_setpoint,
+        this->f02_fan_high_speed_cool_setpoint_);
+    ESP_LOGVV(POOL_HEATER_TAG, "Setting fan low speed cooling temperature");
+    publish_sensor_value(this->hp_data_.f03_fan_low_speed_temp_in_cooling_set_point,
+        this->f03_fan_low_speed_temp_in_cooling_set_point_);
+    ESP_LOGVV(POOL_HEATER_TAG, "Setting fan stop cooling temperature");
+    publish_sensor_value(this->hp_data_.f04_fan_stop_temp_in_cooling_set_point,
+        this->f04_fan_stop_temp_in_cooling_set_point_);
+    ESP_LOGVV(POOL_HEATER_TAG, "Setting fan high speed heating temperature");
+    publish_sensor_value(this->hp_data_.f05_fan_high_speed_temp_in_heating_set_point,
+        this->f05_fan_high_speed_temp_in_heating_set_point_);
+    ESP_LOGVV(POOL_HEATER_TAG, "Setting fan low speed heating temperature");
+    publish_sensor_value(this->hp_data_.f06_fan_low_speed_temp_in_heating_set_point,
+        this->f06_fan_low_speed_temp_in_heating_set_point_);
+    ESP_LOGVV(POOL_HEATER_TAG, "Setting fan stop heating temperature");
+    publish_sensor_value(this->hp_data_.f07_fan_stop_temp_in_heating_set_point,
+        this->f07_fan_stop_temp_in_heating_set_point_);
+    ESP_LOGVV(POOL_HEATER_TAG, "Setting fan low speed running time");
+    publish_sensor_value(
+        this->hp_data_.f08_fan_low_speed_running_time, this->f08_fan_low_speed_running_time_);
+    ESP_LOGVV(POOL_HEATER_TAG, "Setting fan stop low speed running time");
+    publish_sensor_value(this->hp_data_.f09_fan_stop_low_speed_running_time,
+        this->f09_fan_stop_low_speed_running_time_);
+    ESP_LOGVV(POOL_HEATER_TAG, "Setting min fan voltage");
+    publish_sensor_value(this->hp_data_.f12_min_fan_voltage_pct, this->f12_min_fan_voltage_pct_);
+    ESP_LOGVV(POOL_HEATER_TAG, "Setting max fan voltage");
+    publish_sensor_value(this->hp_data_.f13_max_fan_voltage_pct, this->f13_max_fan_voltage_pct_);
 
     //////////////////////////////////////////////
     // Transfer data to text sensors            //
@@ -201,17 +241,20 @@ void PoolHeater::update() {
     publish_sensor_value(this->hp_data_.mode_restrictions, this->h02_mode_restrictions_);    
      ESP_LOGVV(POOL_HEATER_TAG, "Setting flow meter");
     publish_sensor_value(this->hp_data_.U01_flow_meter, this->u01_flow_meter_);
+    ESP_LOGVV(POOL_HEATER_TAG, "Setting fan speed control temperature");
+    publish_sensor_value(this->hp_data_.f10_fan_speed_control_temp,
+        this->f10_fan_speed_control_temp_);
+    ESP_LOGVV(POOL_HEATER_TAG, "Setting speed control module");
+    publish_sensor_value(this->hp_data_.f11_speed_control_module, this->f11_speed_control_module_);
     
 
 
     //////////////////////////////////////////////
     // Publish the climate state if needed      //
     //////////////////////////////////////////////
-    if (this->update_active_) {
-        ESP_LOGD(POOL_HEATER_TAG, "Publishing climate state");
-        save_preferences_();     
-        climate::Climate::publish_state();
-    }
+    ESP_LOGD(POOL_HEATER_TAG, "Publishing climate state");
+    save_preferences_();
+    climate::Climate::publish_state();
 }
 
 
@@ -259,7 +302,9 @@ void PoolHeater::set_actual_status(const std::string status, bool force) {
     if (this->actual_status_ != status || force) {
         ESP_LOGD(POOL_HEATER_TAG, "%s", status.c_str());
         this->actual_status_ = status;
-        this->actual_status_sensor_->publish_state(this->actual_status_);
+        if (this->update_active_ && this->actual_status_sensor_ != nullptr) {
+            this->actual_status_sensor_->publish_state(this->actual_status_);
+        }
     }
 }
 
@@ -284,11 +329,9 @@ bool PoolHeater::is_update_active() { return this->update_active_; }
 climate::ClimateTraits PoolHeater::traits() {
     auto traits = climate::ClimateTraits();
 
-    traits.set_supports_current_temperature(true);
-    traits.set_supports_action(true);
+    traits.add_feature_flags(
+        climate::CLIMATE_SUPPORTS_CURRENT_TEMPERATURE | climate::CLIMATE_SUPPORTS_ACTION);
     this->driver_.traits(traits, this->hp_data_);
-    traits.set_supports_two_point_target_temperature(false);
-    traits.set_supports_current_humidity(false);
 
     return traits;
 }

@@ -1,0 +1,22 @@
+name: ESPHome Compile Tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  esphome:
+    name: ESPHome fixtures
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run ESPHome fixture tests
+        env:
+          TMPDIR: ${{ runner.temp }}
+        run: bash scripts/test-esphome.sh --bind-cache

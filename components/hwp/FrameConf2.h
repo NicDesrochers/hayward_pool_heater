@@ -35,21 +35,24 @@
 #include "CS.h"
 #include "Schema.h"
 #include "base_frame.h"
-#include "esphome/components/climate/climate.h"
-#include "esphome/components/climate/climate_mode.h"
+#include "hwp_climate_adapter.h"
 namespace esphome {
 namespace hwp {
 
 typedef struct fanmode_details {
     union {
         struct {
-            uint8_t unknown_x : 4; // Bits 0-3: Unknown purpose
-            uint8_t mode : 4;      // Bits 4-7: Fan mode (4 bits)
+            uint8_t unknown_x : 3;        // Bits 0-2: Unknown purpose
+            uint8_t f10_speed_source : 1; // Bit 3: fan speed control temperature source
+            uint8_t mode : 4;             // Bits 4-7: Fan mode (4 bits)
         };
         bits_details_t raw; // Raw byte representation
     };
     FanMode get_fan_mode() const {
         return FanMode(mode);
+    }
+    FanSpeedControlTempMode get_fan_speed_control_temp_mode() const {
+        return FanSpeedControlTempMode(f10_speed_source);
     }
     bool operator==(const optional<struct fanmode_details>& other) const {
         return other.has_value() && raw == other.value().raw;
@@ -86,7 +89,7 @@ typedef struct conf_2 {
     bits_details_t unknown_5;                           // Reserved or unknown field (6th byte)
     bits_details_t unknown_6;                           // Reserved or unknown field (7th byte)
     bits_details_t unknown_7;                           // Reserved or unknown field (8th byte)
-    bits_details_t unknown_8;                           // Reserved or unknown field (9th byte)
+    small_integer_t f13_max_fan_voltage_pct;            // Maximum fan voltage limit percent
     bool operator==(const optional<struct conf_2>& other) const {
         return other.has_value() && *this == *other;
     }
@@ -98,7 +101,8 @@ typedef struct conf_2 {
                this->d03_defrosting_cycle_time_minutes == other.d03_defrosting_cycle_time_minutes &&
                this->d04_max_defrost_time_minutes == other.d04_max_defrost_time_minutes &&
                this->unknown_5 == other.unknown_5 && this->unknown_6 == other.unknown_6 &&
-               this->unknown_7 == other.unknown_7 && this->unknown_8 == other.unknown_8;
+               this->unknown_7 == other.unknown_7 &&
+               this->f13_max_fan_voltage_pct == other.f13_max_fan_voltage_pct;
     }
 
     bool operator!=(const optional<struct conf_2>& other) const { return !(*this == other); }

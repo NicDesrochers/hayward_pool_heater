@@ -33,7 +33,6 @@
 
 #include "Decoder.h"
 #include "base_frame.h"
-#include "esphome/core/log.h"
 namespace esphome {
 namespace hwp {
 
@@ -132,11 +131,13 @@ void Decoder::start_new_frame() {
     started = true;
 }
 
-int32_t Decoder::get_high_duration(const rmt_item32_t* item) {
+int32_t Decoder::get_high_duration(const hwp_pulse_symbol_t* item) {
+    if (item == nullptr) return 0;
     return item->level0 ? item->duration0 : item->level1 ? item->duration1 : 0;
 }
 
-uint32_t Decoder::get_low_duration(const rmt_item32_t* item) {
+uint32_t Decoder::get_low_duration(const hwp_pulse_symbol_t* item) {
+    if (item == nullptr) return 0;
     return !item->level0 ? item->duration0 : !item->level1 ? item->duration1 : 0;
 }
 
@@ -145,20 +146,20 @@ bool Decoder::matches_duration(uint32_t target_us, uint32_t actual_us) {
            actual_us <= (target_us + pulse_duration_threshold_us);
 }
 
-bool Decoder::is_start_frame(const rmt_item32_t* item) {
+bool Decoder::is_start_frame(const hwp_pulse_symbol_t* item) {
     return matches_duration(get_high_duration(item), frame_heading_high_duration_ms * 1000);
 }
 
-bool Decoder::is_long_bit(const rmt_item32_t* item) {
+bool Decoder::is_long_bit(const hwp_pulse_symbol_t* item) {
     return matches_duration(get_high_duration(item), bit_long_high_duration_ms * 1000) &&
            matches_duration(get_low_duration(item), bit_low_duration_ms * 1000);
 }
 
-bool Decoder::is_short_bit(const rmt_item32_t* item) {
+bool Decoder::is_short_bit(const hwp_pulse_symbol_t* item) {
     return matches_duration(get_high_duration(item), bit_short_high_duration_ms * 1000) &&
            matches_duration(get_low_duration(item), bit_low_duration_ms * 1000);
 }
-bool Decoder::is_frame_end(const rmt_item32_t* item) {
+bool Decoder::is_frame_end(const hwp_pulse_symbol_t* item) {
     return Decoder::get_high_duration(item) == 0 || Decoder::get_low_duration(item) == 0 ||
            Decoder::matches_duration(Decoder::get_high_duration(item), frame_end_threshold_ms*1000);
 }

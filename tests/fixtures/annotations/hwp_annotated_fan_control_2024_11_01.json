@@ -1,0 +1,412 @@
+{
+  "schema_version": 1,
+  "source": "tmp/hwp/POOL_esphome_logs.log.2024-11-01",
+  "provenance": "Curated annotation windows from the manual analysis/tagging tool. The full log remains ignored; these windows record observed packet changes while fan/control settings were being changed.",
+  "annotations": [
+    {
+      "id": "coil-temp-change",
+      "source_id": "lines 65591-65593",
+      "label": "Coil temp change",
+      "notes": "Annotated sensor-change window retained as a non-fan example of the tagger workflow.",
+      "packet": {
+        "label": "COND_2",
+        "source": "heater",
+        "length": 12,
+        "frame_type": "0xD2",
+        "bytes": ["0xD2", "0xB1", "0x11", "0x5E", "0x4D", "0x48", "0x48", "0x00", "0x64", "0x00", "0x00", "0x33"],
+        "checksum_valid": true,
+        "expected_checksum": "0x33"
+      }
+    },
+    {
+      "id": "f02-41-5",
+      "source_id": "lines 72591-72593",
+      "label": "F02 - 41.5",
+      "notes": "F02 fan high-speed cooling setpoint observed in CONFIG_4 byte 2.",
+      "packet": {
+        "label": "CONFIG_4",
+        "source": "controller",
+        "length": 12,
+        "frame_type": "0x84",
+        "bytes": ["0x84", "0xB1", "0x8F", "0x5A", "0x50", "0x50", "0x64", "0x78", "0x00", "0x00", "0x78", "0x12"],
+        "checksum_valid": true,
+        "expected_checksum": "0x12"
+      },
+      "read": {
+        "field": "f02_fan_high_speed_cool_setpoint",
+        "value": 41.5,
+        "raw_byte_index": 2,
+        "raw_byte_value": "0x8F",
+        "frame_type": "0x84",
+        "source": "controller"
+      },
+      "write": {
+        "field": "f02_fan_high_speed_cool_setpoint",
+        "value": 41.5,
+        "base_bytes": ["0x84", "0xB1", "0x8C", "0x5A", "0x50", "0x50", "0x64", "0x78", "0x00", "0x00", "0x78", "0x0F"],
+        "expected_bytes": ["0x84", "0xB1", "0x8F", "0x5A", "0x50", "0x50", "0x64", "0x78", "0x00", "0x00", "0x78", "0x12"],
+        "checksum_valid": true
+      }
+    },
+    {
+      "id": "f03-20",
+      "source_id": "lines 72693-72696",
+      "label": "F03 - 20",
+      "notes": "F03 fan low-speed cooling temperature observed in CONFIG_4 byte 3.",
+      "packet": {
+        "label": "CONFIG_4",
+        "source": "controller",
+        "length": 12,
+        "frame_type": "0x84",
+        "bytes": ["0x84", "0xB1", "0x8C", "0x64", "0x50", "0x50", "0x64", "0x78", "0x00", "0x00", "0x78", "0x19"],
+        "checksum_valid": true,
+        "expected_checksum": "0x19"
+      },
+      "read": {
+        "field": "f03_fan_low_speed_temp_in_cooling_set_point",
+        "value": 20.0,
+        "raw_byte_index": 3,
+        "raw_byte_value": "0x64",
+        "frame_type": "0x84",
+        "source": "controller"
+      },
+      "write": {
+        "field": "f03_fan_low_speed_temp_in_cooling_set_point",
+        "value": 20.0,
+        "base_bytes": ["0x84", "0xB1", "0x8C", "0x5A", "0x50", "0x50", "0x64", "0x78", "0x00", "0x00", "0x78", "0x0F"],
+        "expected_bytes": ["0x84", "0xB1", "0x8C", "0x64", "0x50", "0x50", "0x64", "0x78", "0x00", "0x00", "0x78", "0x19"],
+        "checksum_valid": true
+      }
+    },
+    {
+      "id": "f04-10-5",
+      "source_id": "lines 72761-72765",
+      "label": "F04 - 10.5",
+      "notes": "F04 fan stop cooling temperature observed in CONFIG_4 byte 4.",
+      "packet": {
+        "label": "CONFIG_4",
+        "source": "controller",
+        "length": 12,
+        "frame_type": "0x84",
+        "bytes": ["0x84", "0xB1", "0x8C", "0x5A", "0x51", "0x50", "0x64", "0x78", "0x00", "0x00", "0x78", "0x10"],
+        "checksum_valid": true,
+        "expected_checksum": "0x10"
+      },
+      "read": {
+        "field": "f04_fan_stop_temp_in_cooling_set_point",
+        "value": 10.5,
+        "raw_byte_index": 4,
+        "raw_byte_value": "0x51",
+        "frame_type": "0x84",
+        "source": "controller"
+      },
+      "write": {
+        "field": "f04_fan_stop_temp_in_cooling_set_point",
+        "value": 10.5,
+        "base_bytes": ["0x84", "0xB1", "0x8C", "0x5A", "0x50", "0x50", "0x64", "0x78", "0x00", "0x00", "0x78", "0x0F"],
+        "expected_bytes": ["0x84", "0xB1", "0x8C", "0x5A", "0x51", "0x50", "0x64", "0x78", "0x00", "0x00", "0x78", "0x10"],
+        "checksum_valid": true
+      }
+    },
+    {
+      "id": "f05-10-5",
+      "source_id": "lines 72823-72825",
+      "label": "F05 - 10.5",
+      "notes": "F05 fan high-speed heating temperature observed in CONFIG_4 byte 5.",
+      "packet": {
+        "label": "CONFIG_4",
+        "source": "controller",
+        "length": 12,
+        "frame_type": "0x84",
+        "bytes": ["0x84", "0xB1", "0x8C", "0x5A", "0x50", "0x51", "0x64", "0x78", "0x00", "0x00", "0x78", "0x10"],
+        "checksum_valid": true,
+        "expected_checksum": "0x10"
+      },
+      "read": {
+        "field": "f05_fan_high_speed_temp_in_heating_set_point",
+        "value": 10.5,
+        "raw_byte_index": 5,
+        "raw_byte_value": "0x51",
+        "frame_type": "0x84",
+        "source": "controller"
+      },
+      "write": {
+        "field": "f05_fan_high_speed_temp_in_heating_set_point",
+        "value": 10.5,
+        "base_bytes": ["0x84", "0xB1", "0x8C", "0x5A", "0x50", "0x50", "0x64", "0x78", "0x00", "0x00", "0x78", "0x0F"],
+        "expected_bytes": ["0x84", "0xB1", "0x8C", "0x5A", "0x50", "0x51", "0x64", "0x78", "0x00", "0x00", "0x78", "0x10"],
+        "checksum_valid": true
+      }
+    },
+    {
+      "id": "f06-20-5",
+      "source_id": "lines 72905-72907",
+      "label": "F06 20.5",
+      "notes": "F06 fan low-speed heating temperature observed in CONFIG_4 byte 6.",
+      "packet": {
+        "label": "CONFIG_4",
+        "source": "controller",
+        "length": 12,
+        "frame_type": "0x84",
+        "bytes": ["0x84", "0xB1", "0x8C", "0x5A", "0x50", "0x50", "0x65", "0x78", "0x00", "0x00", "0x78", "0x10"],
+        "checksum_valid": true,
+        "expected_checksum": "0x10"
+      },
+      "read": {
+        "field": "f06_fan_low_speed_temp_in_heating_set_point",
+        "value": 20.5,
+        "raw_byte_index": 6,
+        "raw_byte_value": "0x65",
+        "frame_type": "0x84",
+        "source": "controller"
+      },
+      "write": {
+        "field": "f06_fan_low_speed_temp_in_heating_set_point",
+        "value": 20.5,
+        "base_bytes": ["0x84", "0xB1", "0x8C", "0x5A", "0x50", "0x50", "0x64", "0x78", "0x00", "0x00", "0x78", "0x0F"],
+        "expected_bytes": ["0x84", "0xB1", "0x8C", "0x5A", "0x50", "0x50", "0x65", "0x78", "0x00", "0x00", "0x78", "0x10"],
+        "checksum_valid": true
+      }
+    },
+    {
+      "id": "f07-31-5",
+      "source_id": "lines 72981-72985",
+      "label": "F07-31.5",
+      "notes": "F07 fan stop heating temperature observed in CONFIG_4 byte 7.",
+      "packet": {
+        "label": "CONFIG_4",
+        "source": "controller",
+        "length": 12,
+        "frame_type": "0x84",
+        "bytes": ["0x84", "0xB1", "0x8C", "0x5A", "0x50", "0x50", "0x64", "0x7B", "0x00", "0x00", "0x78", "0x12"],
+        "checksum_valid": true,
+        "expected_checksum": "0x12"
+      },
+      "read": {
+        "field": "f07_fan_stop_temp_in_heating_set_point",
+        "value": 31.5,
+        "raw_byte_index": 7,
+        "raw_byte_value": "0x7B",
+        "frame_type": "0x84",
+        "source": "controller"
+      },
+      "write": {
+        "field": "f07_fan_stop_temp_in_heating_set_point",
+        "value": 31.5,
+        "base_bytes": ["0x84", "0xB1", "0x8C", "0x5A", "0x50", "0x50", "0x64", "0x78", "0x00", "0x00", "0x78", "0x0F"],
+        "expected_bytes": ["0x84", "0xB1", "0x8C", "0x5A", "0x50", "0x50", "0x64", "0x7B", "0x00", "0x00", "0x78", "0x12"],
+        "checksum_valid": true
+      }
+    },
+    {
+      "id": "f08-23",
+      "source_id": "lines 73132-73135",
+      "label": "F08 - 23",
+      "notes": "F08 fan low-speed running time observed in CONFIG_4 byte 8.",
+      "packet": {
+        "label": "CONFIG_4",
+        "source": "controller",
+        "length": 12,
+        "frame_type": "0x84",
+        "bytes": ["0x84", "0xB1", "0x8C", "0x5A", "0x50", "0x50", "0x64", "0x78", "0x17", "0x00", "0x78", "0x26"],
+        "checksum_valid": true,
+        "expected_checksum": "0x26"
+      },
+      "read": {
+        "field": "f08_fan_low_speed_running_time",
+        "value": 23.0,
+        "raw_byte_index": 8,
+        "raw_byte_value": "0x17",
+        "frame_type": "0x84",
+        "source": "controller"
+      },
+      "write": {
+        "field": "f08_fan_low_speed_running_time",
+        "value": 23.0,
+        "base_bytes": ["0x84", "0xB1", "0x8C", "0x5A", "0x50", "0x50", "0x64", "0x78", "0x00", "0x00", "0x78", "0x0F"],
+        "expected_bytes": ["0x84", "0xB1", "0x8C", "0x5A", "0x50", "0x50", "0x64", "0x78", "0x17", "0x00", "0x78", "0x26"],
+        "checksum_valid": true
+      }
+    },
+    {
+      "id": "f09-16",
+      "source_id": "lines 73222-73226",
+      "label": "F09 - 16",
+      "notes": "F09 fan stop low-speed running time observed in CONFIG_4 byte 9.",
+      "packet": {
+        "label": "CONFIG_4",
+        "source": "controller",
+        "length": 12,
+        "frame_type": "0x84",
+        "bytes": ["0x84", "0xB1", "0x8C", "0x5A", "0x50", "0x50", "0x64", "0x78", "0x00", "0x10", "0x78", "0x1F"],
+        "checksum_valid": true,
+        "expected_checksum": "0x1F"
+      },
+      "read": {
+        "field": "f09_fan_stop_low_speed_running_time",
+        "value": 16.0,
+        "raw_byte_index": 9,
+        "raw_byte_value": "0x10",
+        "frame_type": "0x84",
+        "source": "controller"
+      },
+      "write": {
+        "field": "f09_fan_stop_low_speed_running_time",
+        "value": 16.0,
+        "base_bytes": ["0x84", "0xB1", "0x8C", "0x5A", "0x50", "0x50", "0x64", "0x78", "0x00", "0x00", "0x78", "0x0F"],
+        "expected_bytes": ["0x84", "0xB1", "0x8C", "0x5A", "0x50", "0x50", "0x64", "0x78", "0x00", "0x10", "0x78", "0x1F"],
+        "checksum_valid": true
+      }
+    },
+    {
+      "id": "f10-1",
+      "source_id": "lines 73332-73335",
+      "label": "F10 - 1",
+      "notes": "F10 fan speed-control temperature source observed in CONFIG_2 byte 2 bit 3.",
+      "packet": {
+        "label": "CONFIG_2",
+        "source": "controller",
+        "length": 12,
+        "frame_type": "0x82",
+        "bytes": ["0x82", "0xB1", "0x3E", "0x2A", "0x56", "0x50", "0x10", "0x1E", "0x03", "0x01", "0x64", "0xD7"],
+        "checksum_valid": true,
+        "expected_checksum": "0xD7"
+      },
+      "read": {
+        "field": "f10_fan_speed_control_temp",
+        "value": "Ambient Temperature",
+        "raw_byte_index": 2,
+        "raw_byte_value": "0x3E",
+        "frame_type": "0x82",
+        "source": "controller"
+      },
+      "write": {
+        "field": "f10_fan_speed_control_temp",
+        "value": "Ambient Temperature",
+        "base_bytes": ["0x82", "0xB1", "0x36", "0x2A", "0x56", "0x50", "0x10", "0x1E", "0x03", "0x01", "0x64", "0xCF"],
+        "expected_bytes": ["0x82", "0xB1", "0x3E", "0x2A", "0x56", "0x50", "0x10", "0x1E", "0x03", "0x01", "0x64", "0xD7"],
+        "checksum_valid": true
+      }
+    },
+    {
+      "id": "f11-1",
+      "source_id": "lines 73404-73406",
+      "label": "F11 - 1",
+      "notes": "F11 speed-control module observed in CONFIG_5 byte 2 bit 3.",
+      "packet": {
+        "label": "CONFIG_5",
+        "source": "controller",
+        "length": 12,
+        "frame_type": "0x85",
+        "bytes": ["0x85", "0xB1", "0x08", "0x06", "0x1E", "0x16", "0x00", "0x08", "0x00", "0x00", "0xCD", "0x4D"],
+        "checksum_valid": true,
+        "expected_checksum": "0x4D"
+      },
+      "read": {
+        "field": "f11_speed_control_module",
+        "value": "Disabled",
+        "raw_byte_index": 2,
+        "raw_byte_value": "0x08",
+        "frame_type": "0x85",
+        "source": "controller"
+      },
+      "write": {
+        "field": "f11_speed_control_module",
+        "value": "Disabled",
+        "base_bytes": ["0x85", "0xB1", "0x00", "0x06", "0x1E", "0x16", "0x00", "0x08", "0x00", "0x00", "0xCD", "0x45"],
+        "expected_bytes": ["0x85", "0xB1", "0x08", "0x06", "0x1E", "0x16", "0x00", "0x08", "0x00", "0x00", "0xCD", "0x4D"],
+        "checksum_valid": true
+      }
+    },
+    {
+      "id": "f12-55",
+      "source_id": "lines 73475-73478",
+      "label": "F12 - 55",
+      "notes": "F12 min fan voltage percent observed in CONFIG_1 byte 10.",
+      "packet": {
+        "label": "CONFIG_1",
+        "source": "controller",
+        "length": 12,
+        "frame_type": "0x81",
+        "bytes": ["0x81", "0xB1", "0x1A", "0x72", "0x48", "0x72", "0x3D", "0x3D", "0x3D", "0x3D", "0x37", "0xA3"],
+        "checksum_valid": true,
+        "expected_checksum": "0xA3"
+      },
+      "read": {
+        "field": "f12_min_fan_voltage_pct",
+        "value": 55.0,
+        "raw_byte_index": 10,
+        "raw_byte_value": "0x37",
+        "frame_type": "0x81",
+        "source": "controller"
+      },
+      "write": {
+        "field": "f12_min_fan_voltage_pct",
+        "value": 55.0,
+        "base_bytes": ["0x81", "0xB1", "0x1A", "0x72", "0x48", "0x72", "0x3D", "0x3D", "0x3D", "0x3D", "0x32", "0x9E"],
+        "expected_bytes": ["0x81", "0xB1", "0x1A", "0x72", "0x48", "0x72", "0x3D", "0x3D", "0x3D", "0x3D", "0x37", "0xA3"],
+        "checksum_valid": true
+      }
+    },
+    {
+      "id": "f13-50",
+      "source_id": "lines 73589-73592",
+      "label": "F13 -  50",
+      "notes": "F13 max fan voltage percent observed in CONFIG_2 byte 10.",
+      "packet": {
+        "label": "CONFIG_2",
+        "source": "controller",
+        "length": 12,
+        "frame_type": "0x82",
+        "bytes": ["0x82", "0xB1", "0x36", "0x2A", "0x56", "0x50", "0x10", "0x1E", "0x03", "0x01", "0x32", "0x9D"],
+        "checksum_valid": true,
+        "expected_checksum": "0x9D"
+      },
+      "read": {
+        "field": "f13_max_fan_voltage_pct",
+        "value": 50.0,
+        "raw_byte_index": 10,
+        "raw_byte_value": "0x32",
+        "frame_type": "0x82",
+        "source": "controller"
+      },
+      "write": {
+        "field": "f13_max_fan_voltage_pct",
+        "value": 50.0,
+        "base_bytes": ["0x82", "0xB1", "0x36", "0x2A", "0x56", "0x50", "0x10", "0x1E", "0x03", "0x01", "0x64", "0xCF"],
+        "expected_bytes": ["0x82", "0xB1", "0x36", "0x2A", "0x56", "0x50", "0x10", "0x1E", "0x03", "0x01", "0x32", "0x9D"],
+        "checksum_valid": true
+      }
+    },
+    {
+      "id": "f01-4",
+      "source_id": "lines 73673-73675",
+      "label": "F01 - 4",
+      "notes": "F01 fan mode change observed in CONFIG_2 byte 2 high nibble.",
+      "packet": {
+        "label": "CONFIG_2",
+        "source": "controller",
+        "length": 12,
+        "frame_type": "0x82",
+        "bytes": ["0x82", "0xB1", "0x46", "0x2A", "0x56", "0x50", "0x10", "0x1E", "0x03", "0x01", "0x64", "0xDF"],
+        "checksum_valid": true,
+        "expected_checksum": "0xDF"
+      },
+      "read": {
+        "field": "f01_fan_mode",
+        "value": "Scheduled Ambient",
+        "raw_byte_index": 2,
+        "raw_byte_value": "0x46",
+        "frame_type": "0x82",
+        "source": "controller"
+      },
+      "write": {
+        "field": "f01_fan_mode",
+        "value": "Scheduled Ambient",
+        "base_bytes": ["0x82", "0xB1", "0x36", "0x2A", "0x56", "0x50", "0x10", "0x1E", "0x03", "0x01", "0x64", "0xCF"],
+        "expected_bytes": ["0x82", "0xB1", "0x46", "0x2A", "0x56", "0x50", "0x10", "0x1E", "0x03", "0x01", "0x64", "0xDF"],
+        "checksum_valid": true
+      }
+    }
+  ]
+}

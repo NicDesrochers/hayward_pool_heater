@@ -1,0 +1,26 @@
+esphome:
+  name: hayward-heater-test-pulse-debug
+  friendly_name: Hayward Heater Test Pulse Debug
+  platformio_options:
+    build_flags:
+      - -DHWP_PULSE_DEBUG
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+logger:
+  level: VERBOSE
+
+external_components:
+  - source:
+      type: local
+      path: ../components
+    components: [hwp]
+
+climate:
+  - platform: hwp
+    id: pool_heater
+    name: "Pool Heater"
+    pin_txrx: GPIO22

@@ -58,7 +58,7 @@ typedef struct conf_5_byte_2 {
             uint8_t unknown_1 : 1;            // Unknown field
             uint8_t unknown_2 : 1;            // Unknown field
             uint8_t U01_flow_meter : 1;       // Flow meter (3rd bit)
-            uint8_t unknown_4 : 1;            // Unknown field
+            uint8_t f11_speed_control_module_disabled : 1; // Speed control module disabled
             uint8_t unknown_5 : 1;            // Unknown field
             uint8_t unknown_6 : 1;            // Unknown field
             uint8_t d06_defrost_eco_mode : 1; // Defrost mode economy (7th bit)
@@ -73,24 +73,35 @@ typedef struct conf_5_byte_2 {
     DefrostEcoMode get_eco_mode() const {
         return this->d06_defrost_eco_mode > 0 ? DefrostEcoMode::Eco : DefrostEcoMode::Normal;
     }
+    SpeedControlModule get_f11_speed_control_module() const {
+        return SpeedControlModule(this->f11_speed_control_module_disabled);
+    }
+    void set_f11_speed_control_module(const SpeedControlModule& module) {
+        this->f11_speed_control_module_disabled = module.encode();
+    }
     FlowMeterEnable get_flow_meter() const { return is_flow_meter_on() ? FlowMeterEnable::Enabled : FlowMeterEnable::Disabled; }
     void set_eco_mode(const DefrostEcoMode& eco) { this->d06_defrost_eco_mode = eco ? 1 : 0; }
     bool is_flow_meter_on() const { return this->U01_flow_meter > 0; }
     void set_flow_meter(const FlowMeterEnable& on) { this->U01_flow_meter = on ? 1 : 0; }
     const char* get_flow_meter_name() const { return (this->U01_flow_meter > 0 ? "ON " : "OFF"); }
+    const char* get_f11_speed_control_log_format() const {
+        return this->get_f11_speed_control_module().log_format();
+    }
     std::string format(const struct conf_5_byte_2& other, const char* sep = "") const {
         CS oss;
         bool changed = (*this != other);
 
         oss.set_changed_base_color(changed);
-        oss << "( " << bits_details::bit(this->unknown_1, other.unknown_1)
-            << bits_details::bit(this->unknown_2, other.unknown_2) << "[U01 Flow meter: "
+        oss << "( " << bits_details::format_bit(this->unknown_1, other.unknown_1)
+            << bits_details::format_bit(this->unknown_2, other.unknown_2) << "[U01 Flow meter: "
             << format_diff(this->get_flow_meter_name(), other.get_flow_meter_name(), "] ")
-            << bits_details::bit(this->unknown_4, other.unknown_4)
-            << bits_details::bit(this->unknown_5, other.unknown_5)
-            << bits_details::bit(this->unknown_6, other.unknown_6) << " [d06 defrost: "
+            << "[F11 Speed control: "
+            << format_diff(this->get_f11_speed_control_log_format(),
+                   other.get_f11_speed_control_log_format(), "] ")
+            << bits_details::format_bit(this->unknown_5, other.unknown_5)
+            << bits_details::format_bit(this->unknown_6, other.unknown_6) << " [d06 defrost: "
             << format_diff(this->get_defrost_mode_name(), other.get_defrost_mode_name(), "] ")
-            << bits_details::bit(this->unknown_8, other.unknown_8) << " )" << sep;
+            << bits_details::format_bit(this->unknown_8, other.unknown_8) << " )" << sep;
 
         return oss.str();
     }
@@ -124,6 +135,9 @@ typedef struct conf_5 {
                this->unknown_6 == other.unknown_6 && this->unknown_7 == other.unknown_7 &&
                this->unknown_8 == other.unknown_8 &&
                this->U02_pulses_per_liter == other.U02_pulses_per_liter;
+    }
+    SpeedControlModule get_f11_speed_control_module() const {
+        return this->flags_a.get_f11_speed_control_module();
     }
     bool operator!=(const optional<struct conf_5>& other) const { return !(*this == other); }
     bool operator!=(const struct conf_5& other) const { return !(*this == other); }

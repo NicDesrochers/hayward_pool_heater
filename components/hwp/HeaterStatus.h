@@ -2,6 +2,8 @@
  * @file HeaterStatus.h
  * @brief Provides error code handling for the Hayward Pool Heater component.
  *
+ * Copyright (c) 2024 S. Leclerc (sle118@hotmail.com)
+ *
  * This file is part of the Pool Heater Controller component project.
  *
  * @project Pool Heater Controller Component

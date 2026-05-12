@@ -38,6 +38,7 @@ import json
 import esphome.config_validation as cv
 from esphome.components import (
     climate,
+    esp32,
     sensor,
     text_sensor,
     switch,
@@ -63,10 +64,9 @@ from esphome.const import (
     CONF_INPUT,
     CONF_FILTERS,
     ENTITY_CATEGORY_DIAGNOSTIC,
-    CONF_UPDATE_INTERVAL,
     CONF_NUMBER,
 )
-from esphome.core import coroutine
+from esphome.const import CONF_UPDATE_INTERVAL
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +82,7 @@ AUTO_LOAD = [
     "text_sensor",
     "time",
     "number",
+    "switch",
     "watchdog",
 ]
 
@@ -135,6 +136,30 @@ CONF_R11_MAX_HEATING_SETPOINT = "r11_max_heating_setpoint"
 # F01 - Fan mode is merged with climate fan mode and supports
 # low speed, high speed, Ambient, Time, Ambient and Time
 # This is handled via the climate component's custom fan modes
+CONF_F02_FAN_HIGH_SPEED_COOL_SETPOINT = "f02_fan_high_speed_cool_setpoint"
+CONF_F03_FAN_LOW_SPEED_TEMP_IN_COOLING_SET_POINT = (
+    "f03_fan_low_speed_temp_in_cooling_set_point"
+)
+CONF_F04_FAN_STOP_TEMP_IN_COOLING_SET_POINT = (
+    "f04_fan_stop_temp_in_cooling_set_point"
+)
+CONF_F05_FAN_HIGH_SPEED_TEMP_IN_HEATING_SET_POINT = (
+    "f05_fan_high_speed_temp_in_heating_set_point"
+)
+CONF_F06_FAN_LOW_SPEED_TEMP_IN_HEATING_SET_POINT = (
+    "f06_fan_low_speed_temp_in_heating_set_point"
+)
+CONF_F07_FAN_STOP_TEMP_IN_HEATING_SET_POINT = (
+    "f07_fan_stop_temp_in_heating_set_point"
+)
+CONF_F08_FAN_LOW_SPEED_RUNNING_TIME = "f08_fan_low_speed_running_time"
+CONF_F09_FAN_STOP_LOW_SPEED_RUNNING_TIME = "f09_fan_stop_low_speed_running_time"
+CONF_F10_FAN_SPEED_CONTROL_TEMP = "f10_fan_speed_control_temp"
+CONF_F10_FAN_SPEED_CONTROL_TEMP_OPTIONS = ["Coil Temperature", "Ambient Temperature"]
+CONF_F11_SPEED_CONTROL_MODULE = "f11_speed_control_module"
+CONF_F11_SPEED_CONTROL_MODULE_OPTIONS = ["Enabled", "Disabled"]
+CONF_F12_MIN_FAN_VOLTAGE_PCT = "f12_min_fan_voltage_pct"
+CONF_F13_MAX_FAN_VOLTAGE_PCT = "f13_max_fan_voltage_pct"
 
 # U: Parameters of water flow
 CONF_U01_FLOW_METER = "u01_flow_meter"
@@ -161,7 +186,7 @@ CONF_R03_SETPOINT_AUTO = "r03_setpoint_auto"
 
 
 hwp_ns = cg.esphome_ns.namespace("hwp")
-PoolHeater = hwp_ns.class_("PoolHeater", cg.Component, climate.Climate)
+PoolHeater = hwp_ns.class_("PoolHeater", climate.Climate, cg.PollingComponent)
 ActiveModeSwitch = hwp_ns.class_("ActiveModeSwitch", switch.Switch, cg.Component)
 UpdateStatusSwitch = hwp_ns.class_("UpdateStatusSwitch", switch.Switch, cg.Component)
 GenerateCodeButton = hwp_ns.class_(
@@ -179,9 +204,10 @@ def create_throttle_avg_filter(sensor_name):
     }
 
 
-BASE_SCHEMA = climate.CLIMATE_SCHEMA.extend(
+BASE_SCHEMA = climate.climate_schema(PoolHeater).extend(
+    cv.polling_component_schema("30s")
+).extend(
     {
-        cv.GenerateID(CONF_ID): cv.declare_id(PoolHeater),
         cv.Required(CONF_GPIO_NETPIN): pins.gpio_pin_schema(
             {CONF_OUTPUT: True, CONF_INPUT: True}
         ),
@@ -362,6 +388,116 @@ INPUTS = dict[str, tuple[cv.Schema, callable]](
             "select",
             {"icon": "mdi:clipboard-check-multiple"},
             {"options": CONF_H02_MODE_RESTRICTIONS_OPTIONS},
+        ),
+        CONF_F02_FAN_HIGH_SPEED_COOL_SETPOINT: (
+            "Fan High Speed Cool Setpoint",
+            CONF_NUMBER,
+            {
+                "icon": "mdi:fan-speed-3",
+                "unit_of_measurement": UNIT_CELSIUS,
+                "device_class": DEVICE_CLASS_TEMPERATURE,
+            },
+            {"min_value": -30, "max_value": 60, "step": 0.5},
+        ),
+        CONF_F03_FAN_LOW_SPEED_TEMP_IN_COOLING_SET_POINT: (
+            "Fan Low Speed Cooling Temp",
+            CONF_NUMBER,
+            {
+                "icon": "mdi:fan-speed-1",
+                "unit_of_measurement": UNIT_CELSIUS,
+                "device_class": DEVICE_CLASS_TEMPERATURE,
+            },
+            {"min_value": -30, "max_value": 60, "step": 0.5},
+        ),
+        CONF_F04_FAN_STOP_TEMP_IN_COOLING_SET_POINT: (
+            "Fan Stop Cooling Temp",
+            CONF_NUMBER,
+            {
+                "icon": "mdi:fan-off",
+                "unit_of_measurement": UNIT_CELSIUS,
+                "device_class": DEVICE_CLASS_TEMPERATURE,
+            },
+            {"min_value": -30, "max_value": 60, "step": 0.5},
+        ),
+        CONF_F05_FAN_HIGH_SPEED_TEMP_IN_HEATING_SET_POINT: (
+            "Fan High Speed Heating Temp",
+            CONF_NUMBER,
+            {
+                "icon": "mdi:fan-speed-3",
+                "unit_of_measurement": UNIT_CELSIUS,
+                "device_class": DEVICE_CLASS_TEMPERATURE,
+            },
+            {"min_value": -30, "max_value": 60, "step": 0.5},
+        ),
+        CONF_F06_FAN_LOW_SPEED_TEMP_IN_HEATING_SET_POINT: (
+            "Fan Low Speed Heating Temp",
+            CONF_NUMBER,
+            {
+                "icon": "mdi:fan-speed-1",
+                "unit_of_measurement": UNIT_CELSIUS,
+                "device_class": DEVICE_CLASS_TEMPERATURE,
+            },
+            {"min_value": -30, "max_value": 60, "step": 0.5},
+        ),
+        CONF_F07_FAN_STOP_TEMP_IN_HEATING_SET_POINT: (
+            "Fan Stop Heating Temp",
+            CONF_NUMBER,
+            {
+                "icon": "mdi:fan-off",
+                "unit_of_measurement": UNIT_CELSIUS,
+                "device_class": DEVICE_CLASS_TEMPERATURE,
+            },
+            {"min_value": -30, "max_value": 60, "step": 0.5},
+        ),
+        CONF_F08_FAN_LOW_SPEED_RUNNING_TIME: (
+            "Fan Low Speed Running Time",
+            CONF_NUMBER,
+            {
+                "icon": "mdi:timer-outline",
+                "unit_of_measurement": UNIT_MINUTE,
+                "device_class": DEVICE_CLASS_DURATION,
+            },
+            {"min_value": 0, "max_value": 255, "step": 1},
+        ),
+        CONF_F09_FAN_STOP_LOW_SPEED_RUNNING_TIME: (
+            "Fan Stop Low Speed Running Time",
+            CONF_NUMBER,
+            {
+                "icon": "mdi:timer-off-outline",
+                "unit_of_measurement": UNIT_MINUTE,
+                "device_class": DEVICE_CLASS_DURATION,
+            },
+            {"min_value": 0, "max_value": 255, "step": 1},
+        ),
+        CONF_F10_FAN_SPEED_CONTROL_TEMP: (
+            "Fan Speed Control Temperature",
+            "select",
+            {"icon": "mdi:thermometer-lines"},
+            {"options": CONF_F10_FAN_SPEED_CONTROL_TEMP_OPTIONS},
+        ),
+        CONF_F11_SPEED_CONTROL_MODULE: (
+            "Speed Control Module",
+            "select",
+            {"icon": "mdi:fan-cog"},
+            {"options": CONF_F11_SPEED_CONTROL_MODULE_OPTIONS},
+        ),
+        CONF_F12_MIN_FAN_VOLTAGE_PCT: (
+            "Min Fan Voltage",
+            CONF_NUMBER,
+            {
+                "icon": "mdi:sine-wave",
+                "unit_of_measurement": "%",
+            },
+            {"min_value": 0, "max_value": 100, "step": 1},
+        ),
+        CONF_F13_MAX_FAN_VOLTAGE_PCT: (
+            "Max Fan Voltage",
+            CONF_NUMBER,
+            {
+                "icon": "mdi:sine-wave",
+                "unit_of_measurement": "%",
+            },
+            {"min_value": 0, "max_value": 100, "step": 1},
         ),
       
     }
@@ -631,8 +767,9 @@ CONFIG_SCHEMA = BASE_SCHEMA.extend(
 )
 
 
-@coroutine
 async def to_code(config):
+
+    esp32.include_builtin_idf_component("esp_driver_rmt")
 
     pin_component = await cg.gpio_pin_expression(config[CONF_GPIO_NETPIN])
     # max_buffer_count = config[CONF_MAX_BUFFER_COUNT]

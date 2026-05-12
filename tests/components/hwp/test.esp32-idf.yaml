@@ -1,0 +1,11 @@
+substitutions:
+  device_name: hayward-heater-test
+  friendly_name: Hayward Heater Test
+  pin_txrx: GPIO22
+
+<<: !include common.yaml
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf

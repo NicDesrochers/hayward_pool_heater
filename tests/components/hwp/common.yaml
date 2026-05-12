@@ -1,0 +1,17 @@
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}
+
+logger:
+
+external_components:
+  - source:
+      type: local
+      path: ../../../components
+    components: [hwp]
+
+climate:
+  - platform: hwp
+    id: pool_heater
+    name: "Pool Heater"
+    pin_txrx: ${pin_txrx}

@@ -34,8 +34,8 @@
 #include "FrameConf1.h"
 #include "CS.h"
 #include "Schema.h"
-#include "esphome/components/climate/climate.h"
-#include "esphome/components/climate/climate_mode.h"
+#include "hwp_climate_adapter.h"
+
 namespace esphome {
 namespace hwp {
 constexpr char TAG[] = "hwp";
@@ -151,6 +151,11 @@ optional<std::shared_ptr<BaseFrame>> FrameConf1::control(const HWPCall& call) {
             *call.r07_shutdown_diff_heating);
         command_frame.data().r07_shutdown_diff_heating = *call.r07_shutdown_diff_heating;
     }
+    if (call.f12_min_fan_voltage_pct.has_value()) {
+        ESP_LOGD(TAG, "FrameConf1 control: request for min fan voltage percent %.0f",
+            *call.f12_min_fan_voltage_pct);
+        command_frame.data().f12_min_fan_voltage_pct = *call.f12_min_fan_voltage_pct;
+    }
 
     if (!command_frame.is_changed() && has_value) {
         ESP_LOGD(TAG, "control: no changes to send for temperature control frame");
@@ -168,7 +173,7 @@ optional<std::shared_ptr<BaseFrame>> FrameConf1::control(const HWPCall& call) {
         std::make_shared<FrameConf1>(command_frame)};
 }
 void FrameConf1::traits(climate::ClimateTraits& traits, heat_pump_data_t& hp_data) {
-    const std::set<climate::ClimateMode> any_mode = {
+    const climate::ClimateModeMask any_mode = {
         climate::CLIMATE_MODE_OFF,
         climate::CLIMATE_MODE_HEAT,
         climate::CLIMATE_MODE_COOL,
@@ -321,8 +326,9 @@ std::string FrameConf1::format(const conf_1_t& val, const conf_1_t& prev) const 
         << std::setw(strlen(modestr)) << format_diff(modestr, ref_modestr) << "/"
         << std::setw(strlen(restrictions)) << format_diff(restrictions, ref_restrictions) << ", ["
         << val.mode.raw.diff(prev.mode.raw, 6, 2, "]") << ") r07_heat_shutdown_diff:"
-        << val.r07_shutdown_diff_heating.diff(prev.r07_shutdown_diff_heating) << " ["
-        << val.reserved_7.diff(prev.reserved_7) << "]";
+        << val.r07_shutdown_diff_heating.diff(prev.r07_shutdown_diff_heating)
+        << " f12_min_fan_voltage:" << val.f12_min_fan_voltage_pct.diff(prev.f12_min_fan_voltage_pct)
+        << "]";
     return oss.str();
 }
 void FrameConf1::set_mode(climate::ClimateMode mode) {
@@ -375,6 +381,7 @@ void FrameConf1::parse(heat_pump_data_t& hp_data) {
         data_->r05_shutdown_temp_diff_when_cooling.decode();
     hp_data.r06_return_diff_heating = data_->r06_return_diff_heating.decode();
     hp_data.r07_shutdown_diff_heating = data_->r07_shutdown_diff_heating.decode();
+    hp_data.f12_min_fan_voltage_pct = data_->f12_min_fan_voltage_pct.decode();
 }
 
 } // namespace hwp

@@ -70,14 +70,14 @@
 namespace esphome {
 namespace hwp {
 
-#define FRAME_TEMP_MASK 0B00111110
+#define FRAME_TEMP_MASK 0b00111110
 #define FRAME_TEMP_HALF_DEG_BIT 7
 #define FRAME_STATE_POWER_BIT 7
 #define FRAME_MODE_AUTO_BIT 2
 #define FRAME_MODE_HEAT_BIT 3
 
 // big endian (e.g. bits reversed from the bus)
-#define FRAME_TEMP_MASK_BE 0B01111100
+#define FRAME_TEMP_MASK_BE 0b01111100
 #define FRAME_TEMP_HALF_DEG_BIT_BE 0
 #define FRAME_STATE_POWER_BIT_BE 0
 #define FRAME_MODE_AUTO_BIT_BE 5
@@ -85,14 +85,14 @@ namespace hwp {
 
 #define FRAME_CHECKSUM_POS (FRAME_SIZE - 1)
 
-#define DEFAULT_POWERMODE_MASK 0B01100000
-#define DEFAULT_POWERMODE_MASK_BE 0B00000110
-#define DEFAULT_TEMP_MASK 0B0010
-#define DEFAULT_TEMP_MASK_BE 0B0100
+#define DEFAULT_POWERMODE_MASK 0b01100000
+#define DEFAULT_POWERMODE_MASK_BE 0b00000110
+#define DEFAULT_TEMP_MASK 0b0010
+#define DEFAULT_TEMP_MASK_BE 0b0100
 
-#define HP_MODE_COOL B00000000
-#define HP_MODE_HEAT B00001000
-#define HP_MODE_AUTO B00000100
+#define HP_MODE_COOL 0b00000000
+#define HP_MODE_HEAT 0b00001000
+#define HP_MODE_AUTO 0b00000100
 
 static constexpr uint8_t POOLHEATER_TEMP_MIN = 15;
 static constexpr uint8_t POOLHEATER_TEMP_MAX = 33;
@@ -193,6 +193,42 @@ class PoolHeater : public climate::Climate, public PollingComponent {
     void set_u02_pulses_per_liter_sensor(number::Number* sensor) {
         this->u02_pulses_per_liter_ = sensor;
     }
+    void set_f02_fan_high_speed_cool_setpoint_sensor(number::Number* sensor) {
+        this->f02_fan_high_speed_cool_setpoint_ = sensor;
+    }
+    void set_f03_fan_low_speed_temp_in_cooling_set_point_sensor(number::Number* sensor) {
+        this->f03_fan_low_speed_temp_in_cooling_set_point_ = sensor;
+    }
+    void set_f04_fan_stop_temp_in_cooling_set_point_sensor(number::Number* sensor) {
+        this->f04_fan_stop_temp_in_cooling_set_point_ = sensor;
+    }
+    void set_f05_fan_high_speed_temp_in_heating_set_point_sensor(number::Number* sensor) {
+        this->f05_fan_high_speed_temp_in_heating_set_point_ = sensor;
+    }
+    void set_f06_fan_low_speed_temp_in_heating_set_point_sensor(number::Number* sensor) {
+        this->f06_fan_low_speed_temp_in_heating_set_point_ = sensor;
+    }
+    void set_f07_fan_stop_temp_in_heating_set_point_sensor(number::Number* sensor) {
+        this->f07_fan_stop_temp_in_heating_set_point_ = sensor;
+    }
+    void set_f08_fan_low_speed_running_time_sensor(number::Number* sensor) {
+        this->f08_fan_low_speed_running_time_ = sensor;
+    }
+    void set_f09_fan_stop_low_speed_running_time_sensor(number::Number* sensor) {
+        this->f09_fan_stop_low_speed_running_time_ = sensor;
+    }
+    void set_f10_fan_speed_control_temp_sensor(select::Select* sensor) {
+        this->f10_fan_speed_control_temp_ = sensor;
+    }
+    void set_f11_speed_control_module_sensor(select::Select* sensor) {
+        this->f11_speed_control_module_ = sensor;
+    }
+    void set_f12_min_fan_voltage_pct_sensor(number::Number* sensor) {
+        this->f12_min_fan_voltage_pct_ = sensor;
+    }
+    void set_f13_max_fan_voltage_pct_sensor(number::Number* sensor) {
+        this->f13_max_fan_voltage_pct_ = sensor;
+    }
 
     /**
      * @brief Handle control requests from Home Assistant.
@@ -257,6 +293,18 @@ class PoolHeater : public climate::Climate, public PollingComponent {
     select::Select* d06_defrost_eco_mode_;
     number::Number* d05_min_economy_defrost_time_minutes_;
     number::Number* u02_pulses_per_liter_;
+    number::Number* f02_fan_high_speed_cool_setpoint_;
+    number::Number* f03_fan_low_speed_temp_in_cooling_set_point_;
+    number::Number* f04_fan_stop_temp_in_cooling_set_point_;
+    number::Number* f05_fan_high_speed_temp_in_heating_set_point_;
+    number::Number* f06_fan_low_speed_temp_in_heating_set_point_;
+    number::Number* f07_fan_stop_temp_in_heating_set_point_;
+    number::Number* f08_fan_low_speed_running_time_;
+    number::Number* f09_fan_stop_low_speed_running_time_;
+    select::Select* f10_fan_speed_control_temp_;
+    select::Select* f11_speed_control_module_;
+    number::Number* f12_min_fan_voltage_pct_;
+    number::Number* f13_max_fan_voltage_pct_;
 
     // Specific temperature sensors
     sensor::Sensor* t01_temperature_suction_; ///< Suction temperature sensor (T01)

@@ -39,25 +39,35 @@ namespace esphome {
 namespace hwp {
 typedef struct conf_4 {
     uint8_t id;                                      ///< ID byte
-    bits_details_t unknown_1;                        // Unknown field
-    bits_details_t unknown_2;                        // Unknown field
-    bits_details_t unknown_3;                        // Unknown field
-    bits_details_t unknown_4;                        // Unknown field
-    bits_details_t unknown_5;                        // Unknown field
-    bits_details_t unknown_6;                        // Unknown field
-    bits_details_t unknown_7;                        // Unknown field
-    bits_details_t unknown_8;                        // Unknown field
-    bits_details_t unknown_9;                        // Unknown field
+    temperature_extended_t f02_fan_high_speed_cool_setpoint;
+    temperature_extended_t f03_fan_low_speed_temp_in_cooling_set_point;
+    temperature_extended_t f04_fan_stop_temp_in_cooling_set_point;
+    temperature_extended_t f05_fan_high_speed_temp_in_heating_set_point;
+    temperature_extended_t f06_fan_low_speed_temp_in_heating_set_point;
+    temperature_extended_t f07_fan_stop_temp_in_heating_set_point;
+    small_integer_t f08_fan_low_speed_running_time;
+    small_integer_t f09_fan_stop_low_speed_running_time;
+    bits_details_t unknown;
     
     bool operator==(const optional<struct conf_4>& other) const {
         return other.has_value() && *this == *other;
     }
     bool operator==(const struct conf_4& other) const {
-        return id == other.id && unknown_1 == other.unknown_1 && unknown_2 == other.unknown_2 &&
-               unknown_3 == other.unknown_3 && unknown_4 == other.unknown_4 &&
-               unknown_5 == other.unknown_5 && unknown_6 == other.unknown_6 &&
-               unknown_7 == other.unknown_7 && unknown_8 == other.unknown_8 &&
-               unknown_9 == other.unknown_9;
+        return id == other.id &&
+               f02_fan_high_speed_cool_setpoint == other.f02_fan_high_speed_cool_setpoint &&
+               f03_fan_low_speed_temp_in_cooling_set_point ==
+                   other.f03_fan_low_speed_temp_in_cooling_set_point &&
+               f04_fan_stop_temp_in_cooling_set_point ==
+                   other.f04_fan_stop_temp_in_cooling_set_point &&
+               f05_fan_high_speed_temp_in_heating_set_point ==
+                   other.f05_fan_high_speed_temp_in_heating_set_point &&
+               f06_fan_low_speed_temp_in_heating_set_point ==
+                   other.f06_fan_low_speed_temp_in_heating_set_point &&
+               f07_fan_stop_temp_in_heating_set_point ==
+                   other.f07_fan_stop_temp_in_heating_set_point &&
+               f08_fan_low_speed_running_time == other.f08_fan_low_speed_running_time &&
+               f09_fan_stop_low_speed_running_time == other.f09_fan_stop_low_speed_running_time &&
+               unknown == other.unknown;
     }
 
     bool operator!=(const struct conf_4& other) const { return !(*this == other); }

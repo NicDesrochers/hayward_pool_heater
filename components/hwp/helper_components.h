@@ -114,6 +114,85 @@ class r07_shutdown_diff_heating_number : public number::Number, public Parented<
     void control(float value) override;
 };
 
+class f02_fan_high_speed_cool_setpoint_number : public number::Number,
+                                                 public Parented<PoolHeater> {
+  public:
+    f02_fan_high_speed_cool_setpoint_number() = default;
+
+  protected:
+    void control(float value) override;
+};
+class f03_fan_low_speed_temp_in_cooling_set_point_number : public number::Number,
+                                                           public Parented<PoolHeater> {
+  public:
+    f03_fan_low_speed_temp_in_cooling_set_point_number() = default;
+
+  protected:
+    void control(float value) override;
+};
+class f04_fan_stop_temp_in_cooling_set_point_number : public number::Number,
+                                                      public Parented<PoolHeater> {
+  public:
+    f04_fan_stop_temp_in_cooling_set_point_number() = default;
+
+  protected:
+    void control(float value) override;
+};
+class f05_fan_high_speed_temp_in_heating_set_point_number : public number::Number,
+                                                            public Parented<PoolHeater> {
+  public:
+    f05_fan_high_speed_temp_in_heating_set_point_number() = default;
+
+  protected:
+    void control(float value) override;
+};
+class f06_fan_low_speed_temp_in_heating_set_point_number : public number::Number,
+                                                           public Parented<PoolHeater> {
+  public:
+    f06_fan_low_speed_temp_in_heating_set_point_number() = default;
+
+  protected:
+    void control(float value) override;
+};
+class f07_fan_stop_temp_in_heating_set_point_number : public number::Number,
+                                                      public Parented<PoolHeater> {
+  public:
+    f07_fan_stop_temp_in_heating_set_point_number() = default;
+
+  protected:
+    void control(float value) override;
+};
+class f08_fan_low_speed_running_time_number : public number::Number,
+                                              public Parented<PoolHeater> {
+  public:
+    f08_fan_low_speed_running_time_number() = default;
+
+  protected:
+    void control(float value) override;
+};
+class f09_fan_stop_low_speed_running_time_number : public number::Number,
+                                                   public Parented<PoolHeater> {
+  public:
+    f09_fan_stop_low_speed_running_time_number() = default;
+
+  protected:
+    void control(float value) override;
+};
+class f12_min_fan_voltage_pct_number : public number::Number, public Parented<PoolHeater> {
+  public:
+    f12_min_fan_voltage_pct_number() = default;
+
+  protected:
+    void control(float value) override;
+};
+class f13_max_fan_voltage_pct_number : public number::Number, public Parented<PoolHeater> {
+  public:
+    f13_max_fan_voltage_pct_number() = default;
+
+  protected:
+    void control(float value) override;
+};
+
 class u01_flow_meter_number : public number::Number, public Parented<PoolHeater> {
   public:
     u01_flow_meter_number() = default;
@@ -146,6 +225,22 @@ class u01_flow_meter_select : public select::Select, public Parented<PoolHeater>
 class h02_mode_restrictions_select : public select::Select, public Parented<PoolHeater> {
   public:
     h02_mode_restrictions_select() = default;
+
+  protected:
+    void control(const std::string& value) override;
+};
+
+class f10_fan_speed_control_temp_select : public select::Select, public Parented<PoolHeater> {
+  public:
+    f10_fan_speed_control_temp_select() = default;
+
+  protected:
+    void control(const std::string& value) override;
+};
+
+class f11_speed_control_module_select : public select::Select, public Parented<PoolHeater> {
+  public:
+    f11_speed_control_module_select() = default;
 
   protected:
     void control(const std::string& value) override;

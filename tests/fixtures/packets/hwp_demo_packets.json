@@ -1,0 +1,151 @@
+{
+  "schema_version": 1,
+  "source": "tmp/hwp/analysis/simulator/DemoFrames.h",
+  "provenance": "Curated simulator/demo packet corpus from copied tmp/hwp reference tree. These packets are test fixtures, not live hardware safety proof.",
+  "packets": [
+    {
+      "id": "base-temp-prog",
+      "source_id": "base_1",
+      "label": "TEMP_PROG",
+      "source": "heater",
+      "length": 12,
+      "frame_type": "0x81",
+      "bytes": ["0x81", "0xB1", "0x06", "0x72", "0x48", "0x72", "0x3D", "0x3D", "0x3D", "0x3D", "0x32", "0x8A"],
+      "checksum_valid": true,
+      "expected_checksum": "0x8A",
+      "notes": "Base temperature/program config frame."
+    },
+    {
+      "id": "base-temp-out-c",
+      "source_id": "base_2",
+      "label": "TEMP_OUT_C",
+      "source": "heater",
+      "length": 9,
+      "frame_type": "0xD2",
+      "bytes": ["0xD2", "0x1B", "0x06", "0x28", "0x07", "0x0D", "0xA0", "0x8C", "0x89"],
+      "checksum_valid": true,
+      "expected_checksum": "0x89",
+      "notes": "Short temp-out style base packet."
+    },
+    {
+      "id": "base-temp-out",
+      "source_id": "base_3",
+      "label": "TEMP_OUT",
+      "source": "heater",
+      "length": 12,
+      "frame_type": "0xD2",
+      "bytes": ["0xD2", "0xB1", "0x11", "0x5E", "0x52", "0x4D", "0x4E", "0x00", "0x64", "0x00", "0x00", "0x43"],
+      "checksum_valid": true,
+      "expected_checksum": "0x43",
+      "notes": "Base temp-out frame with inlet/coil/exhaust-style values in source notes."
+    },
+    {
+      "id": "base-temp-in-b",
+      "source_id": "base_4",
+      "label": "TEMP_IN_B",
+      "source": "heater",
+      "length": 12,
+      "frame_type": "0xD1",
+      "bytes": ["0xD1", "0xB1", "0x00", "0x00", "0x0F", "0x00", "0x00", "0x78", "0x5E", "0x52", "0x1B", "0xD4"],
+      "checksum_valid": true,
+      "expected_checksum": "0xD4",
+      "notes": "Base temp-in B frame."
+    },
+    {
+      "id": "base-temp-in",
+      "source_id": "base_5",
+      "label": "TEMP_IN",
+      "source": "heater",
+      "length": 12,
+      "frame_type": "0xD1",
+      "bytes": ["0xD1", "0xB1", "0x05", "0x00", "0x00", "0x00", "0x00", "0x78", "0x5E", "0x52", "0x1B", "0xCA"],
+      "checksum_valid": true,
+      "expected_checksum": "0xCA",
+      "notes": "Base temp-in frame."
+    },
+    {
+      "id": "base-set-limits",
+      "source_id": "base_6",
+      "label": "SET LIMITS",
+      "source": "heater",
+      "length": 12,
+      "frame_type": "0x83",
+      "bytes": ["0x83", "0xB1", "0x46", "0x23", "0x0A", "0x23", "0x23", "0x4C", "0x82", "0x46", "0x8C", "0x8D"],
+      "checksum_valid": true,
+      "expected_checksum": "0x8D",
+      "notes": "Base setpoint limits frame."
+    },
+    {
+      "id": "base-fan",
+      "source_id": "base_7",
+      "label": "FAN",
+      "source": "heater",
+      "length": 12,
+      "frame_type": "0x82",
+      "bytes": ["0x82", "0xB1", "0x16", "0x2E", "0x56", "0x50", "0x10", "0x1E", "0x03", "0x01", "0x64", "0xB3"],
+      "checksum_valid": true,
+      "expected_checksum": "0xB3",
+      "notes": "Base fan/defrost frame. Good starting point for F01 and F10-F13 review."
+    },
+    {
+      "id": "base-conf-a",
+      "source_id": "base_8",
+      "label": "CONF_A",
+      "source": "heater",
+      "length": 12,
+      "frame_type": "0x85",
+      "bytes": ["0x85", "0xB1", "0x00", "0x06", "0x1E", "0x16", "0x00", "0x08", "0x00", "0x00", "0xCD", "0x45"],
+      "checksum_valid": true,
+      "expected_checksum": "0x45",
+      "notes": "Base config A frame for flow meter, defrost eco, and pulses-per-liter review."
+    },
+    {
+      "id": "base-type-dd",
+      "source_id": "base_9",
+      "label": "TYPE_DD",
+      "source": "heater",
+      "length": 9,
+      "frame_type": "0xDD",
+      "bytes": ["0xDD", "0x0B", "0x0B", "0x08", "0x11", "0x09", "0x00", "0x00", "0x38"],
+      "checksum_valid": true,
+      "expected_checksum": "0x38",
+      "notes": "Base short type-DD packet."
+    },
+    {
+      "id": "base-type-86",
+      "source_id": "base_10",
+      "label": "TYPE_86",
+      "source": "heater",
+      "length": 12,
+      "frame_type": "0x86",
+      "bytes": ["0x86", "0xB1", "0x00", "0x00", "0x00", "0x00", "0x00", "0x00", "0x00", "0x00", "0x00", "0x37"],
+      "checksum_valid": true,
+      "expected_checksum": "0x37",
+      "notes": "Base type-86 packet."
+    },
+    {
+      "id": "base-type-84",
+      "source_id": "base_11",
+      "label": "TYPE_84",
+      "source": "heater",
+      "length": 12,
+      "frame_type": "0x84",
+      "bytes": ["0x84", "0xB1", "0x8C", "0x5A", "0x50", "0x50", "0x64", "0x78", "0x00", "0x00", "0x78", "0x0F"],
+      "checksum_valid": true,
+      "expected_checksum": "0x0F",
+      "notes": "Base type-84 packet. Tmp tree maps this toward fan parameter config fields."
+    },
+    {
+      "id": "demo-type-dd-invalid-change",
+      "source_id": "p_31",
+      "label": "TYPE_DD_CHANGED",
+      "source": "heater",
+      "length": 9,
+      "frame_type": "0xDD",
+      "bytes": ["0xDD", "0x1C", "0x1C", "0x19", "0x1B", "0x19", "0x00", "0x00", "0x84"],
+      "checksum_valid": false,
+      "expected_checksum": "0x85",
+      "notes": "Interesting invalid-looking short type-DD packet from demo corpus; source note describes it as a random change."
+    }
+  ]
+}

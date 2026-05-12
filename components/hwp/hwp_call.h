@@ -31,10 +31,7 @@
  * for any damage or loss caused by the use of this software.
  */
 #pragma once
-#include "esphome/components/climate/climate.h"
-#include "esphome/core/application.h"
-#include "esphome/core/component.h"
-#include "esphome/core/optional.h"
+#include "hwp_climate_adapter.h"
 namespace esphome {
 namespace hwp {
 class HWPCall : public climate::ClimateCall {
@@ -64,6 +61,18 @@ class HWPCall : public climate::ClimateCall {
     optional<FlowMeterEnable> u01_flow_meter;
     optional<HeatPumpRestrict> h02_mode_restrictions;
     optional<FanMode> f01_fan_mode;
+    optional<float> f02_fan_high_speed_cool_setpoint;
+    optional<float> f03_fan_low_speed_temp_in_cooling_set_point;
+    optional<float> f04_fan_stop_temp_in_cooling_set_point;
+    optional<float> f05_fan_high_speed_temp_in_heating_set_point;
+    optional<float> f06_fan_low_speed_temp_in_heating_set_point;
+    optional<float> f07_fan_stop_temp_in_heating_set_point;
+    optional<float> f08_fan_low_speed_running_time;
+    optional<float> f09_fan_stop_low_speed_running_time;
+    optional<FanSpeedControlTempMode> f10_fan_speed_control_temp;
+    optional<SpeedControlModule> f11_speed_control_module;
+    optional<float> f12_min_fan_voltage_pct;
+    optional<float> f13_max_fan_voltage_pct;
     text_sensor::TextSensor& status;
 };
 } // namespace hwp

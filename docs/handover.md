@@ -32,7 +32,8 @@ This repo is now developed inside the ESPHome devcontainer. Read:
 - The 312.5 kHz RMT resolution is intentional for classic ESP32: it is the lowest valid rate from an 80 MHz RMT source with the hardware divider capped at 256. A 100 kHz target trips the ESP32 HAL divider assertion at runtime.
 - Hardware testing found that disabling the HWP component brings the test device back online, narrowing the remaining reboot loop to HWP setup/runtime. `PoolHeater::setup()` now attaches the data model before starting the bus, `Bus::finalize_frame()` guards against a missing data model, and `start_bus_on_setup: false` can boot HWP entities without starting RX/TX for isolation.
 - Follow-up hardware isolation showed no crash with bus startup enabled when no signal is present, pointing at RX traffic handling. The RMT RX callback now copies raw RMT symbol batches into the ring buffer and leaves duration normalization/decoding to the RX task, keeping the interrupt path smaller.
-- First supervised active TX smoke test changed defrost eco mode and the heater echoed `CONFIG_5` with `d06 defrost: ECO`; RX remained alive afterward. TX cleanup avoids re-arming RX twice after a send, which previously produced `Failed to arm RMT RX: 259` while recovering.
+- Supervised hardware validation has advanced: passive RX is stable with bus startup enabled, defrost eco mode active TX changed `CONFIG_5` to `d06 defrost: ECO`, and a follow-up write changed it back to `d06 defrost: NORMAL`. RX remained alive afterward. TX cleanup avoids re-arming RX twice after a send, which previously produced `Failed to arm RMT RX: 259` while recovering.
+- The CONFIG_5 echo shows the heater can normalize adjacent bytes while accepting D06 defrost mode changes. Capture that observed write/echo behavior in a tracked fixture before using it as a general active-control pattern.
 - `climate.py` includes the built-in `esp_driver_rmt` IDF component during codegen; the default normal and pulse-debug compile fixtures now target `framework: type: esp-idf`.
 - Current ESPHome version verified in the devcontainer: `2026.4.5`.
 - Compile logs confirmed `framework-espidf @ 3.50504.0 (5.5.4)`. The normal and pulse-debug fixtures compile without the legacy RMT deprecation warning.
@@ -60,11 +61,10 @@ Choose the next slice from normal project priorities rather than tmp merge work.
 
 Good candidates:
 
-- OTA the hardware-test branch with default `start_bus_on_setup: true`; if the node still reboots, flash the same config with `start_bus_on_setup: false` to distinguish component/entity setup from bus/RMT startup
-- run supervised passive RX validation for the new ESP-IDF 5 RMT receive path
-- run supervised active TX validation for one byte-tested command path after passive RX is stable
+- capture the successful CONFIG_5 defrost eco/normal write/echo logs as a small tracked active-TX fixture, including the heater byte-normalization note
+- add a fixture-backed test for CONFIG_5 write/echo expectations so this hardware result becomes reusable regression evidence
+- run the next supervised active TX validation for one low-risk byte-tested setting, preferably another CONFIG_5 helper before fan voltage/timing fields
 - add the next low-level native seam for queue behavior
-- run supervised manual validation for any active-control setting whose bytes are already covered
 - extract capture conversion as repo-native tooling
 - document simulator feasibility using fixture replay versus Arduino/PlatformIO versus ESPHome/QEMU
 - probe QEMU or ESPHome `host:` only as feasibility work
@@ -75,7 +75,7 @@ QEMU and ESPHome `host:` remain later feasibility slices, not the default runner
 
 - Active heater control remains safety-sensitive and needs manual procedures before new real-device claims.
 - ESPHome compile success does not prove electrical safety or live heater behavior.
-- The ESP-IDF 5 RMT RX/TX path is compile/native verified only; real bus receive timing, half-duplex turnaround, and active transmission still need supervised hardware validation.
+- The ESP-IDF 5 RMT RX/TX path now has initial supervised hardware validation for passive RX and CONFIG_5 defrost active TX. Broader active-control settings still need one-at-a-time supervised validation.
 - Debian `qemu-system-xtensa` is available in the devcontainer, but `idf.py`, `IDF_PATH`, and an ESP32 QEMU machine are not present.
 - `tmp/hwp` is closed as an active merge source, but its recent logs are valid archival evidence to mine into small tracked fixtures. Future runtime changes still need focused tests and hardware-safety review.
 

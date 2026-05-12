@@ -39,6 +39,13 @@ Stop criteria:
 - Unknown, invalid, or repeated frames appear after a command.
 - Physical heater behavior is surprising or unsafe.
 
+## Observed Hardware Results
+
+- ESP-IDF 5 RMT passive RX is field-stable on the hardware-test branch after moving RMT callback work out of ISR context. The component boots with bus startup enabled, decodes live heater frames, and continues publishing climate state.
+- CONFIG_5 defrost eco mode has passed a supervised active TX smoke test in both directions. The heater echoed `d06 defrost: ECO` after the ECO command and later echoed `d06 defrost: NORMAL` after the NORMAL command.
+- TX/RX recovery remained stable after those writes. The duplicate RX re-arm warning `Failed to arm RMT RX: 259` was resolved by avoiding a second receive arm after transmit.
+- Hardware echo showed the heater may normalize adjacent CONFIG_5 bytes while accepting the defrost mode change. Treat byte preservation around D05/U02-adjacent fields as protocol evidence to capture before broadening active-control claims.
+
 ## Fan Control Notes
 
 F02-F13 fan controls have compile coverage and native byte-helper tests based on hardware-derived packet evidence. Start with read/echo validation and the least disruptive settings before touching fan voltage limits or timing behavior.

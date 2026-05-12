@@ -68,7 +68,7 @@ Status values:
 | TST-040 | Native test runner | Native C++ unit | Done | A devcontainer-local command runs pure C++ tests | `scripts/test-native.sh` uses direct `g++` and assert-based tests |
 | TST-041 | QEMU feasibility probe | Target/QEMU | Planned | QEMU prerequisites and a minimal proof path are documented | Devcontainer now declares Debian `qemu-system-xtensa`; `idf.py`, `IDF_PATH`, and an ESP32 QEMU machine remain unresolved |
 | TST-042 | ESPHome host feasibility | Host integration | Blocked | Host-platform blockers are documented or host compile fixture exists | Current component is ESP32/RMT-bound |
-| TST-043 | ESP-IDF 5 RMT compile coverage | ESPHome config/compile | Done | Normal and pulse-debug fixtures compile using ESP-IDF 5 RMT RX/TX APIs | Confirmed `framework-espidf @ 3.50504.0 (5.5.4)` in devcontainer compile logs; live hardware validation remains manual |
+| TST-043 | ESP-IDF 5 RMT compile coverage | ESPHome config/compile | Done | Normal and pulse-debug fixtures compile using ESP-IDF 5 RMT RX/TX APIs | Confirmed `framework-espidf @ 3.50504.0 (5.5.4)` in devcontainer compile logs; passive RX and CONFIG_5 defrost active TX have initial supervised hardware validation |
 
 ## Golden Packet And Hardware Validation
 
@@ -81,5 +81,6 @@ Status values:
 | TST-054 | Fixture-backed analysis CLI | Analysis tooling | Done | CLI validates fixtures, parses ESPHome HWP logs, and proves tracked packets appear in logs | `python -m analysis.hwp_analyze prove --input tmp/hwp/POOL_esphome_logs.log --fixture tests/fixtures/packets/hwp_hardware_log_2025_06_24.json` |
 | TST-055 | Annotation window fixtures | Analysis tooling / Golden packet | Done | Manual tagger windows parse as first-class evidence and prove against the source log | Covers curated F01/F02-F13 windows from `POOL_esphome_logs.log.2024-11-01` |
 | TST-056 | Packet read/write contracts | Analysis tooling / Native C++ unit | Done | Fan-control annotation fixtures prove read decode and passive write bytes | F01-F13 read helpers and command mutation helpers are pinned to hardware-log-derived examples |
+| TST-057 | Active TX echo fixtures | Analysis tooling / Golden packet | Planned | Successful live write/echo windows are captured as reusable fixture evidence | Start with CONFIG_5 defrost eco/normal and document heater normalization of adjacent bytes |
 | TST-060 | Manual passive test | Manual hardware-in-the-loop | Done | Procedure documents setup and expected observations | See `docs/testing/manual-hil.md`; not default CI |
-| TST-061 | Manual active-control smoke test | Manual hardware-in-the-loop | Done | Procedure includes safety gates and rollback steps | See `docs/testing/manual-hil.md`; not default CI |
+| TST-061 | Manual active-control smoke test | Manual hardware-in-the-loop | Done | Procedure includes safety gates and rollback steps | CONFIG_5 defrost eco/normal passed supervised TX/echo smoke testing; broader settings remain one-at-a-time validation |

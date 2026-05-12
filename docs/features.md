@@ -2,7 +2,7 @@
 
 ## Current Focus
 
-The tmp merge track is closed. The current hardware-test focus is isolating the HWP reboot loop after ESP-IDF 5 RMT migration: first verify default bus startup after setup ordering hardening, then use `start_bus_on_setup: false` if needed to separate entity/codegen setup from bus/RMT startup.
+The tmp merge track is closed. The current hardware-test focus has moved from reboot isolation to supervised field validation: ESP-IDF 5 RMT passive RX is stable on hardware, and CONFIG_5 defrost eco/normal active TX has passed an initial smoke test.
 
 ## Testing Track
 
@@ -51,7 +51,7 @@ The tmp merge track is closed. The current hardware-test focus is isolating the 
 | CPP-090 | Fan field schema/helper exposure | Done | Newly decoded fan fields can be exposed as optional helper entities with schema and compile coverage | F02-F09/F12/F13 number helpers and F10/F11 select helpers publish decoded values and feed command calls |
 | CPP-100 | Fan field command parity | Done | Known fan config changes have expected command-frame bytes documented in tests | Restores tmp fan control surface for F02-F13; native byte helpers assert F10/F11/F12/F13 and representative F02/F08 packet mutations |
 | CPP-110 | Final tmp closure | Done | Remaining tmp-only items are documented as merged, deferred, or rejected | `tmp/hwp` is archival reference only, not an active merge source |
-| CPP-120 | Hardware startup diagnostics | In Progress | HWP can boot with bus startup isolated, and startup ordering avoids null data-model access | `start_bus_on_setup` is a diagnostic config knob; hardware confirmation pending |
+| CPP-120 | Hardware startup diagnostics | Done | HWP boots with bus startup enabled, and startup ordering avoids null data-model access | `start_bus_on_setup` remains available as a diagnostic config knob |
 
 ## Protocol And Safety
 
@@ -59,11 +59,11 @@ The tmp merge track is closed. The current hardware-test focus is isolating the 
 |----|---------|--------|------------|-------|
 | PROTO-010 | Protocol notes organization | Planned | Protocol interpretation notes live under `docs/protocol/` | Keep `AGENTS.md` operational only |
 | PROTO-020 | Golden packet fixture format | Done | Packet fixture schema is documented and easy to review | JSON fixture plus stdlib validation tests |
-| PROTO-030 | Active command expectations | In Progress | Generated command bytes match known-safe expectations | Fan-control F01-F13 byte contracts are covered; broader active command expectations remain safety-sensitive |
+| PROTO-030 | Active command expectations | In Progress | Generated command bytes match known-safe expectations | Fan-control F01-F13 byte contracts are covered; CONFIG_5 defrost eco/normal has a successful live TX/echo smoke test; broader active command expectations remain safety-sensitive |
 | PROTO-040 | `tmp/hwp` salvage closure | Done | Useful copied-tree assets and merge guardrails are documented with final disposition | See `docs/tmp-hwp-salvage.md` |
 | SAFETY-010 | Passive hardware validation | Done | Manual procedure documents setup and expected observations | See `docs/testing/manual-hil.md`; not default CI |
 | SAFETY-020 | Active-control safety gates | Done | Procedure includes preconditions, rollback, and stop criteria | Compile success is not safety validation |
-| SAFETY-030 | ESP-IDF 5 RMT migration | Done | Component migrates from deprecated legacy RMT driver or blocker is documented | New RX/TX path uses ESP-IDF 5 RMT channels at 312.5 kHz and copy encoder; compile/native verified only, live bus validation still required |
+| SAFETY-030 | ESP-IDF 5 RMT migration | Done | Component migrates from deprecated legacy RMT driver or blocker is documented | New RX/TX path uses ESP-IDF 5 RMT channels at 312.5 kHz and copy encoder; passive RX is field-stable and CONFIG_5 defrost active TX has initial live validation |
 
 ## Governance
 

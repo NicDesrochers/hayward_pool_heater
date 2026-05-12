@@ -459,6 +459,12 @@ void Bus::process_send_queue() {
     }
 }
 void IRAM_ATTR Bus::finalize_frame(bool timeout) {
+    if (this->hp_data_ == nullptr) {
+        ESP_LOGE(TAG_BUS, "Cannot finalize frame before data model is attached");
+        this->current_frame.reset("Missing data model");
+        this->mode = BUSMODE_ERROR;
+        return;
+    }
     auto finalized_frame = this->current_frame.finalize(*this->hp_data_);
     if (finalized_frame) {
         ESP_LOGVV(TAG_BUS, "New Frame finalized %s", timeout ? "after timeout" : "");

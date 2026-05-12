@@ -90,6 +90,18 @@ class ClimateSchemaTest(unittest.TestCase):
         self.assertEqual(config["name"], "Pool Heater")
         self.assertEqual(config["update_interval"].total_seconds, 30)
         self.assertEqual(config["pin_txrx"]["number"], 22)
+        self.assertTrue(config["start_bus_on_setup"])
+
+    def test_start_bus_on_setup_can_be_disabled(self):
+        config = self.validate(
+            {
+                "id": "pool_heater",
+                "pin_txrx": "GPIO22",
+                "start_bus_on_setup": False,
+            }
+        )
+
+        self.assertFalse(config["start_bus_on_setup"])
 
     def test_missing_pin_txrx_fails(self):
         with self.assertRaisesRegex(cv.Invalid, "pin_txrx"):

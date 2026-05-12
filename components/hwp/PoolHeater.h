@@ -253,6 +253,9 @@ class PoolHeater : public climate::Climate, public PollingComponent {
      */
     void set_passive_mode(bool passive);
     void set_update_active(bool passive);
+    void set_start_bus_on_setup(bool start_bus_on_setup) {
+        this->start_bus_on_setup_ = start_bus_on_setup;
+    }
     bool get_passive_mode();
     bool is_update_active();
     heat_pump_data_t& data() { return hp_data_; }
@@ -266,6 +269,7 @@ class PoolHeater : public climate::Climate, public PollingComponent {
     std::string actual_status_;
     bool passive_mode_ = true;
     bool update_active_ = false;
+    bool start_bus_on_setup_ = true;
     text_sensor::TextSensor* actual_status_sensor_{nullptr};
     text_sensor::TextSensor* heater_status_code_sensor_{nullptr};
     text_sensor::TextSensor* heater_status_description_sensor_{nullptr};

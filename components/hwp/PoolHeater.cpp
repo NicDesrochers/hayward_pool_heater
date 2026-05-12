@@ -55,9 +55,13 @@ PoolHeater::PoolHeater(InternalGPIOPin* gpio_pin) {
 void PoolHeater::setup() {
     ESP_LOGI(POOL_HEATER_TAG, "Restoring state");
     restore_state_();
-    ESP_LOGI(POOL_HEATER_TAG, "Setting up driver");
-    this->driver_.setup();
     this->driver_.set_data_model(hp_data_);
+    ESP_LOGI(POOL_HEATER_TAG, "Setting up driver");
+    if (this->start_bus_on_setup_) {
+        this->driver_.setup();
+    } else {
+        ESP_LOGW(POOL_HEATER_TAG, "Bus startup disabled by configuration");
+    }
     this->current_temperature = NAN;
 
     // Using the build time means these will get reset each time the firmware is
@@ -268,6 +272,8 @@ void PoolHeater::dump_config() {
     }
     ESP_LOGCONFIG(POOL_HEATER_TAG, "      - passive_mode: %s", ONOFF(this->passive_mode_));
     ESP_LOGCONFIG(POOL_HEATER_TAG, "      - update_active: %s", ONOFF(this->update_active_));
+    ESP_LOGCONFIG(
+        POOL_HEATER_TAG, "      - start_bus_on_setup: %s", ONOFF(this->start_bus_on_setup_));
     dump_traits_(POOL_HEATER_TAG);
     this->driver_.dump_known_packets(POOL_HEATER_TAG);
 }

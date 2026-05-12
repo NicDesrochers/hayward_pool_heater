@@ -93,6 +93,7 @@ CONF_ACTIVE_MODE_SWITCH = "active_mode_switch"
 CONF_UPDATE_SENSORS_SWITCH = "update_sensors_switch"
 CONF_OPTIMIZED = "optimized"
 CONF_GENERATE_CODE_BUTTON = "generate_code"
+CONF_START_BUS_ON_SETUP = "start_bus_on_setup"
 
 CONF_GPIO_NETPIN = "pin_txrx"
 CONF_TEMPERATURE_SUCTION = "suction_temperature_T01"
@@ -243,6 +244,7 @@ BASE_SCHEMA = climate.climate_schema(PoolHeater).extend(
             entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
             icon="mdi:code-tags",
         ),
+        cv.Optional(CONF_START_BUS_ON_SETUP, default=True): cv.boolean,
         cv.Optional(CONF_UPDATE_INTERVAL, default="30s"): cv.All(
             cv.positive_time_period_milliseconds,
             cv.Range(min=core.TimePeriod(seconds=10), max=core.TimePeriod(seconds=1800)),
@@ -783,6 +785,7 @@ async def to_code(config):
     pin_component = await cg.gpio_pin_expression(config[CONF_GPIO_NETPIN])
     # max_buffer_count = config[CONF_MAX_BUFFER_COUNT]
     heater_component = cg.new_Pvariable(config[CONF_ID], pin_component)
+    cg.add(heater_component.set_start_bus_on_setup(config[CONF_START_BUS_ON_SETUP]))
 
     await cg.register_component(heater_component, config)
     await climate.register_climate(heater_component, config)

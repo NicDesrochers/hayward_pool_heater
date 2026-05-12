@@ -30,6 +30,7 @@ This repo is now developed inside the ESPHome devcontainer. Read:
 - Manual hardware-in-the-loop validation gates live in `docs/testing/manual-hil.md`; active fan writes are byte-tested and based on tmp/hardware-derived packet evidence, but each live setting still needs supervised field confirmation before claiming operational safety.
 - The bus implementation now uses ESP-IDF 5 RMT RX/TX channels on the same half-duplex GPIO. RX is initialized before TX, both channels use 312.5 kHz resolution, TX uses the copy encoder, and decoder-facing pulse durations are normalized to microseconds through `hwp_pulse_symbol_t`.
 - The 312.5 kHz RMT resolution is intentional for classic ESP32: it is the lowest valid rate from an 80 MHz RMT source with the hardware divider capped at 256. A 100 kHz target trips the ESP32 HAL divider assertion at runtime.
+- Hardware testing found that disabling the HWP component brings the test device back online, narrowing the remaining reboot loop to HWP setup/runtime. `PoolHeater::setup()` now attaches the data model before starting the bus, `Bus::finalize_frame()` guards against a missing data model, and `start_bus_on_setup: false` can boot HWP entities without starting RX/TX for isolation.
 - `climate.py` includes the built-in `esp_driver_rmt` IDF component during codegen; the default normal and pulse-debug compile fixtures now target `framework: type: esp-idf`.
 - Current ESPHome version verified in the devcontainer: `2026.4.5`.
 - Compile logs confirmed `framework-espidf @ 3.50504.0 (5.5.4)`. The normal and pulse-debug fixtures compile without the legacy RMT deprecation warning.
@@ -57,6 +58,7 @@ Choose the next slice from normal project priorities rather than tmp merge work.
 
 Good candidates:
 
+- OTA the hardware-test branch with default `start_bus_on_setup: true`; if the node still reboots, flash the same config with `start_bus_on_setup: false` to distinguish component/entity setup from bus/RMT startup
 - run supervised passive RX validation for the new ESP-IDF 5 RMT receive path
 - run supervised active TX validation for one byte-tested command path after passive RX is stable
 - add the next low-level native seam for queue behavior

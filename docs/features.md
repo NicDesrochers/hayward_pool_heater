@@ -2,7 +2,7 @@
 
 ## Current Focus
 
-The tmp merge track is closed. The next recommended slice should come from normal feature priorities: supervised hardware validation for the new RMT path, frame parse coverage, manual active-control validation, capture tooling, simulator feasibility, or QEMU/host feasibility.
+The tmp merge track is closed. The current hardware-test focus is isolating the HWP reboot loop after ESP-IDF 5 RMT migration: first verify default bus startup after setup ordering hardening, then use `start_bus_on_setup: false` if needed to separate entity/codegen setup from bus/RMT startup.
 
 ## Testing Track
 
@@ -51,6 +51,7 @@ The tmp merge track is closed. The next recommended slice should come from norma
 | CPP-090 | Fan field schema/helper exposure | Done | Newly decoded fan fields can be exposed as optional helper entities with schema and compile coverage | F02-F09/F12/F13 number helpers and F10/F11 select helpers publish decoded values and feed command calls |
 | CPP-100 | Fan field command parity | Done | Known fan config changes have expected command-frame bytes documented in tests | Restores tmp fan control surface for F02-F13; native byte helpers assert F10/F11/F12/F13 and representative F02/F08 packet mutations |
 | CPP-110 | Final tmp closure | Done | Remaining tmp-only items are documented as merged, deferred, or rejected | `tmp/hwp` is archival reference only, not an active merge source |
+| CPP-120 | Hardware startup diagnostics | In Progress | HWP can boot with bus startup isolated, and startup ordering avoids null data-model access | `start_bus_on_setup` is a diagnostic config knob; hardware confirmation pending |
 
 ## Protocol And Safety
 

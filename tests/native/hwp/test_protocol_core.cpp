@@ -276,12 +276,22 @@ void test_fan_fixture_read_helpers() {
     assert(protocol::read_conf5_f11_speed_control_module(f11.data(), f11.size()).value() ==
            protocol::SPEED_CONTROL_MODULE_DISABLED);
 
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> d06_eco = {
+        0x85, 0xB1, 0x40, 0x06, 0x4A, 0x16, 0x00, 0x08, 0x00, 0x00, 0xCD, 0xB1};
+    assert(protocol::read_conf5_d06_defrost_eco_mode(d06_eco.data(), d06_eco.size()).value() ==
+           protocol::DEFROST_ECO);
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> d06_normal = {
+        0x85, 0xB1, 0x00, 0x06, 0x1E, 0x16, 0x00, 0x08, 0x00, 0x00, 0xCD, 0x45};
+    assert(protocol::read_conf5_d06_defrost_eco_mode(
+               d06_normal.data(), d06_normal.size()).value() == protocol::DEFROST_NORMAL);
+
     const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> f12 = {
         0x81, 0xB1, 0x1A, 0x72, 0x48, 0x72, 0x3D, 0x3D, 0x3D, 0x3D, 0x37, 0xA3};
     assert_float_eq(protocol::read_conf1_f12_min_fan_voltage_pct(f12.data(), f12.size()).value(),
                     55.0f);
 
     assert(!protocol::read_conf1_f12_min_fan_voltage_pct(f11.data(), f11.size()).has_value());
+    assert(!protocol::read_conf5_d06_defrost_eco_mode(f12.data(), f12.size()).has_value());
     assert(!protocol::read_conf4_fan_parameter(f02.data(), protocol::FRAME_DATA_LENGTH_SHORT, 2)
                 .has_value());
     assert(!protocol::read_conf4_fan_parameter(f02.data(), f02.size(), 10).has_value());
@@ -318,11 +328,17 @@ void test_fan_command_byte_helpers() {
         conf5.data(), conf5.size(), protocol::SPEED_CONTROL_MODULE_DISABLED));
     assert(conf5[2] == 0x08);
     assert(protocol::is_packet_checksum_valid(conf5.data(), conf5.size()));
+    assert(protocol::set_conf5_d06_defrost_eco_mode(
+        conf5.data(), conf5.size(), protocol::DEFROST_ECO));
+    assert(conf5[2] == 0x48);
+    assert(protocol::is_packet_checksum_valid(conf5.data(), conf5.size()));
 
     std::array<uint8_t, protocol::FRAME_DATA_LENGTH_SHORT> short_frame = {
         0x81, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x1C};
     assert(!protocol::set_conf2_f13_max_fan_voltage_pct(
         short_frame.data(), short_frame.size(), 90.0f));
+    assert(!protocol::set_conf5_d06_defrost_eco_mode(
+        short_frame.data(), short_frame.size(), protocol::DEFROST_NORMAL));
     assert(!protocol::set_conf4_fan_parameter(conf4.data(), conf4.size(), 10, 1.0f));
 }
 
@@ -388,6 +404,33 @@ void test_fan_fixture_write_contracts() {
     assert(protocol::is_packet_checksum_valid(conf5.data(), conf5.size()));
 }
 
+void test_config5_defrost_active_tx_contracts() {
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> normal_echo = {
+        0x85, 0xB1, 0x00, 0x06, 0x1E, 0x16, 0x00, 0x08, 0x00, 0x00, 0xCD, 0x45};
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> eco_command = {
+        0x85, 0xB1, 0x40, 0x06, 0x1E, 0x16, 0x00, 0x08, 0x00, 0x00, 0xCD, 0x85};
+    auto conf5 = normal_echo;
+    assert(protocol::set_conf5_d06_defrost_eco_mode(
+        conf5.data(), conf5.size(), protocol::DEFROST_ECO));
+    assert_packet_eq(conf5, eco_command);
+
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> eco_echo = {
+        0x85, 0xB1, 0x40, 0x06, 0x4A, 0x16, 0x00, 0x08, 0x00, 0x00, 0xCD, 0xB1};
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> normal_command = {
+        0x85, 0xB1, 0x00, 0x06, 0x4A, 0x16, 0x00, 0x08, 0x00, 0x00, 0xCD, 0x71};
+    conf5 = eco_echo;
+    assert(protocol::set_conf5_d06_defrost_eco_mode(
+        conf5.data(), conf5.size(), protocol::DEFROST_NORMAL));
+    assert_packet_eq(conf5, normal_command);
+
+    assert(protocol::read_conf5_d06_defrost_eco_mode(
+               eco_echo.data(), eco_echo.size()).value() == protocol::DEFROST_ECO);
+    assert(protocol::read_conf5_d06_defrost_eco_mode(
+               normal_echo.data(), normal_echo.size()).value() == protocol::DEFROST_NORMAL);
+    assert(protocol::is_packet_checksum_valid(eco_command.data(), eco_command.size()));
+    assert(protocol::is_packet_checksum_valid(normal_command.data(), normal_command.size()));
+}
+
 int main() {
     test_invert_bytes();
     test_short_checksum();
@@ -404,4 +447,5 @@ int main() {
     test_fan_fixture_read_helpers();
     test_fan_command_byte_helpers();
     test_fan_fixture_write_contracts();
+    test_config5_defrost_active_tx_contracts();
 }

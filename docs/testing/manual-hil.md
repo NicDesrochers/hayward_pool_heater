@@ -46,6 +46,10 @@ Stop criteria:
 - TX/RX recovery remained stable after those writes. The duplicate RX re-arm warning `Failed to arm RMT RX: 259` was resolved by avoiding a second receive arm after transmit.
 - Hardware echo showed the heater may normalize adjacent CONFIG_5 bytes while accepting the defrost mode change. Treat byte preservation around D05/U02-adjacent fields as protocol evidence to capture before broadening active-control claims.
 
+## Next CONFIG_5 Target
+
+The next low-risk active TX candidate is `u02_pulses_per_liter`, provided `u01_flow_meter` is still disabled in the current heater config. Test it one step away from the current value and then restore the original value in the same supervised session. Capture both command and heater echo packets, including any adjacent-byte normalization, before adding another active-TX fixture.
+
 ## Fan Control Notes
 
 F02-F13 fan controls have compile coverage and native byte-helper tests based on hardware-derived packet evidence. Start with read/echo validation and the least disruptive settings before touching fan voltage limits or timing behavior.

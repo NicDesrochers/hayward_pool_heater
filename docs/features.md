@@ -2,7 +2,7 @@
 
 ## Current Focus
 
-The tmp merge track is closed. The current hardware-test focus has moved from reboot isolation to supervised field validation: ESP-IDF 5 RMT passive RX is stable on hardware, and CONFIG_5 defrost eco/normal active TX has passed an initial smoke test.
+The tmp merge track is closed. The current hardware-test focus has moved from reboot isolation to supervised field validation: ESP-IDF 5 RMT passive RX is stable on hardware, and CONFIG_5 defrost eco/normal active TX is now captured as reusable fixture evidence.
 
 ## Testing Track
 
@@ -21,6 +21,7 @@ The tmp merge track is closed. The current hardware-test focus has moved from re
 | TEST-069 | Runtime frame contracts | Done | Runtime frame structs match and parse the packet contracts | Adapter-backed native tests cover `FrameConf1/2/4/5` matching and F01-F13 parsing |
 | TEST-071 | Passive runtime frame contracts | Done | Passive condition/status/clock/config frames match tracked fixtures and parsed fields agree with pure protocol helpers | Adapter-backed native tests cover `FrameConditions1/1B/2/2B/D`, `FrameClock`, `FrameConf3`, and `FrameConf6` |
 | TEST-072 | ESP-IDF 5 RMT compile coverage | Done | Normal and pulse-debug ESPHome fixtures compile against the new RMT RX/TX driver path | Devcontainer compile confirmed `framework-espidf @ 3.50504.0 (5.5.4)` and no legacy RMT deprecation warning |
+| TEST-073 | Active TX echo fixtures | Done | Successful active write/echo windows are tracked and validated as regression evidence | CONFIG_5 D06 defrost eco/normal commands and heater echoes validate checksums, source direction, requested bit value, and observed byte-4 normalization |
 | TEST-070 | QEMU target test feasibility | Planned | Document install needs and prove one minimal ESP-IDF/ESP32 QEMU test app can run | Devcontainer has Debian `qemu-system-xtensa`, but not ESP-IDF or an ESP32 QEMU machine yet |
 | TEST-080 | ESPHome host-platform feasibility | Blocked | Host compile/run path exists or blocker is documented | Current component is ESP32/RMT-bound |
 | TEST-090 | Manual hardware-in-the-loop procedures | Done | Passive and active-control validation procedures are documented | See `docs/testing/manual-hil.md`; not default CI |
@@ -59,7 +60,7 @@ The tmp merge track is closed. The current hardware-test focus has moved from re
 |----|---------|--------|------------|-------|
 | PROTO-010 | Protocol notes organization | Planned | Protocol interpretation notes live under `docs/protocol/` | Keep `AGENTS.md` operational only |
 | PROTO-020 | Golden packet fixture format | Done | Packet fixture schema is documented and easy to review | JSON fixture plus stdlib validation tests |
-| PROTO-030 | Active command expectations | In Progress | Generated command bytes match known-safe expectations | Fan-control F01-F13 byte contracts are covered; CONFIG_5 defrost eco/normal has a successful live TX/echo smoke test; broader active command expectations remain safety-sensitive |
+| PROTO-030 | Active command expectations | In Progress | Generated command bytes match known-safe expectations | Fan-control F01-F13 byte contracts are covered; CONFIG_5 defrost eco/normal has fixture-backed live TX/echo evidence; broader active command expectations remain safety-sensitive |
 | PROTO-040 | `tmp/hwp` salvage closure | Done | Useful copied-tree assets and merge guardrails are documented with final disposition | See `docs/tmp-hwp-salvage.md` |
 | SAFETY-010 | Passive hardware validation | Done | Manual procedure documents setup and expected observations | See `docs/testing/manual-hil.md`; not default CI |
 | SAFETY-020 | Active-control safety gates | Done | Procedure includes preconditions, rollback, and stop criteria | Compile success is not safety validation |

@@ -14,7 +14,7 @@ This repo is now developed inside the ESPHome devcontainer. Read:
 - ESPHome external component lives in `components/hwp/`.
 - Devcontainer builds from `ghcr.io/esphome/esphome:latest`, adds declared native/QEMU-adjacent tools, and keeps generated firmware output outside the repo through `/build`.
 - ESPHome compile fixtures, Python schema tests, packet fixture validation, native protocol tests, runners, and CI are in place.
-- Headless analysis tooling is packaged under `analysis/`. Use `python -m analysis.hwp_analyze fixtures`, `log`, and `prove` to validate fixtures, summarize hardware logs, and prove fixture packets appear in traces.
+- Headless analysis tooling is packaged under `analysis/`. Use `python -m analysis.hwp_analyze fixtures`, `log`, `prove`, `active-tx`, and `prove-active-tx` to validate fixtures, summarize hardware logs, and prove fixture packets appear in traces.
 - Manual annotation windows are parsed by the same CLI. Use `python -m analysis.hwp_analyze annotations --input tmp/hwp/POOL_esphome_logs.log.2024-11-01` and `prove-annotations` for curated tagger windows.
 - The first native C++ seam lives in `components/hwp/protocol_core.*` and covers dependency-light packet helpers plus fan mode, defrost, flow-meter, and heat-pump restriction conversions.
 - Component-local adapter headers keep climate/logger/time/RMT coupling out of core frame tests where practical. `HWP_NATIVE_TEST` uses those adapters to compile runtime frame contracts without full ESPHome or hardware RMT dependencies.
@@ -33,7 +33,7 @@ This repo is now developed inside the ESPHome devcontainer. Read:
 - Hardware testing found that disabling the HWP component brings the test device back online, narrowing the remaining reboot loop to HWP setup/runtime. `PoolHeater::setup()` now attaches the data model before starting the bus, `Bus::finalize_frame()` guards against a missing data model, and `start_bus_on_setup: false` can boot HWP entities without starting RX/TX for isolation.
 - Follow-up hardware isolation showed no crash with bus startup enabled when no signal is present, pointing at RX traffic handling. The RMT RX callback now copies raw RMT symbol batches into the ring buffer and leaves duration normalization/decoding to the RX task, keeping the interrupt path smaller.
 - Supervised hardware validation has advanced: passive RX is stable with bus startup enabled, defrost eco mode active TX changed `CONFIG_5` to `d06 defrost: ECO`, and a follow-up write changed it back to `d06 defrost: NORMAL`. RX remained alive afterward. TX cleanup avoids re-arming RX twice after a send, which previously produced `Failed to arm RMT RX: 259` while recovering.
-- The CONFIG_5 echo shows the heater can normalize adjacent bytes while accepting D06 defrost mode changes. Capture that observed write/echo behavior in a tracked fixture before using it as a general active-control pattern.
+- The CONFIG_5 write/echo evidence is tracked as `tests/fixtures/active_tx/hwp_active_tx_config5_defrost_2026_05_12.json`. It records the accepted ECO/NORMAL commands, heater echoes, valid checksums, D06 byte-2 bit-6 transitions, and observed heater normalization of byte 4.
 - `climate.py` includes the built-in `esp_driver_rmt` IDF component during codegen; the default normal and pulse-debug compile fixtures now target `framework: type: esp-idf`.
 - Current ESPHome version verified in the devcontainer: `2026.4.5`.
 - Compile logs confirmed `framework-espidf @ 3.50504.0 (5.5.4)`. The normal and pulse-debug fixtures compile without the legacy RMT deprecation warning.
@@ -46,6 +46,7 @@ Inside the devcontainer:
 ./scripts/test-native.sh
 python -m unittest discover -s tests -p 'test_*.py'
 python -m analysis.hwp_analyze fixtures
+python -m analysis.hwp_analyze active-tx --fixture tests/fixtures/active_tx/hwp_active_tx_config5_defrost_2026_05_12.json
 python -m analysis.hwp_analyze prove --input tmp/hwp/POOL_esphome_logs.log --fixture tests/fixtures/packets/hwp_hardware_log_2025_06_24.json
 python -m analysis.hwp_analyze prove-annotations --input tmp/hwp/POOL_esphome_logs.log.2024-11-01 --fixture tests/fixtures/annotations/hwp_annotated_fan_control_2024_11_01.json
 ./scripts/test-esphome.sh --local
@@ -61,9 +62,7 @@ Choose the next slice from normal project priorities rather than tmp merge work.
 
 Good candidates:
 
-- capture the successful CONFIG_5 defrost eco/normal write/echo logs as a small tracked active-TX fixture, including the heater byte-normalization note
-- add a fixture-backed test for CONFIG_5 write/echo expectations so this hardware result becomes reusable regression evidence
-- run the next supervised active TX validation for one low-risk byte-tested setting, preferably another CONFIG_5 helper before fan voltage/timing fields
+- run the next supervised active TX validation for `u02_pulses_per_liter` if `u01_flow_meter` remains disabled; capture command and echo packets before adding the next active-TX fixture
 - add the next low-level native seam for queue behavior
 - extract capture conversion as repo-native tooling
 - document simulator feasibility using fixture replay versus Arduino/PlatformIO versus ESPHome/QEMU

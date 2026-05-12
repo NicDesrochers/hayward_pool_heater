@@ -433,6 +433,13 @@ std::optional<uint8_t> read_conf5_f11_speed_control_module(
     return static_cast<uint8_t>((data[2] >> 3) & 0x01);
 }
 
+std::optional<uint8_t> read_conf5_d06_defrost_eco_mode(const uint8_t* data, size_t length) {
+    if (!has_const_long_frame_type(data, length, 0x85)) {
+        return std::nullopt;
+    }
+    return ((data[2] >> 6) & 0x01) != 0 ? DEFROST_ECO : DEFROST_NORMAL;
+}
+
 std::optional<float> read_conf1_f12_min_fan_voltage_pct(const uint8_t* data, size_t length) {
     if (!has_const_long_frame_type(data, length, 0x81)) {
         return std::nullopt;
@@ -538,6 +545,16 @@ bool set_conf5_f11_speed_control_module(uint8_t* data, size_t length, uint8_t va
         return false;
     }
     data[2] = static_cast<uint8_t>((data[2] & ~0x08) | ((value & 0x01) << 3));
+    update_long_checksum(data);
+    return true;
+}
+
+bool set_conf5_d06_defrost_eco_mode(uint8_t* data, size_t length, uint8_t value) {
+    if (!has_long_frame_type(data, length, 0x85)) {
+        return false;
+    }
+    uint8_t bit_value = value == DEFROST_ECO ? 1 : 0;
+    data[2] = static_cast<uint8_t>((data[2] & ~0x40) | (bit_value << 6));
     update_long_checksum(data);
     return true;
 }

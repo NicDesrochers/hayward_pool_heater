@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "source": "Chat-pasted ESPHome hardware logs from 2026-05-12 supervised CONFIG_5 defrost eco/normal TX smoke test",
+  "provenance": "Curated active TX command and heater echo packet pairs from live hardware testing. The snippets were pasted into the project chat and capture successful D06 defrost eco/normal changes after the ESP-IDF 5 RMT migration.",
+  "transactions": [
+    {
+      "id": "config5-defrost-eco",
+      "label": "CONFIG_5 defrost ECO",
+      "notes": "Controller command set D06 defrost eco mode to ECO; heater echoed D06 as ECO while normalizing CONFIG_5 byte 4 from 0x1E to 0x4A.",
+      "field": "d06_defrost_eco_mode",
+      "requested_value": "Eco",
+      "target": {
+        "frame_type": "0x85",
+        "raw_byte_index": 2,
+        "raw_bit_index": 6,
+        "raw_bit_value": 1
+      },
+      "command": {
+        "label": "CONFIG_5",
+        "source": "controller",
+        "length": 12,
+        "frame_type": "0x85",
+        "bytes": ["0x85", "0xB1", "0x40", "0x06", "0x1E", "0x16", "0x00", "0x08", "0x00", "0x00", "0xCD", "0x85"],
+        "checksum_valid": true,
+        "expected_checksum": "0x85"
+      },
+      "echo": {
+        "label": "CONFIG_5",
+        "source": "heater",
+        "length": 12,
+        "frame_type": "0x85",
+        "bytes": ["0x85", "0xB1", "0x40", "0x06", "0x4A", "0x16", "0x00", "0x08", "0x00", "0x00", "0xCD", "0xB1"],
+        "checksum_valid": true,
+        "expected_checksum": "0xB1"
+      },
+      "allowed_echo_normalizations": [
+        {
+          "byte_index": 4,
+          "command_value": "0x1E",
+          "echo_value": "0x4A",
+          "notes": "Observed heater normalization of adjacent CONFIG_5 byte while accepting D06 ECO."
+        }
+      ]
+    },
+    {
+      "id": "config5-defrost-normal",
+      "label": "CONFIG_5 defrost NORMAL",
+      "notes": "Controller command set D06 defrost eco mode back to NORMAL; heater echoed D06 as NORMAL while normalizing CONFIG_5 byte 4 from 0x4A to 0x1E.",
+      "field": "d06_defrost_eco_mode",
+      "requested_value": "Normal",
+      "target": {
+        "frame_type": "0x85",
+        "raw_byte_index": 2,
+        "raw_bit_index": 6,
+        "raw_bit_value": 0
+      },
+      "command": {
+        "label": "CONFIG_5",
+        "source": "controller",
+        "length": 12,
+        "frame_type": "0x85",
+        "bytes": ["0x85", "0xB1", "0x00", "0x06", "0x4A", "0x16", "0x00", "0x08", "0x00", "0x00", "0xCD", "0x71"],
+        "checksum_valid": true,
+        "expected_checksum": "0x71"
+      },
+      "echo": {
+        "label": "CONFIG_5",
+        "source": "heater",
+        "length": 12,
+        "frame_type": "0x85",
+        "bytes": ["0x85", "0xB1", "0x00", "0x06", "0x1E", "0x16", "0x00", "0x08", "0x00", "0x00", "0xCD", "0x45"],
+        "checksum_valid": true,
+        "expected_checksum": "0x45"
+      },
+      "allowed_echo_normalizations": [
+        {
+          "byte_index": 4,
+          "command_value": "0x4A",
+          "echo_value": "0x1E",
+          "notes": "Observed heater normalization of adjacent CONFIG_5 byte while accepting D06 NORMAL."
+        }
+      ]
+    }
+  ]
+}

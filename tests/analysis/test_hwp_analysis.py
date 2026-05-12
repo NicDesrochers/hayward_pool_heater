@@ -31,6 +31,11 @@ import unittest
 from pathlib import Path
 
 from analysis import hwp_analyze
+from analysis.hwp_active_tx_fixtures import (
+    allowed_normalization_differences,
+    command_echo_differences,
+    load_active_tx_fixture_file,
+)
 from analysis.hwp_annotation_fixtures import load_annotation_fixture_file
 from analysis.hwp_fixtures import (
     fixture_index_by_bytes,
@@ -61,6 +66,16 @@ CONTROLLER_LINE = (
     "2025-06-24 10:15:29,010 - [2025-06-24 10:15:29][V][hwp.pk:413]"
     "[RX]: Same  [CF][B1 00 00 15 03 05 11 06 00 00][B4] CLOCK     "
     "(CONT) (55.0s)"
+)
+TX_COMMAND_LINE = (
+    "2026-05-12 16:20:53,257 - [16:20:53.257][I][hwp:454][TX]: "
+    "SEND  [85][B1 00 06 4A 16 00 08 00 00 CD][71] CONFIG_5  "
+    "(HEAT) defrost normal command"
+)
+TX_QUEUE_LINE = (
+    "2026-05-12 16:20:51,933 - [16:20:51.933][V][hwp:114]: "
+    "TXQ   [85][B1 40 06 1E 16 00 08 00 00 CD][85] CONFIG_5  "
+    "(HEAT) defrost eco command"
 )
 ANNOTATED_WINDOW_LINES = [
     "2024-11-01 11:46:33,685 - F02 - 41.5 -- BEGIN\n",
@@ -106,6 +121,25 @@ class TestHwpAnalysis(unittest.TestCase):
         self.assertEqual(packet.source, "controller")
         self.assertEqual(packet.source_marker, "CONT")
         self.assertEqual(packet.frame_type, "0xCF")
+
+    def test_parse_tx_command_line(self):
+        packet = parse_log_line(TX_COMMAND_LINE)
+        self.assertIsNotNone(packet)
+        self.assertEqual(packet.kind, "SEND")
+        self.assertEqual(packet.source, "controller")
+        self.assertEqual(packet.source_marker, "TX")
+        self.assertEqual(packet.label, "CONFIG_5")
+        self.assertEqual(packet.frame_type, "0x85")
+        self.assertTrue(packet.checksum_valid)
+
+    def test_parse_tx_queue_line_without_direction_marker(self):
+        packet = parse_log_line(TX_QUEUE_LINE)
+        self.assertIsNotNone(packet)
+        self.assertEqual(packet.kind, "TXQ")
+        self.assertEqual(packet.source, "controller")
+        self.assertEqual(packet.label, "CONFIG_5")
+        self.assertEqual(packet.frame_type, "0x85")
+        self.assertTrue(packet.checksum_valid)
 
     def test_fixture_index_matches_parsed_bytes(self):
         fixtures = load_fixture_files()
@@ -181,6 +215,37 @@ class TestHwpAnalysis(unittest.TestCase):
                 self.assertEqual(read.raw_byte_index, index)
                 self.assertEqual(read.raw_byte_value, raw)
 
+    def test_active_tx_fixture_loads_config5_defrost_transactions(self):
+        fixture = load_active_tx_fixture_file(
+            "tests/fixtures/active_tx/hwp_active_tx_config5_defrost_2026_05_12.json"
+        )
+        transactions = {transaction.id: transaction for transaction in fixture.transactions}
+
+        self.assertEqual(set(transactions), {"config5-defrost-eco", "config5-defrost-normal"})
+        self.assertEqual(transactions["config5-defrost-eco"].requested_value, "Eco")
+        self.assertEqual(transactions["config5-defrost-normal"].requested_value, "Normal")
+        for transaction in fixture.transactions:
+            with self.subTest(transaction=transaction.id):
+                self.assertEqual(transaction.command.source, "controller")
+                self.assertEqual(transaction.echo.source, "heater")
+                self.assertTrue(transaction.command.checksum_valid)
+                self.assertTrue(transaction.echo.checksum_valid)
+                self.assertEqual(transaction.target.frame_type, "0x85")
+                self.assertEqual(transaction.target.raw_byte_index, 2)
+                self.assertEqual(transaction.target.raw_bit_index, 6)
+
+    def test_active_tx_fixture_allows_only_declared_echo_normalization(self):
+        fixture = load_active_tx_fixture_file(
+            "tests/fixtures/active_tx/hwp_active_tx_config5_defrost_2026_05_12.json"
+        )
+        for transaction in fixture.transactions:
+            with self.subTest(transaction=transaction.id):
+                self.assertEqual(
+                    command_echo_differences(transaction),
+                    allowed_normalization_differences(transaction),
+                )
+                self.assertEqual(set(command_echo_differences(transaction)), {4})
+
     def test_prove_command_with_synthetic_log(self):
         fixture_path = Path("tests/fixtures/packets/hwp_hardware_log_2025_06_24.json")
         fixture = load_fixture_file(fixture_path)
@@ -236,6 +301,47 @@ class TestHwpAnalysis(unittest.TestCase):
                 result = hwp_analyze.main(
                     [
                         "prove-annotations",
+                        "--input",
+                        str(log_path),
+                        "--fixture",
+                        str(fixture_path),
+                    ]
+                )
+            self.assertEqual(result, 0)
+            self.assertIn("Proved", output.getvalue())
+        finally:
+            log_path.unlink(missing_ok=True)
+
+    def test_prove_active_tx_command_with_synthetic_log(self):
+        fixture_path = Path(
+            "tests/fixtures/active_tx/hwp_active_tx_config5_defrost_2026_05_12.json"
+        )
+        fixture = load_active_tx_fixture_file(fixture_path)
+
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False) as log_file:
+            log_path = Path(log_file.name)
+            for transaction in fixture.transactions:
+                command = transaction.command
+                echo = transaction.echo
+                command_body = " ".join(f"{byte:02X}" for byte in command.bytes[1:-1])
+                echo_body = " ".join(f"{byte:02X}" for byte in echo.bytes[1:-1])
+                log_file.write(
+                    "2026-05-12 00:00:00,000 - "
+                    f"[TX]: SEND  [{command.bytes[0]:02X}][{command_body}]"
+                    f"[{command.bytes[-1]:02X}] {command.label} (HEAT)\n"
+                )
+                log_file.write(
+                    "2026-05-12 00:00:01,000 - "
+                    f"[RX]: Chg   [{echo.bytes[0]:02X}][{echo_body}]"
+                    f"[{echo.bytes[-1]:02X}] {echo.label} (HEAT)\n"
+                )
+
+        try:
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                result = hwp_analyze.main(
+                    [
+                        "prove-active-tx",
                         "--input",
                         str(log_path),
                         "--fixture",

@@ -35,6 +35,11 @@ from .hwp_annotation_fixtures import (
     DEFAULT_ANNOTATION_FIXTURE_DIR,
     load_annotation_fixture_file,
 )
+from .hwp_active_tx_fixtures import (
+    DEFAULT_ACTIVE_TX_FIXTURE,
+    command_echo_differences,
+    load_active_tx_fixture_file,
+)
 from .hwp_fixtures import (
     DEFAULT_FIXTURE_DIR,
     FixtureValidationError,
@@ -97,6 +102,27 @@ def main(argv: list[str] | None = None) -> int:
         help="Annotation fixture JSON path.",
     )
 
+    active_tx_parser = subparsers.add_parser(
+        "active-tx",
+        help="Validate active TX command/echo fixtures and print a summary.",
+    )
+    active_tx_parser.add_argument(
+        "--fixture",
+        default=str(DEFAULT_ACTIVE_TX_FIXTURE),
+        help="Active TX fixture JSON path.",
+    )
+
+    prove_active_tx_parser = subparsers.add_parser(
+        "prove-active-tx",
+        help="Verify active TX command/echo packets appear in a log.",
+    )
+    prove_active_tx_parser.add_argument("--input", required=True, help="ESPHome log path.")
+    prove_active_tx_parser.add_argument(
+        "--fixture",
+        default=str(DEFAULT_ACTIVE_TX_FIXTURE),
+        help="Active TX fixture JSON path.",
+    )
+
     args = parser.parse_args(argv)
     try:
         if args.command == "fixtures":
@@ -109,6 +135,10 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_annotations(Path(args.input))
         if args.command == "prove-annotations":
             return _cmd_prove_annotations(Path(args.input), Path(args.fixture))
+        if args.command == "active-tx":
+            return _cmd_active_tx(Path(args.fixture))
+        if args.command == "prove-active-tx":
+            return _cmd_prove_active_tx(Path(args.input), Path(args.fixture))
     except (FixtureValidationError, OSError) as err:
         print(f"error: {err}", file=sys.stderr)
         return 2
@@ -226,6 +256,50 @@ def _cmd_prove_annotations(input_path: Path, fixture_path: Path) -> int:
 
     print(
         f"Proved {len(fixture.annotations)} annotation fixtures from "
+        f"{fixture.name} in {input_path}."
+    )
+    return 0
+
+
+def _cmd_active_tx(fixture_path: Path) -> int:
+    fixture = load_active_tx_fixture_file(fixture_path)
+    print(f"Active TX fixture: {fixture.name}")
+    print(f"Transactions: {len(fixture.transactions)}")
+    for transaction in fixture.transactions:
+        differences = command_echo_differences(transaction)
+        normalized = ", ".join(
+            f"{index}:0x{command:02X}->0x{echo:02X}"
+            for index, (command, echo) in sorted(differences.items())
+        )
+        print(
+            f"  {transaction.id}: {transaction.requested_value} "
+            f"{transaction.command.frame_type} normalization [{normalized or 'none'}]"
+        )
+    return 0
+
+
+def _cmd_prove_active_tx(input_path: Path, fixture_path: Path) -> int:
+    fixture = load_active_tx_fixture_file(fixture_path)
+    parsed_packets = parse_log_file(input_path)
+    parsed_counts = packet_counts(parsed_packets)
+    missing = []
+    for transaction in fixture.transactions:
+        if transaction.command.byte_key not in parsed_counts:
+            missing.append((transaction.id, "command", transaction.command))
+        if transaction.echo.byte_key not in parsed_counts:
+            missing.append((transaction.id, "echo", transaction.echo))
+
+    if missing:
+        print(
+            f"Missing {len(missing)} active TX packet(s) from "
+            f"{fixture.name}:"
+        )
+        for transaction_id, role, packet in missing:
+            print(f"  {transaction_id} {role} {packet.frame_type} {packet.label}")
+        return 1
+
+    print(
+        f"Proved {len(fixture.transactions)} active TX transaction(s) from "
         f"{fixture.name} in {input_path}."
     )
     return 0

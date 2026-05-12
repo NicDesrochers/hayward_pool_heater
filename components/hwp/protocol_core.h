@@ -134,6 +134,7 @@ std::optional<uint8_t> read_conf2_f01_fan_mode(const uint8_t* data, size_t lengt
 std::optional<uint8_t> read_conf2_f10_fan_speed_control_temp(const uint8_t* data, size_t length);
 std::optional<float> read_conf2_f13_max_fan_voltage_pct(const uint8_t* data, size_t length);
 std::optional<float> read_conf4_fan_parameter(const uint8_t* data, size_t length, uint8_t field_number);
+std::optional<uint8_t> read_conf5_d06_defrost_eco_mode(const uint8_t* data, size_t length);
 std::optional<uint8_t> read_conf5_f11_speed_control_module(const uint8_t* data, size_t length);
 std::optional<float> read_conf1_f12_min_fan_voltage_pct(const uint8_t* data, size_t length);
 std::optional<float> read_cond1_inlet_temperature(const uint8_t* data, size_t length);
@@ -146,6 +147,7 @@ bool set_conf2_f01_fan_mode(uint8_t* data, size_t length, uint8_t value);
 bool set_conf2_f10_fan_speed_control_temp(uint8_t* data, size_t length, uint8_t value);
 bool set_conf2_f13_max_fan_voltage_pct(uint8_t* data, size_t length, float value);
 bool set_conf4_fan_parameter(uint8_t* data, size_t length, uint8_t field_number, float value);
+bool set_conf5_d06_defrost_eco_mode(uint8_t* data, size_t length, uint8_t value);
 bool set_conf5_f11_speed_control_module(uint8_t* data, size_t length, uint8_t value);
 
 } // namespace protocol

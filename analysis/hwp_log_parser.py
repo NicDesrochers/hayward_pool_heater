@@ -51,9 +51,9 @@ ANNOTATION_END_RE = re.compile(
     r"^(?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),\d{3}\s+-\s*"
     r"(?P<label>.*?)\s+-- END$"
 )
-RX_PACKET_RE = re.compile(
-    r"\[RX\].*?:\s*"
-    r"(?P<kind>[A-Za-z]+)?\s*"
+PACKET_RE = re.compile(
+    r"(?:\[(?P<direction>RX|TX)\].*?:|:\s*)\s*"
+    r"(?P<kind>TXQ|QUEUE|PUSH|SEND|[A-Za-z]+)?\s*"
     r"\[(?P<frame>[0-9A-Fa-f]{2})\]"
     r"\[(?P<body>[^\]]*)\]"
     r"\[(?P<checksum>[0-9A-Fa-f]{2})\]\s*"
@@ -98,7 +98,7 @@ def strip_ansi(text: str) -> str:
 
 def parse_log_line(line: str, line_number: int = 0) -> ParsedLogPacket | None:
     clean = strip_ansi(line).rstrip("\n")
-    match = RX_PACKET_RE.search(clean)
+    match = PACKET_RE.search(clean)
     if not match:
         return None
 
@@ -118,15 +118,21 @@ def parse_log_line(line: str, line_number: int = 0) -> ParsedLogPacket | None:
         checksum = None
 
     source_marker = match.group("source_marker") or ""
-    source = "controller" if source_marker.startswith("CONT") else "heater"
+    kind = match.group("kind") or ""
+    direction = match.group("direction") or ""
+    source = (
+        "controller"
+        if source_marker.startswith("CONT") or direction == "TX" or kind in {"TXQ", "QUEUE", "PUSH", "SEND"}
+        else "heater"
+    )
 
     return ParsedLogPacket(
         line_number=line_number,
         timestamp=_extract_timestamp(clean),
-        kind=match.group("kind") or "",
+        kind=kind,
         label=match.group("label") or "",
         source=source,
-        source_marker=source_marker,
+        source_marker=direction if direction == "TX" else source_marker or direction,
         length=length,
         frame_type=f"0x{packet_bytes[0]:02X}",
         bytes=tuple(packet_bytes),

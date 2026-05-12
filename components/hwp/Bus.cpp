@@ -207,14 +207,16 @@ bool IRAM_ATTR Bus::rmt_rx_done_callback(
         instance->rb_ == nullptr) {
         return false;
     }
+    const size_t symbols_size = event_data->num_symbols * sizeof(rmt_symbol_word_t);
+    if (symbols_size == 0) {
+        return false;
+    }
+
     BaseType_t high_task_wakeup = pdFALSE;
-    for (size_t i = 0; i < event_data->num_symbols; ++i) {
-        hwp_pulse_symbol_t pulse = normalize_symbol(event_data->received_symbols[i]);
-        if (xRingbufferSendFromISR(
-                instance->rb_, &pulse, sizeof(pulse), &high_task_wakeup) != pdTRUE) {
-            instance->mode = BUSMODE_ERROR;
-            break;
-        }
+    if (xRingbufferSendFromISR(
+            instance->rb_, event_data->received_symbols, symbols_size, &high_task_wakeup) !=
+        pdTRUE) {
+        instance->rx_overflow_count_++;
     }
     return high_task_wakeup == pdTRUE;
 }
@@ -304,7 +306,7 @@ void Bus::start_receive() {
         ESP_LOGI(TAG_BUS, "Starting reception on pin %d", this->gpio_pin_->get_pin());
 
         if (this->RxTaskHandle == nullptr) {
-            size_t ring_buf_size = 12 * frame_data_length * (8 + 2) * sizeof(hwp_pulse_symbol_t);
+            size_t ring_buf_size = 12 * frame_data_length * (8 + 2) * sizeof(rmt_symbol_word_t);
             this->rb_ = xRingbufferCreate(ring_buf_size, RINGBUF_TYPE_NOSPLIT);
             if (this->rb_ == nullptr) {
                 ESP_LOGE(TAG_BUS, "Failed to create RX ring buffer");
@@ -514,18 +516,25 @@ void Bus::RxTask(void* arg) {
     instance->mode = BUSMODE_RX;
 
     while (true) {
-        hwp_pulse_symbol_t* items = (hwp_pulse_symbol_t*)xRingbufferReceive(
-            instance->rb_, &rx_size, 120 * portTICK_PERIOD_MS);
+        if (instance->rx_overflow_count_ > 0) {
+            uint32_t overflows = instance->rx_overflow_count_;
+            instance->rx_overflow_count_ = 0;
+            ESP_LOGW(TAG_BUS, "Dropped %u RMT RX batch(es); RX ring buffer full", overflows);
+        }
+
+        auto* items = reinterpret_cast<rmt_symbol_word_t*>(xRingbufferReceive(
+            instance->rb_, &rx_size, 120 * portTICK_PERIOD_MS));
 
         if (items && rx_size > 0) {
-            size_t count = static_cast<size_t>(rx_size / sizeof(hwp_pulse_symbol_t));
+            size_t count = static_cast<size_t>(rx_size / sizeof(rmt_symbol_word_t));
             if (instance->mode == BUSMODE_RX) {
                 instance->current_frame.passes_count++;
 
                 // ESP_LOGVV(TAG_BUS, "Received %d bytes from the ring buffer (%d items)", rx_size,
                 // count);
                 for (size_t i = 0; i < count; i++) {
-                    instance->process_pulse(&items[i]);
+                    hwp_pulse_symbol_t pulse = normalize_symbol(items[i]);
+                    instance->process_pulse(&pulse);
                     if (instance->current_frame.is_complete()) {
                         instance->finalize_frame(false);
                     }

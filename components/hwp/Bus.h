@@ -235,6 +235,7 @@ class Bus {
     std::array<rmt_symbol_word_t, 256> rmt_rx_symbols_{};
     bool rmt_rx_enabled_{false};
     bool rmt_tx_enabled_{false};
+    volatile uint32_t rx_overflow_count_{0};
 #ifdef HWP_PULSE_DEBUG
     std::vector<std::string> pulse_strings_; // Vector to store formatted pulse strings
 #endif

@@ -767,9 +767,18 @@ CONFIG_SCHEMA = BASE_SCHEMA.extend(
 )
 
 
+def include_esp_driver_rmt():
+    include_builtin_idf_component = getattr(
+        esp32, "include_builtin_idf_component", None
+    )
+    if include_builtin_idf_component is None:
+        return
+    include_builtin_idf_component("esp_driver_rmt")
+
+
 async def to_code(config):
 
-    esp32.include_builtin_idf_component("esp_driver_rmt")
+    include_esp_driver_rmt()
 
     pin_component = await cg.gpio_pin_expression(config[CONF_GPIO_NETPIN])
     # max_buffer_count = config[CONF_MAX_BUFFER_COUNT]

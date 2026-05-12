@@ -48,6 +48,13 @@ void test_duration_accessors() {
     assert(hwp::Decoder::get_high_duration(nullptr) == 0);
 }
 
+void test_rmt_resolution_is_valid_for_classic_esp32() {
+    assert(hwp::hwp_rmt_resolution_hz == 312500);
+    assert(hwp::hwp_rmt_us_to_ticks(1000) == 313);
+    assert(hwp::hwp_rmt_ticks_to_us(hwp::hwp_rmt_us_to_ticks(1000)) == 1002);
+    assert(hwp::hwp_rmt_max_symbol_us >= 100000);
+}
+
 void test_pulse_classification() {
     auto start = pulse(9000, 5000);
     auto short_bit = pulse(1000, 1000);
@@ -90,6 +97,7 @@ void test_append_bits_still_builds_bytes() {
 
 int main() {
     test_duration_accessors();
+    test_rmt_resolution_is_valid_for_classic_esp32();
     test_pulse_classification();
     test_append_bits_still_builds_bytes();
 }

@@ -28,7 +28,8 @@ This repo is now developed inside the ESPHome devcontainer. Read:
 - Fan helper exposure and command parity are merged for F02-F13. Helpers publish decoded values and feed command calls; native byte-helper tests pin F01-F13 read decode and passive command byte mutations before live hardware validation.
 - The copied `tmp/hwp` merge track is closed. It is ignored and summarized in `docs/tmp-hwp-salvage.md` as archival reference only.
 - Manual hardware-in-the-loop validation gates live in `docs/testing/manual-hil.md`; active fan writes are byte-tested and based on tmp/hardware-derived packet evidence, but each live setting still needs supervised field confirmation before claiming operational safety.
-- The bus implementation now uses ESP-IDF 5 RMT RX/TX channels on the same half-duplex GPIO. RX is initialized before TX, both channels use 100 kHz resolution, TX uses the copy encoder, and decoder-facing pulse durations are normalized to microseconds through `hwp_pulse_symbol_t`.
+- The bus implementation now uses ESP-IDF 5 RMT RX/TX channels on the same half-duplex GPIO. RX is initialized before TX, both channels use 312.5 kHz resolution, TX uses the copy encoder, and decoder-facing pulse durations are normalized to microseconds through `hwp_pulse_symbol_t`.
+- The 312.5 kHz RMT resolution is intentional for classic ESP32: it is the lowest valid rate from an 80 MHz RMT source with the hardware divider capped at 256. A 100 kHz target trips the ESP32 HAL divider assertion at runtime.
 - `climate.py` includes the built-in `esp_driver_rmt` IDF component during codegen; the default normal and pulse-debug compile fixtures now target `framework: type: esp-idf`.
 - Current ESPHome version verified in the devcontainer: `2026.4.5`.
 - Compile logs confirmed `framework-espidf @ 3.50504.0 (5.5.4)`. The normal and pulse-debug fixtures compile without the legacy RMT deprecation warning.

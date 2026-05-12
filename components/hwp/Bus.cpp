@@ -31,7 +31,6 @@
  * for any damage or loss caused by the use of this software.
  */
 #include "Bus.h"
-#include <algorithm>
 #include <memory>
 
 #include "HPUtils.h"
@@ -68,15 +67,11 @@ Bus::Bus(size_t maxWriteLength, size_t transmitCount)
       maxWriteLength(maxWriteLength), tx_packets_queue(maxWriteLength) {}
 
 rmt_symbol_word_t Bus::make_rmt_symbol_us(uint32_t low_us, uint32_t high_us) {
-    auto to_ticks = [](uint32_t duration_us) -> uint32_t {
-        uint32_t ticks = (duration_us + hwp_rmt_tick_us - 1) / hwp_rmt_tick_us;
-        return std::max<uint32_t>(1, std::min<uint32_t>(ticks, 0x7FFF));
-    };
     rmt_symbol_word_t symbol{};
     symbol.level0 = 0;
-    symbol.duration0 = to_ticks(low_us);
+    symbol.duration0 = hwp_rmt_us_to_ticks(low_us);
     symbol.level1 = 1;
-    symbol.duration1 = to_ticks(high_us);
+    symbol.duration1 = hwp_rmt_us_to_ticks(high_us);
     return symbol;
 }
 
@@ -86,9 +81,9 @@ rmt_symbol_word_t Bus::make_rmt_symbol_ms(uint32_t low_ms, uint32_t high_ms) {
 
 hwp_pulse_symbol_t Bus::normalize_symbol(const rmt_symbol_word_t& symbol) {
     return hwp_pulse_symbol_t{
-        static_cast<uint32_t>(symbol.duration0) * hwp_rmt_tick_us,
+        hwp_rmt_ticks_to_us(symbol.duration0),
         static_cast<uint32_t>(symbol.level0),
-        static_cast<uint32_t>(symbol.duration1) * hwp_rmt_tick_us,
+        hwp_rmt_ticks_to_us(symbol.duration1),
         static_cast<uint32_t>(symbol.level1),
     };
 }
@@ -100,7 +95,7 @@ bool Bus::setup_rmt() {
     gpio_num_t gpio_num = static_cast<gpio_num_t>(this->gpio_pin_->get_pin());
     this->rmt_receive_config_ = {};
     this->rmt_receive_config_.signal_range_min_ns = 1000;
-    this->rmt_receive_config_.signal_range_max_ns = 300 * 1000 * 1000;
+    this->rmt_receive_config_.signal_range_max_ns = hwp_rmt_max_symbol_us * 1000;
     this->rmt_transmit_config_ = {};
     this->rmt_transmit_config_.loop_count = 0;
     this->rmt_transmit_config_.flags.eot_level = 1;

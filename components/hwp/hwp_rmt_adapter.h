@@ -44,8 +44,32 @@ struct hwp_pulse_symbol_t {
     uint32_t level1;
 };
 
-static constexpr uint32_t hwp_rmt_resolution_hz = 100000;
-static constexpr uint32_t hwp_rmt_tick_us = 1000000 / hwp_rmt_resolution_hz;
+// Classic ESP32 derives RMT from an 80 MHz source with a maximum divider of 256,
+// so 312.5 kHz is the lowest valid resolution on that target.
+static constexpr uint32_t hwp_rmt_resolution_hz = 312500;
+static constexpr uint32_t hwp_rmt_max_symbol_ticks = 0x7FFF;
+
+constexpr uint32_t hwp_rmt_ticks_to_us(uint32_t ticks) {
+    return static_cast<uint32_t>(
+        (static_cast<uint64_t>(ticks) * 1000000ULL + hwp_rmt_resolution_hz / 2) /
+        hwp_rmt_resolution_hz);
+}
+
+constexpr uint32_t hwp_rmt_us_to_ticks(uint32_t duration_us) {
+    uint64_t ticks =
+        (static_cast<uint64_t>(duration_us) * hwp_rmt_resolution_hz + 1000000ULL - 1) /
+        1000000ULL;
+    if (ticks == 0) {
+        return 1;
+    }
+    if (ticks > hwp_rmt_max_symbol_ticks) {
+        return hwp_rmt_max_symbol_ticks;
+    }
+    return static_cast<uint32_t>(ticks);
+}
+
+static constexpr uint32_t hwp_rmt_max_symbol_us =
+    hwp_rmt_ticks_to_us(hwp_rmt_max_symbol_ticks);
 
 } // namespace hwp
 } // namespace esphome

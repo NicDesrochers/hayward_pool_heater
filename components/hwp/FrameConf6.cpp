@@ -63,15 +63,13 @@ std::string FrameConf6::format(const conf_6_t& val, const conf_6_t& ref) const {
     bool changed = (val != ref);
     oss.set_changed_base_color(changed);
 
-    oss << "[" << data_->unknown_1.diff(this->prev_data_->unknown_1, ", ")
-        << data_->unknown_2.diff(this->prev_data_->unknown_2, ", ")
-        << data_->unknown_3.diff(this->prev_data_->unknown_3, ", ")
-        << data_->unknown_4.diff(this->prev_data_->unknown_4, ", ")
-        << data_->unknown_5.diff(this->prev_data_->unknown_5, ", ") 
-        << data_->unknown_6.diff(this->prev_data_->unknown_6, ", ")
-        << data_->unknown_7.diff(this->prev_data_->unknown_7, ", ")
-        << data_->unknown_8.diff(this->prev_data_->unknown_8, ", ")
-        << data_->unknown_9.diff(this->prev_data_->unknown_9, "]");
+    oss << "[" << val.unknown_1.diff(ref.unknown_1, ", ")
+        << val.unknown_2.diff(ref.unknown_2, ", ")
+        << val.unknown_3.diff(ref.unknown_3, ", ")
+        << val.unknown_4.diff(ref.unknown_4, ", ")
+        << val.unknown_5.diff(ref.unknown_5, ", ") << val.unknown_6.diff(ref.unknown_6, ", ")
+        << val.unknown_7.diff(ref.unknown_7, ", ") << val.unknown_8.diff(ref.unknown_8, ", ")
+        << val.unknown_9.diff(ref.unknown_9, "]");
     return oss.str();
 }
 /**

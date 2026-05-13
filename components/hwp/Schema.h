@@ -1158,18 +1158,12 @@ typedef struct large_integer {
      */
     std::string diff(const large_integer& reference, const char* sep = "") const {
         bool changed = this->raw != reference.raw;
-        std::ostringstream oss;
-        if (changed) {
-            oss << "\033[1;31m"; // ANSI escape code for red color to highlight differences
-        }
-        // Compare and format the value
-        oss << decode();
-        if (changed) {
-            oss << "\033[0m"; // Reset formatting
-        }
-
-        oss << sep;
-        return oss.str();
+        CS cs;
+        cs.set_changed_base_color(changed);
+        auto cs_inv = changed ? CS::invert : "";
+        auto cs_inv_rst = changed ? CS::invert_rst : "";
+        cs << cs_inv << decode() << cs_inv_rst << sep;
+        return cs.str();
     }
 
     // Operator overloads for comparison

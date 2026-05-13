@@ -2,7 +2,7 @@
 
 ## Current Focus
 
-The tmp merge track is closed. The current hardware-test focus has moved from reboot isolation to supervised field validation: ESP-IDF 5 RMT passive RX is stable on hardware, and CONFIG_5 defrost eco/normal active TX is now captured as reusable fixture evidence.
+The tmp merge track is closed. The current hardware-test focus has moved from reboot isolation to supervised field validation: ESP-IDF 5 RMT passive RX is stable on hardware, and CONFIG_5 defrost eco/normal active TX is now captured as reusable fixture evidence. Analysis tooling is now the active support track for finding the remaining unknown frame content during field sessions.
 
 ## Testing Track
 
@@ -29,6 +29,8 @@ The tmp merge track is closed. The current hardware-test focus has moved from re
 | TEST-078 | Fan edge annotation fixtures | Done | Remaining fan-control annotation edge values are tracked as read/write fixture contracts | F02 41.0, F03 15.5, F08 1, F10 coil source, F12 50, and F13 99/100 are now proven from the 2024-11-01 annotated hardware log |
 | TEST-079 | Defrost demo command fixtures | Done | Demo command examples for D01, D05, and D06 are tracked as menu-backed passive byte contracts | `hwp_defrost_demo_command_contracts.json` pins simulator D01/D05/D06 checksums, menu byte locations, and one-byte pairs; live active-control claims remain limited to the D06 echo fixture |
 | TEST-081 | COND_2 demo read fixture | Done | Remaining simulator `COND_2` temperature packet is tracked as passive read/decode evidence | `hwp_demo_packets.json` now includes `p_28`; native protocol and runtime frame tests assert outlet, coil, exhaust, and auxiliary temperature decode |
+| TEST-082 | Firmware formatter contracts | Done | Packet headers and decoded field formatters keep stable alignment and changed-value highlighting for analysis logs | Native frame tests cover long/short header shape, inverse highlighting, and representative decoded formatters across config, condition, and clock frames |
+| TEST-083 | GUI field annotator and packet viewer | Done | Field annotation can run from saved profiles and display parser-backed packet shapes during discovery | `requirements-annotator.txt` supports workstation setup; `python -m analysis.hwp_logs_annotator --setup` creates profiles in `.esphome-config/hwp-tools.json`; packet view uses shared parser, fixtures, and menu metadata |
 | TEST-070 | QEMU target test feasibility | Planned | Document install needs and prove one minimal ESP-IDF/ESP32 QEMU test app can run | Devcontainer has Debian `qemu-system-xtensa`, but not ESP-IDF or an ESP32 QEMU machine yet |
 | TEST-080 | ESPHome host-platform feasibility | Blocked | Host compile/run path exists or blocker is documented | Current component is ESP32/RMT-bound |
 | TEST-090 | Manual hardware-in-the-loop procedures | Done | Passive and active-control validation procedures are documented | See `docs/testing/manual-hil.md`; not default CI |
@@ -43,6 +45,8 @@ The tmp merge track is closed. The current hardware-test focus has moved from re
 | ENV-040 | CI compile path | Done | GitHub Actions runs fixture compile through official ESPHome image | Python schema tests are local-only for now |
 | ENV-050 | Native build tools | Done | Devcontainer declares `build-essential`, `cmake`, `ninja-build`, `pkg-config`, `qemu-system-misc`, and `qemu-utils` | Prevents local native/QEMU feasibility work from depending on incidental image contents |
 | ENV-060 | Reference tree hygiene | Done | Copied research trees stay ignored and documented as reference-only | `tmp/` is ignored; see `docs/tmp-hwp-salvage.md` |
+| ENV-070 | Tk field-tool support | Done | Devcontainer declares Tk runtime support for the GUI annotator | Automated tests remain display-free; rebuild the devcontainer before first GUI use |
+| ENV-080 | External-component revision visibility | Done | Firmware logs expose a component revision marker so hardware rebuilds can be verified | Bump `components/hwp/hwp_version.h`; use `external_components.refresh: 0s` or commit-pin during branch testing |
 
 ## Component Stabilization
 

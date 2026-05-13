@@ -29,7 +29,8 @@ import threading
 import logging
 from logging.handlers import TimedRotatingFileHandler
 import os
-from multiprocessing import Manager
+from collections import deque
+from queue import Queue
 
 try:
     from .TagEntry import TagEntry, TagType
@@ -42,10 +43,9 @@ except ImportError:
 
 class LogsTagger:
     _lock = threading.Lock()  # Thread lock for synchronization
-    _manager = Manager()  # Create a Manager object
-    _log_queue = _manager.Queue()  # Shared log queue between processes
-    _tagging_queue = _manager.Queue()  # Shared tagging queue between processes
-    _buffer = _manager.list()  # Shared buffer between processes
+    _log_queue = Queue()
+    _tagging_queue = Queue()
+    _buffer = deque(maxlen=100)
     _logger = None  # Logger is a class attribute shared by all instances
     _device_time = None  # This can also be shared through the manager
 
@@ -55,7 +55,6 @@ class LogsTagger:
         Initializes the logging setup, creating log directories, files, and handlers.
         """
         with cls._lock:
-            cls._buffer.maxlen = 100  # Adjust if manually managed
             if cls._logger is None:
                 cls._delay = args.delay
                 cls._logfile = f"{args.log_prefix}_esphome_logs.log"
@@ -113,7 +112,7 @@ class LogsTagger:
         Flushes the buffer and processes any pending tag requests.
         :return: None
         """
-        cls._buffer = []
+        cls._buffer.clear()
 
     @classmethod
     def log_line(cls, log_line, color=None, level=logging.INFO):
@@ -156,7 +155,7 @@ class LogsTagger:
         # Remove old log lines before the start time
         if tag.reset_buffer():
             while len(cls._buffer) > 0 and cls._buffer[0].time < starttime:
-                old_logline = cls._buffer.pop(0)
+                cls._buffer.popleft()
 
         # Process log lines within the time range
         for logline in list(cls._buffer):
@@ -171,7 +170,10 @@ class LogsTagger:
             cls.log_line(f"{tag.text} NO DATA", Colors.br_yellow)
 
         if tag.reset_buffer():
-            cls._buffer = [line for line in cls._buffer if line not in fullfound]
+            cls._buffer = deque(
+                (line for line in cls._buffer if line not in fullfound),
+                maxlen=100,
+            )
         cls.log_line(f"{tag.text} -- END", Colors.br_green)
 
         if not found:

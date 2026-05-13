@@ -38,6 +38,7 @@
 #include "esphome/components/climate/climate_mode.h"
 #include "esphome/core/defines.h"
 #include "hwp_call.h"
+#include "hwp_version.h"
 #ifdef USE_LOGGER
 #include "esphome/components/logger/logger.h"
 #endif
@@ -53,6 +54,7 @@ PoolHeater::PoolHeater(InternalGPIOPin* gpio_pin) {
 }
 
 void PoolHeater::setup() {
+    ESP_LOGI(POOL_HEATER_TAG, "HWP component revision: %s", HWP_COMPONENT_VERSION);
     ESP_LOGI(POOL_HEATER_TAG, "Restoring state");
     restore_state_();
     this->driver_.set_data_model(hp_data_);
@@ -264,6 +266,7 @@ void PoolHeater::update() {
 
 void PoolHeater::dump_config() {
     ESP_LOGCONFIG(POOL_HEATER_TAG, "hwp:");
+    ESP_LOGCONFIG(POOL_HEATER_TAG, "      - component_revision: %s", HWP_COMPONENT_VERSION);
     if (this->driver_.get_gpio_pin()) {
         ESP_LOGCONFIG(
             POOL_HEATER_TAG, "      - txrx_pin: %d", this->driver_.get_gpio_pin()->get_pin());

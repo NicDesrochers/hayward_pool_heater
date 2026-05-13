@@ -32,36 +32,99 @@ import time
 from typing import Tuple
 
 try:
-    from .utils import Colors, colored, decode_decimal, decode_temperature
+    from .utils import (
+        Colors,
+        colored,
+        decode_decimal,
+        decode_temperature,
+        decode_temperature_extended,
+    )
 except ImportError:
-    from utils import Colors, colored, decode_decimal, decode_temperature
+    from utils import (
+        Colors,
+        colored,
+        decode_decimal,
+        decode_temperature,
+        decode_temperature_extended,
+    )
 
 
 class TagType(Enum):
-    INVALID = ("", "", "")
-    FLUSH_BUFFER = ("f", "flush the log buffer", "")
+    INVALID = ("", "", "", False, False, "", True)
+    FLUSH_BUFFER = (
+        "f",
+        "flush the log buffer",
+        "",
+        False,
+        False,
+        "Flushes any buffered log lines without creating a search window.",
+        True,
+    )
     EVENT = (
         "e",
         "log an observed state change",
         "Enter label observed state change then press enter",
+        False,
+        True,
+        "Use after a physical menu or heater event was observed.",
+        False,
     )
     CHANGE = (
         "c",
         "log a config change",
         "Enter label for upcoming config change, and press enter after the change was seen in the logs",
+        True,
+        False,
+        "Press Start before changing the heat-pump menu value, then Submit after logs show the change.",
+        False,
     )
     NUMBER = (
         "n",
         "search for number",
         "Enter the number to search for in previous frames",
+        False,
+        True,
+        "Search the duration window for raw integer bytes or decimal-encoded values.",
+        False,
     )
     TEMPERATURE = (
         "t",
         "search for a temperature",
         "Enter the temperature to search for in previous frames",
+        False,
+        True,
+        "Search the duration window using the normal signed/low-range temperature decoders.",
+        False,
+    )
+    TEMPERATURE_EXTENDED = (
+        "x",
+        "search for an extended-temperature value",
+        "Enter the extended-temperature value to search for in previous frames",
+        False,
+        True,
+        "Search the duration window using the linear extended temperature decoder.",
+        False,
+    )
+    INTEGER = (
+        "i",
+        "search for integer",
+        "Enter the integer to search for in previous frames",
+        False,
+        True,
+        "Search the duration window for raw integer byte values only.",
+        False,
     )
 
-    def __new__(cls, char, description, prompt_name):
+    def __new__(
+        cls,
+        char,
+        description,
+        prompt_name,
+        has_start_button,
+        has_duration,
+        instructions,
+        pushbutton_only,
+    ):
         """
         Create a new instance of TagType with char as the value, description, and prompt_name.
         """
@@ -71,6 +134,10 @@ class TagType(Enum):
         obj._prompt_name = (
             prompt_name  # Store the prompt name if the type is searchable
         )
+        obj._has_start_button = has_start_button
+        obj._has_duration = has_duration
+        obj._instructions = instructions
+        obj._pushbutton_only = pushbutton_only
         return obj
 
     @property
@@ -87,6 +154,22 @@ class TagType(Enum):
         Returns None if the tag type is not searchable.
         """
         return self._prompt_name
+
+    @property
+    def has_start_button(self):
+        return self._has_start_button
+
+    @property
+    def has_duration(self):
+        return self._has_duration
+
+    @property
+    def instructions(self):
+        return self._instructions
+
+    @property
+    def pushbutton_only(self):
+        return self._pushbutton_only
 
     @classmethod
     def from_char(cls, char: str):
@@ -126,19 +209,29 @@ class TagType(Enum):
         """
         Returns a list of all allowed characters (values) for TagType.
         """
-        return [tag.value for tag in cls]
+        return [tag.value for tag in cls if tag.value]
 
     def flush_logs(self) -> bool:
         """
         Returns True if the buffer should be flushed for the specified tag type.
         """
-        return self not in [TagType.TEMPERATURE, TagType.NUMBER]
+        return self not in [
+            TagType.TEMPERATURE,
+            TagType.TEMPERATURE_EXTENDED,
+            TagType.NUMBER,
+            TagType.INTEGER,
+        ]
 
     def is_searchable(self) -> bool:
         """
         Returns True if the tag type is searchable (i.e., NUMBER or TEMPERATURE).
         """
-        return self in [TagType.TEMPERATURE, TagType.NUMBER]
+        return self in [
+            TagType.TEMPERATURE,
+            TagType.TEMPERATURE_EXTENDED,
+            TagType.NUMBER,
+            TagType.INTEGER,
+        ]
 
     def get_search_prompt(self) -> str:
         """
@@ -146,26 +239,68 @@ class TagType(Enum):
         """
         return f"Enter the {self.prompt_name}: "
 
+    def validate(self, raw_byte: int, target: float) -> bool:
+        if self == TagType.TEMPERATURE:
+            return (
+                decode_temperature(raw_byte) == target
+                or decode_temperature(raw_byte, low_range=True) == target
+            )
+        if self == TagType.TEMPERATURE_EXTENDED:
+            return decode_temperature_extended(raw_byte) == target
+        if self == TagType.NUMBER:
+            return target == raw_byte or decode_decimal(raw_byte) == target
+        if self == TagType.INTEGER:
+            return target == raw_byte
+        return False
+
 
 class TagEntry:
     """
     Represents a tagging request that has a type, delay, text, and number for search operations.
     """
 
-    def __init__(self, tag_type: TagType, delay: float = 0, text: str = ""):
+    def __init__(
+        self,
+        tag_type: TagType,
+        delay: float = 0,
+        text: str = "",
+        start_time=None,
+        search_number: float = 0,
+    ):
         if not isinstance(tag_type, TagType):
             raise ValueError(f"Invalid tag type: {tag_type}")
         self.tag_type: TagType = tag_type
         self.delay = delay
         self.text = text
-        self.search_number: float = 0
-        self._tagtime = time.localtime(time.time())  # Initialize with current time
+        self.search_number: float = search_number
+        self._tagtime = start_time or time.localtime(time.time())
+
+    @classmethod
+    def from_params(
+        cls,
+        tag_type: TagType,
+        delay: float = 0,
+        text: str = "",
+        value: str = "",
+        start_time=None,
+    ):
+        search_number = float(value) if value not in (None, "") else 0
+        label = text.strip()
+        if tag_type.is_searchable() and value not in (None, ""):
+            label = f"{tag_type.description}:{search_number:.1f}"
+        return cls(
+            tag_type=tag_type,
+            delay=delay,
+            text=label,
+            start_time=start_time,
+            search_number=search_number,
+        )
 
     def get_start_time(self):
         """
         Calculate and return the start time based on the tag type and delay.
         """
-        if self.tag_type in [TagType.EVENT, TagType.TEMPERATURE, TagType.NUMBER]:
+        if self.tag_type.has_duration:
             start_time = time.mktime(self._tagtime) - self.delay
             return time.localtime(start_time)
         return self._tagtime
@@ -218,13 +353,13 @@ class TagEntry:
             else:
                 self.text = answer.strip()
 
-    def is_line_type(self, log_line, tagtype="Diff"):
+    def is_line_type(self, log_line, tagtype="Chg"):
         """
         Filters log lines using a regular expression to match '[RX]: Diff'.
         This method can be expanded to support other log types by adding more regex patterns.
         """
         # Regex pattern for matching the 'Diff' packet
-        diff_pattern = re.compile(r"\[RX\].*:.*(" + tagtype + r")\s")
+        diff_pattern = re.compile(r"(?:\[RX\].*:|:\s).*(" + tagtype + r")\s")
 
         if diff_pattern.search(log_line):
             return True
@@ -235,8 +370,8 @@ class TagEntry:
         Gets the source of the log line using a regular expression.
         to match (CONT) or (HEAT).
         """
-        pat = re.compile(r"\s\(((?:H|C)\w*)\):")
-        match = pat.match(log_line)
+        pat = re.compile(r".*\((HEAT|CONT)\)")
+        match = pat.search(log_line)
         if match:
             return match.group(1)
 
@@ -272,10 +407,7 @@ class TagEntry:
             return self.is_line_type(log_line), log_line
         # Check if the log line is of type 'New', 'Ping', or 'Chg'
         if (
-            not any(
-                self.is_line_type(log_line, tagtype)
-                for tagtype in ["New", "Ping", "Chg"]
-            )
+            not any(self.is_line_type(log_line, tagtype) for tagtype in ["New", "Ping", "Chg", "Same"])
             # EVENTS types should only capture packets originating from the HEATER itself
             or (self.tag_type in [TagType.EVENT] and self.is_controller(log_line))
             # CHANGE types should only capture packets originating from the CONTROLLER as
@@ -292,7 +424,7 @@ class TagEntry:
         # Find the bracketed hex data that follows the tag type
         # Example:  [86B100000000000000000037] from the log line
         bracketed_data_pattern = re.compile(
-            r"(.*\[(?:[0-9A-F]{4})\]\[)([0-9A-F\s]*)(\].*)"
+            r"(.*\[[0-9A-F]{2}\]\[)([0-9A-F\s]*)(\]\[[0-9A-F]{2}\].*)"
         )
         single_hex = re.compile(r"[0-9A-F]{2}")
         match = bracketed_data_pattern.search(log_line)
@@ -303,22 +435,10 @@ class TagEntry:
             modified_log_line = match.group(1)
             for hex_value in single_hex.findall(match.group(2)):
                 is_match = False
-                if (
-                    self.tag_type == TagType.TEMPERATURE
-                    and ( decode_temperature(int(hex_value, 16)) == self.search_number
-                         or decode_temperature(int(hex_value, 16),low_range=True) == self.search_number )
-                ):
+                raw_byte = int(hex_value, 16)
+                if self.tag_type.validate(raw_byte, self.search_number):
                     found = True  # Indicate that a match was found
                     is_match = True
-
-                elif (
-                    self.tag_type == TagType.NUMBER
-                    and ( self.search_number == int(hex_value, 16) or 
-                         decode_decimal(int(hex_value, 16)) == self.search_number )
-                ):
-                    found = True  # Indicate that a match was found
-                    is_match = True
-                    # Replace the matching hex value with the highlighted version in the log line
                 modified_log_line += (
                     f"{Colors.inverse}{hex_value}{Colors.inverse_rst} "
                     if is_match

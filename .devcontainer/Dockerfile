@@ -8,6 +8,7 @@ RUN apt-get update \
         cmake \
         ninja-build \
         pkg-config \
+        tk \
         qemu-system-misc \
         qemu-utils \
     && rm -rf /var/lib/apt/lists/*

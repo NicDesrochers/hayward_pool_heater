@@ -118,6 +118,17 @@ climate:
     pin_txrx: GPIO22 
 ```
 
+During hardware testing from a branch, make ESPHome refresh the external component source so it does not silently reuse a cached copy:
+
+```yaml
+external_components:
+  - source: github://sle118/hayward_pool_heater@hardware-test/esp-idf5-rmt
+    components: [hwp]
+    refresh: 0s
+```
+
+For reproducible testing, pin `source` to a commit SHA instead of a moving branch. The component logs its build revision at startup as `HWP component revision: ...` and includes the same `component_revision` in `dump_config`, which is the quickest way to confirm the firmware actually contains the expected component code.
+
 ### Future Goals
 This project aims to eventually be merged into the official ESPHome repository, making it easier for users to integrate and use the Hayward pool heater component. Before it can get there, more protocol analysis will be needed, especially to understand how states are communicated back (compressor running/standby, etc). For example, these error conditions should be decoded:
 

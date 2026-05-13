@@ -66,18 +66,18 @@ std::string FrameConf3::format(const conf_3_t& val, const conf_3_t& ref) const {
     bool changed = (val != ref);
     oss.set_changed_base_color(changed);
 
-    oss << "[" << data_->unknown_1.diff(this->prev_data_->unknown_1, ", ")
-        << data_->unknown_2.diff(this->prev_data_->unknown_2, ", ")
-        << data_->unknown_3.diff(this->prev_data_->unknown_3, ", ")
-        << data_->unknown_4.diff(this->prev_data_->unknown_4, ", ")
-        << data_->unknown_5.diff(this->prev_data_->unknown_5, "] ") << "r08_min_cool_setpoint: "
-        << data_->r08_min_cool_setpoint.diff(this->prev_data_->r08_min_cool_setpoint, ", ")
+    oss << "[" << val.unknown_1.diff(ref.unknown_1, ", ")
+        << val.unknown_2.diff(ref.unknown_2, ", ")
+        << val.unknown_3.diff(ref.unknown_3, ", ")
+        << val.unknown_4.diff(ref.unknown_4, ", ")
+        << val.unknown_5.diff(ref.unknown_5, "] ") << "r08_min_cool_setpoint: "
+        << val.r08_min_cool_setpoint.diff(ref.r08_min_cool_setpoint, ", ")
         << "r09_max_cooling_setpoint: "
-        << data_->r09_max_cooling_setpoint.diff(this->prev_data_->r09_max_cooling_setpoint, ", ")
+        << val.r09_max_cooling_setpoint.diff(ref.r09_max_cooling_setpoint, ", ")
         << "r10_min_heating_setpoint: "
-        << data_->r10_min_heating_setpoint.diff(this->prev_data_->r10_min_heating_setpoint, ", ")
+        << val.r10_min_heating_setpoint.diff(ref.r10_min_heating_setpoint, ", ")
         << "r11_max_heating_setpoint: "
-        << data_->r11_max_heating_setpoint.diff(this->prev_data_->r11_max_heating_setpoint);
+        << val.r11_max_heating_setpoint.diff(ref.r11_max_heating_setpoint);
     return oss.str();
 }
 /**

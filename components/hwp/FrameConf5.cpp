@@ -74,7 +74,7 @@ std::string FrameConf5::format(const conf_5_t& val, const conf_5_t& ref) const {
               ref.d05_min_economy_defrost_time_minutes, ", [")
        << val.unknown_4.diff(ref.unknown_4, ", ") << val.unknown_5.diff(ref.unknown_5, ", ")
        << val.unknown_6.diff(ref.unknown_6, ", ") << val.unknown_7.diff(ref.unknown_7, ", ")
-       << val.unknown_7.diff(ref.unknown_7)
+       << val.unknown_8.diff(ref.unknown_8)
        << "] U02 Pulses/L: " << val.U02_pulses_per_liter.diff(ref.U02_pulses_per_liter);
 
     return cs.str();

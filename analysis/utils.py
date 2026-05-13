@@ -26,7 +26,6 @@
 
 import re
 import time
-from esphome.yaml_util import load_yaml
 
 class Colors:
     """
@@ -159,8 +158,31 @@ def load_esphome_yaml(yaml_file):
     """
     Loads and applies substitutions in the loaded YAML configuration.
     """
+    config = None
+    try:
+        from esphome.yaml_util import load_yaml
+        config = load_yaml(yaml_file, clear_secrets=False)
+    except ModuleNotFoundError:
+        try:
+            import yaml
+        except ModuleNotFoundError as err:
+            raise RuntimeError(
+                "Legacy --yaml loading requires PyYAML or ESPHome. Install "
+                "`python -m pip install -r requirements-annotator.txt`, or run "
+                "without --yaml and enter the device/API key through --setup."
+            ) from err
+
+        class _SecretIgnoringLoader(yaml.SafeLoader):
+            pass
+
+        def secret_constructor(loader, node):
+            return f"!secret {loader.construct_scalar(node)}"
+
+        _SecretIgnoringLoader.add_constructor("!secret", secret_constructor)
+        with open(yaml_file, encoding="utf-8") as handle:
+            config = yaml.load(handle, Loader=_SecretIgnoringLoader) or {}
+
     substitution_pattern = re.compile(r'\$\{([^\}]+)\}')
-    config = load_yaml(yaml_file, clear_secrets=False)
     substitutions = config.get('substitutions', {})
 
     def substitute_value(value):
@@ -222,6 +244,17 @@ def decode_temperature(hex_value,low_range:bool=False):
         temperature += 0.5
 
     return temperature
+
+def decode_temperature_extended(hex_value):
+    """
+    Decode the extended temperature byte format used by menu setpoints.
+
+    This format is linear in 0.5C steps with a -30C offset. It is intentionally
+    separate from the shorter signed temperature format used by condition
+    frames and some defrost fields.
+    """
+    return (hex_value / 2.0) - 30.0
+
 def decode_decimal(hex_value):
     """
     Decode a decimal value from a given hex value.

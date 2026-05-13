@@ -69,6 +69,7 @@ Status values:
 | TST-041 | QEMU feasibility probe | Target/QEMU | Planned | QEMU prerequisites and a minimal proof path are documented | Devcontainer now declares Debian `qemu-system-xtensa`; `idf.py`, `IDF_PATH`, and an ESP32 QEMU machine remain unresolved |
 | TST-042 | ESPHome host feasibility | Host integration | Blocked | Host-platform blockers are documented or host compile fixture exists | Current component is ESP32/RMT-bound |
 | TST-043 | ESP-IDF 5 RMT compile coverage | ESPHome config/compile | Done | Normal and pulse-debug fixtures compile using ESP-IDF 5 RMT RX/TX APIs | Confirmed `framework-espidf @ 3.50504.0 (5.5.4)` in devcontainer compile logs; passive RX and CONFIG_5 defrost active TX have initial supervised hardware validation |
+| TST-044 | Firmware formatter contracts | Native C++ unit | Done | Hardware log formatting keeps stable packet alignment and highlights changed decoded values | Covers `BaseFrame::header_format()` long/short shape plus representative CONFIG, COND, and CLOCK formatters |
 
 ## Golden Packet And Hardware Validation
 
@@ -91,3 +92,4 @@ Status values:
 | TST-059E | COND_2 demo read contract | Analysis tooling / Native C++ unit | Done | Remaining simulator COND_2 packet validates passive temperature read/decode behavior | `p_28` is tracked in `hwp_demo_packets.json`; protocol and runtime frame tests assert outlet/coil/exhaust/aux temperature decode |
 | TST-060 | Manual passive test | Manual hardware-in-the-loop | Done | Procedure documents setup and expected observations | See `docs/testing/manual-hil.md`; not default CI |
 | TST-061 | Manual active-control smoke test | Manual hardware-in-the-loop | Done | Procedure includes safety gates and rollback steps | CONFIG_5 defrost eco/normal passed supervised TX/echo smoke testing; broader settings remain one-at-a-time validation |
+| TST-062 | GUI field annotator and packet viewer | Analysis tooling | Done | Field tagging workflow runs from profiles and parser-backed packet views render known shapes without GUI-only packet parsing | Unit tests cover interactive setup, connection precedence, profile read/write, tag/search behavior, packet view cells, fixture matches, menu metadata, and checksum tags |

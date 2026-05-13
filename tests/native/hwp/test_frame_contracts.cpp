@@ -47,8 +47,10 @@
 #include <array>
 #include <cassert>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 #include <cstdint>
+#include <string>
 
 namespace hwp = esphome::hwp;
 namespace protocol = esphome::hwp::protocol;
@@ -76,6 +78,48 @@ hwp::BaseFrame make_frame(const ShortPacket& packet, hwp::frame_source_t source)
     frame.set_source(source);
     assert(frame.packet.is_checksum_valid());
     return frame;
+}
+
+class HeaderProbe : public hwp::BaseFrame {
+  public:
+    void stage_public(const hwp::BaseFrame& frame) { this->stage(frame); }
+    void set_previous_packet(const hwp::hp_packetdata_t& packet) { this->prev_ = packet; }
+    void set_age_ms(uint32_t age_ms) { this->frame_age_ms_ = age_ms; }
+};
+
+std::string strip_ansi(const std::string& value) {
+    std::string stripped;
+    for (size_t i = 0; i < value.size(); ++i) {
+        if (value[i] != '\033') {
+            stripped += value[i];
+            continue;
+        }
+        ++i;
+        if (i < value.size() && value[i] == '[') {
+            ++i;
+            while (i < value.size() && (value[i] < '@' || value[i] > '~')) {
+                ++i;
+            }
+        }
+    }
+    return stripped;
+}
+
+void assert_contains(const std::string& value, const std::string& expected) {
+    if (value.find(expected) == std::string::npos) {
+        std::fprintf(stderr, "Expected substring not found:\n%s\nin:\n%s\n", expected.c_str(),
+            value.c_str());
+    }
+    assert(value.find(expected) != std::string::npos);
+}
+
+void assert_not_contains(const std::string& value, const std::string& unexpected) {
+    assert(value.find(unexpected) == std::string::npos);
+}
+
+void assert_inverse_highlighted(const std::string& value) {
+    assert_contains(value, hwp::CS::invert);
+    assert_contains(value, hwp::CS::invert_rst);
 }
 
 template <typename FrameType>
@@ -413,6 +457,182 @@ void test_passive_shape_contracts() {
     conf6_frame.parse(conf6_data);
 }
 
+void test_header_format_alignment_and_highlighting() {
+    const Packet previous = {
+        0x82, 0xB1, 0x26, 0x2A, 0x56, 0x50, 0x10, 0x1E, 0x03, 0x01, 0x64, 0xBF};
+    const Packet current = {
+        0x82, 0xB1, 0x46, 0x2A, 0x56, 0x50, 0x10, 0x1E, 0x03, 0x01, 0x64, 0xDF};
+    HeaderProbe long_frame;
+    auto previous_base = make_frame(previous, hwp::SOURCE_CONTROLLER);
+    auto current_base = make_frame(current, hwp::SOURCE_CONTROLLER);
+    long_frame.stage_public(current_base);
+    long_frame.set_previous_packet(previous_base.packet);
+    long_frame.set_age_ms(5000);
+
+    const std::string long_header = long_frame.header_format("ChangedPrefix");
+    assert_inverse_highlighted(long_header);
+    assert_contains(long_header, std::string(hwp::CS::invert) + "46" + hwp::CS::invert_rst);
+    const std::string plain_long_header = strip_ansi(long_header);
+    assert_contains(plain_long_header, "Chang [82][B1 46 2A 56 50 10 1E 03 01 64][DF]");
+    assert_contains(plain_long_header, "TYPE_82");
+    assert_contains(plain_long_header, "(CONT)");
+    assert_contains(plain_long_header, "( 5.0s)");
+
+    const ShortPacket previous_short = {0xDD, 0x1D, 0x1D, 0x19, 0x11, 0x1E, 0x00, 0x00, 0x82};
+    const ShortPacket current_short = {0xDD, 0x1D, 0x1D, 0x19, 0x12, 0x1E, 0x00, 0x00, 0x83};
+    HeaderProbe short_frame;
+    auto previous_short_base = make_frame(previous_short, hwp::SOURCE_HEATER);
+    auto current_short_base = make_frame(current_short, hwp::SOURCE_HEATER);
+    short_frame.stage_public(current_short_base);
+    short_frame.set_previous_packet(previous_short_base.packet);
+    short_frame.set_age_ms(11000);
+
+    const std::string short_header = short_frame.header_format("Rx");
+    assert_inverse_highlighted(short_header);
+    assert_contains(short_header, std::string(hwp::CS::invert) + "12" + hwp::CS::invert_rst);
+    const std::string plain_short_header = strip_ansi(short_header);
+    assert_contains(plain_short_header, "Rx    [DD][1D 1D 19 12 1E 00 00         ][83]");
+    assert_contains(plain_short_header, "TYPE_DD");
+    assert_contains(plain_short_header, "(HEAT)");
+    assert_contains(plain_short_header, "(11.0s)");
+}
+
+void test_decoded_formatters_highlight_representative_changes() {
+    {
+        const Packet packet = {
+            0x81, 0xB1, 0x1A, 0x72, 0x48, 0x72, 0x3D, 0x3D, 0x3D, 0x3D, 0x37, 0xA3};
+        auto frame = stage_frame<hwp::FrameConf1>(packet, hwp::SOURCE_CONTROLLER);
+        frame.prev_data_ = *frame.data_;
+        frame.data().r02_setpoint_heating.raw = 0x82;
+        const std::string output = frame.format();
+        assert_contains(output, "heat:");
+        assert_inverse_highlighted(output);
+    }
+    {
+        const Packet packet = {
+            0x82, 0xB1, 0x26, 0x13, 0x56, 0x50, 0x10, 0x1E, 0x03, 0x01, 0x64, 0xA8};
+        auto frame = stage_frame<hwp::FrameConf2>(packet, hwp::SOURCE_CONTROLLER);
+        frame.prev_data_ = *frame.data_;
+        frame.data().d01_defrost_start.raw = 0x38;
+        const std::string output = frame.format();
+        assert_contains(output, "d01-start");
+        assert_inverse_highlighted(output);
+    }
+    {
+        const Packet packet = {
+            0x83, 0xB1, 0x46, 0x23, 0x0A, 0x23, 0x23, 0x4C, 0x82, 0x46, 0x8C, 0x8D};
+        auto frame = stage_frame<hwp::FrameConf3>(packet, hwp::SOURCE_HEATER);
+        frame.prev_data_ = *frame.data_;
+        frame.data().r09_max_cooling_setpoint.raw = 0x80;
+        const std::string output = frame.format();
+        assert_contains(output, "r09_max_cooling_setpoint");
+        assert_inverse_highlighted(output);
+    }
+    {
+        const Packet packet = {
+            0x84, 0xB1, 0x8C, 0x5A, 0x50, 0x50, 0x64, 0x78, 0x00, 0x00, 0x78, 0x0F};
+        auto frame = stage_frame<hwp::FrameConf4>(packet, hwp::SOURCE_CONTROLLER);
+        frame.prev_data_ = *frame.data_;
+        frame.data().f08_fan_low_speed_running_time.raw = 0x01;
+        const std::string output = frame.format();
+        assert_contains(output, "F08 low run");
+        assert_inverse_highlighted(output);
+    }
+    {
+        const Packet packet = {
+            0x85, 0xB1, 0x00, 0x06, 0x1E, 0x16, 0x00, 0x08, 0x00, 0x00, 0xCD, 0x45};
+        auto frame = stage_frame<hwp::FrameConf5>(packet, hwp::SOURCE_CONTROLLER);
+        frame.prev_data_ = *frame.data_;
+        frame.data().unknown_8.raw = 0x01;
+        const std::string output = frame.format();
+        assert_contains(output, "U02 Pulses/L");
+        assert_inverse_highlighted(output);
+    }
+    {
+        const Packet packet = {
+            0x86, 0xB1, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x37};
+        auto frame = stage_frame<hwp::FrameConf6>(packet, hwp::SOURCE_HEATER);
+        frame.prev_data_ = *frame.data_;
+        frame.data().unknown_5.raw = 0x01;
+        const std::string output = frame.format();
+        assert_contains(output, "[");
+        assert_inverse_highlighted(output);
+    }
+    {
+        const Packet packet = {
+            0xD1, 0xB1, 0x05, 0x00, 0x00, 0x00, 0x00, 0x78, 0x5E, 0x77, 0x1B, 0xEF};
+        auto frame = stage_frame<hwp::FrameConditions1>(packet, hwp::SOURCE_HEATER);
+        frame.prev_data_ = *frame.data_;
+        frame.data().t02_temperature.raw = 0x56;
+        const std::string output = frame.format();
+        assert_contains(output, "R16[");
+        assert_inverse_highlighted(output);
+    }
+    {
+        const Packet packet = {
+            0xD1, 0xB1, 0x00, 0x02, 0x0F, 0x00, 0x00, 0x78, 0x5E, 0x77, 0x1B, 0xFB};
+        auto frame = stage_frame<hwp::FrameConditions1B>(packet, hwp::SOURCE_HEATER);
+        frame.prev_data_ = *frame.data_;
+        frame.data().raw_byte_2.raw = 0x00;
+        const std::string output = frame.format();
+        assert_contains(output, "t02_inlet:");
+        assert_inverse_highlighted(output);
+    }
+    {
+        const Packet packet = {
+            0xD2, 0xB1, 0x11, 0x5E, 0x56, 0x56, 0x5B, 0x00, 0x64, 0x00, 0x00, 0x5D};
+        auto frame = stage_frame<hwp::FrameConditions2>(packet, hwp::SOURCE_HEATER);
+        frame.prev_data_ = *frame.data_;
+        frame.data().t04_temperature_coil.raw = 0x5C;
+        const std::string output = frame.format();
+        assert_contains(output, "t04 Coil");
+        assert_inverse_highlighted(output);
+    }
+    {
+        hwp::FrameConditions2B frame;
+        hwp::conditions2b_t data{};
+        data.reserved_1.raw = 0x1B;
+        data.reserved_2.raw = 0x0A;
+        data.reserved_3.raw = 0x28;
+        data.reserved_4.raw = 0x15;
+        data.reserved_5.raw = 0x0D;
+        data.reserved_6.raw = 0xA0;
+        data.reserved_7.raw = 0xAA;
+        frame.data_ = data;
+        frame.prev_data_ = data;
+        frame.data().reserved_4.raw = 0x16;
+        const std::string output = frame.format();
+        assert_contains(output, "[");
+        assert_inverse_highlighted(output);
+    }
+    {
+        hwp::FrameConditionsD frame;
+        hwp::cond_d_t data{};
+        data.id = 0x0D;
+        data.unknown_1.raw = 0x0D;
+        data.unknown_2.raw = 0x0D;
+        data.unknown_3.raw = 0x11;
+        data.unknown_4.raw = 0x10;
+        frame.data_ = data;
+        frame.prev_data_ = data;
+        frame.data().unknown_4.raw = 0x11;
+        const std::string output = frame.format();
+        assert_contains(output, "[");
+        assert_inverse_highlighted(output);
+    }
+    {
+        const Packet packet = {
+            0xCF, 0xB1, 0x00, 0x00, 0x15, 0x03, 0x05, 0x11, 0x06, 0x00, 0x00, 0xB4};
+        auto frame = stage_frame<hwp::FrameClock>(packet, hwp::SOURCE_CONTROLLER);
+        frame.prev_data_ = *frame.data_;
+        frame.data().minute = 0x07;
+        const std::string output = frame.format();
+        assert_inverse_highlighted(output);
+        assert_not_contains(strip_ansi(output), "17:06");
+        assert_contains(strip_ansi(output), "17:07");
+    }
+}
+
 int main() {
     test_frame_matching_contracts();
     test_passive_frame_matching_contracts();
@@ -424,4 +644,6 @@ int main() {
     test_condition_parse_matches_protocol_core();
     test_conf3_parse_matches_protocol_core();
     test_passive_shape_contracts();
+    test_header_format_alignment_and_highlighting();
+    test_decoded_formatters_highlight_representative_changes();
 }

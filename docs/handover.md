@@ -14,9 +14,12 @@ This repo is now developed inside the ESPHome devcontainer. Read:
 ## Current State
 
 - ESPHome external component lives in `components/hwp/`.
+- The component revision stamp lives in `components/hwp/hwp_version.h`. It is logged at setup and shown in `dump_config` as `component_revision`; bump it when asking Home Assistant users to verify that a rebuilt firmware really picked up this repo's latest component code.
 - Devcontainer builds from `ghcr.io/esphome/esphome:latest`, adds declared native/QEMU-adjacent tools, and keeps generated firmware output outside the repo through `/build`.
 - ESPHome compile fixtures, Python schema tests, packet fixture validation, native protocol tests, runners, and CI are in place.
 - Headless analysis tooling is packaged under `analysis/`. Use `python -m analysis.hwp_analyze fixtures`, `log`, `prove`, `active-tx`, and `prove-active-tx` to validate fixtures, summarize hardware logs, and prove fixture packets appear in traces.
+- The field annotator GUI is available through `python -m analysis.hwp_logs_annotator`. Workstation use outside the devcontainer needs `python -m pip install -r requirements-annotator.txt`; this intentionally installs `aioesphomeapi` plus lightweight PyYAML, not the full ESPHome package. `--help`, `--setup` without `--yaml`, and `--show-profiles` avoid live API imports. First-time setup can use `python -m analysis.hwp_logs_annotator --setup`, which writes `.esphome-config/hwp-tools.json`; `--show-profiles` lists saved profiles without API keys. It also resolves CLI args, environment variables, or legacy YAML fallback. See `docs/analysis-field-annotator.md`.
+- The annotator packet viewer uses the shared log parser and `analysis.hwp_packet_view` instead of GUI-only regex. It highlights checksum failures, fixture matches, known menu-map byte locations, and bytes changed versus the previous packet with the same frame/source/length.
 - Manual annotation windows are parsed by the same CLI. Use `python -m analysis.hwp_analyze annotations --input tmp/hwp/POOL_esphome_logs.log.2024-11-01` and `prove-annotations` for curated tagger windows.
 - The first native C++ seam lives in `components/hwp/protocol_core.*` and covers dependency-light packet helpers plus fan mode, defrost, flow-meter, and heat-pump restriction conversions.
 - Component-local adapter headers keep climate/logger/time/RMT coupling out of core frame tests where practical. `HWP_NATIVE_TEST` uses those adapters to compile runtime frame contracts without full ESPHome or hardware RMT dependencies.
@@ -36,6 +39,7 @@ This repo is now developed inside the ESPHome devcontainer. Read:
 - Runtime decode naming for F02-F09, F10, F11, and F13 is merged in the frame structs. F10/F11 dependency-light conversions are covered in `protocol_core`.
 - Runtime `FrameConf1/2/4/5` matching and parsing are covered by adapter-backed native tests against the F01-F13 packet contracts.
 - Passive runtime frame contracts are covered by the same adapter-backed native executable. `FrameConditions1/1B/2/2B/D`, `FrameClock`, `FrameConf3`, and `FrameConf6` now match tracked fixture packets; parsed condition temperatures, S02 water flow, and config-3 setpoint limits are compared with pure `protocol_core` helpers.
+- Firmware log formatter contracts are covered by native frame tests. Packet headers keep fixed long/short byte layout and changed payload bytes are inverse-highlighted; representative decoded CONFIG, COND, and CLOCK formatters also assert inverse highlighting so future analysis tooling can trust the minimum log shape.
 - Fan helper exposure and command parity are merged for F02-F13. Helpers publish decoded values and feed command calls; native byte-helper tests pin F01-F13 read decode and passive command byte mutations before live hardware validation.
 - The copied `tmp/hwp` merge track is closed. It is ignored and summarized in `docs/tmp-hwp-salvage.md` as archival reference only.
 - Manual hardware-in-the-loop validation gates live in `docs/testing/manual-hil.md`; active fan writes are byte-tested and based on tmp/hardware-derived packet evidence, but each live setting still needs supervised field confirmation before claiming operational safety.
@@ -46,6 +50,7 @@ This repo is now developed inside the ESPHome devcontainer. Read:
 - Supervised hardware validation has advanced: passive RX is stable with bus startup enabled, defrost eco mode active TX changed `CONFIG_5` to `d06 defrost: ECO`, and a follow-up write changed it back to `d06 defrost: NORMAL`. RX remained alive afterward. TX cleanup avoids re-arming RX twice after a send, which previously produced `Failed to arm RMT RX: 259` while recovering.
 - The CONFIG_5 write/echo evidence is tracked as `tests/fixtures/active_tx/hwp_active_tx_config5_defrost_2026_05_12.json`. It records the accepted ECO/NORMAL commands, heater echoes, valid checksums, D06 byte-2 bit-6 transitions, and observed heater normalization of byte 4.
 - `climate.py` includes the built-in `esp_driver_rmt` IDF component during codegen; the default normal and pulse-debug compile fixtures now target `framework: type: esp-idf`.
+- For Home Assistant hardware testing from a moving branch, use `refresh: 0s` under `external_components` or pin to a commit SHA. Otherwise ESPHome can reuse its cached external component source even when the repo branch changed.
 - Current ESPHome version verified in the devcontainer: `2026.4.5`.
 - Compile logs confirmed `framework-espidf @ 3.50504.0 (5.5.4)`. The normal and pulse-debug fixtures compile without the legacy RMT deprecation warning.
 
@@ -59,6 +64,7 @@ python -m unittest discover -s tests -p 'test_*.py'
 python -m analysis.hwp_analyze fixtures
 python -m analysis.hwp_analyze active-tx --fixture tests/fixtures/active_tx/hwp_active_tx_config5_defrost_2026_05_12.json
 python -m analysis.hwp_analyze evidence --menu --limit 25
+python -m analysis.hwp_logs_annotator --help
 python -m analysis.hwp_analyze prove --input tmp/hwp/POOL_esphome_logs.log --fixture tests/fixtures/packets/hwp_hardware_log_2025_06_24.json
 python -m analysis.hwp_analyze prove-annotations --input tmp/hwp/POOL_esphome_logs.log.2024-11-01 --fixture tests/fixtures/annotations/hwp_annotated_fan_control_2024_11_01.json
 ./scripts/test-esphome.sh --local
@@ -76,6 +82,8 @@ Good candidates:
 
 - review `COND_1`/`COND_2` temperature encoding separately if hardware evidence shows values above the short-format range; the issue #11 fix intentionally changed only `CONFIG_1` setpoint encoding in this slice
 - mine the remaining non-fan 2024-10-31 condition/clock `test` windows only if they add decode coverage beyond current passive runtime contracts; `COND_D` remains research-only until at least one field meaning is named
+- add the next analysis CLI slice for grouped frame diffs/candidate fields now that firmware formatter output has native alignment/highlight contracts
+- use the restored GUI annotator during the next field session to create smaller tagged windows for unknown or uncertain menu/status values; convert useful windows into tracked fixtures before changing runtime behavior
 - run the next supervised active TX validation for `u02_pulses_per_liter` only after the remaining fixture evidence has been triaged; capture command and echo packets before adding the next active-TX fixture
 - add the next low-level native seam for queue behavior
 - extract capture conversion as repo-native tooling
@@ -94,4 +102,4 @@ QEMU and ESPHome `host:` remain later feasibility slices, not the default runner
 
 ## Working Tree Note
 
-The repo currently has broad uncommitted work from environment, testing, and component stabilization slices. Do not revert existing changes unless explicitly asked.
+Check `git status --short` before editing. Do not revert existing user or agent changes unless explicitly asked.

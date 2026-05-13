@@ -72,6 +72,7 @@ logger = logging.getLogger(__name__)
 
 
 CODEOWNERS = ["@sle118"]
+COMPONENT_VERSION = "2026.05.13.1"
 
 AUTO_LOAD = [
     "climate",

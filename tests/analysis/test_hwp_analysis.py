@@ -26,16 +26,20 @@
 
 import contextlib
 import io
+import argparse
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
 from analysis import hwp_analyze
+from analysis.TagEntry import TagEntry, TagType
 from analysis.hwp_active_tx_fixtures import (
     allowed_normalization_differences,
     command_echo_differences,
     load_active_tx_fixture_file,
 )
+from analysis.hwp_logs_annotator import build_parser, format_profiles, setup_profile_interactive
 from analysis.hwp_annotation_fixtures import load_annotation_fixture_file
 from analysis.hwp_fixtures import (
     fixture_index_by_bytes,
@@ -54,6 +58,15 @@ from analysis.hwp_log_parser import (
     parse_log_line,
     parse_log_lines,
     strip_ansi,
+)
+from analysis.hwp_packet_view import PacketViewState, build_packet_view
+from analysis.hwp_tool_config import (
+    ToolConfigError,
+    ToolConnectionConfig,
+    load_profile_file,
+    require_connection_config,
+    resolve_connection_config,
+    save_profile_file,
 )
 
 
@@ -84,6 +97,12 @@ TX_QUEUE_LINE = (
     "TXQ   [85][B1 40 06 1E 16 00 08 00 00 CD][85] CONFIG_5  "
     "(HEAT) defrost eco command"
 )
+COND2_TEMPERATURE_LINE = (
+    "[2026-05-13 06:40:34][D][hwp.pk:404][RX]: Chg   "
+    "[D2][B1 11 5E 52 45 46 00 64 00 00][33] COND_2    "
+    "(HEAT) ( 5.0s) 11.0C(0x52), t04 Coil  5.0C(0x46), "
+    "t06 Exhaust  4.5C(0x45), 4?? 20.0C(0x64)"
+)
 ANNOTATED_WINDOW_LINES = [
     "2024-11-01 11:46:33,685 - F02 - 41.5 -- BEGIN\n",
     (
@@ -97,6 +116,176 @@ ANNOTATED_WINDOW_LINES = [
 
 
 class TestHwpAnalysis(unittest.TestCase):
+    def test_connection_profiles_round_trip_without_printing_secret(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            profile_path = Path(temp_dir) / "hwp-tools.json"
+            save_profile_file(
+                profile_path,
+                {
+                    "pool": {
+                        "address": "pool.local",
+                        "api_key": "secret-key",
+                        "port": 6053,
+                        "log_prefix": "POOL",
+                        "default_delay": 2.5,
+                        "log_level": "VERBOSE",
+                        "dump_config": False,
+                    }
+                },
+                default_profile="pool",
+            )
+            payload = load_profile_file(profile_path)
+
+        self.assertEqual(payload["default_profile"], "pool")
+        self.assertEqual(payload["profiles"]["pool"]["address"], "pool.local")
+        config = ToolConnectionConfig(api_key="secret-key")
+        self.assertEqual(config.redacted()["api_key"], "<set>")
+        self.assertNotIn("secret-key", str(config.redacted()))
+
+    def test_connection_resolution_precedence(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            profile_path = Path(temp_dir) / "hwp-tools.json"
+            save_profile_file(
+                profile_path,
+                {
+                    "pool": {
+                        "address": "profile.local",
+                        "api_key": "profile-key",
+                        "port": 6054,
+                        "log_prefix": "PROFILE",
+                        "default_delay": 3.0,
+                        "log_level": "INFO",
+                        "dump_config": True,
+                    }
+                },
+                default_profile="pool",
+            )
+            args = argparse.Namespace(
+                yaml="legacy.yaml",
+                profile=None,
+                profile_file=str(profile_path),
+                device="cli.local",
+                api_key=None,
+                port=None,
+                log_prefix=None,
+                delay=None,
+                default_delay=None,
+                log_level=None,
+                dump_config=None,
+            )
+            env = {
+                "HWP_API_KEY": "env-key",
+                "HWP_LOG_LEVEL": "DEBUG",
+                "HWP_DUMP_CONFIG": "false",
+            }
+            config = resolve_connection_config(
+                args,
+                environ=env,
+                yaml_loader=lambda _path: {
+                    "esphome": {"name": "legacy"},
+                    "api": {"encryption": {"key": "yaml-key"}},
+                },
+            )
+
+        self.assertEqual(config.address, "cli.local")
+        self.assertEqual(config.api_key, "env-key")
+        self.assertEqual(config.port, 6054)
+        self.assertEqual(config.log_prefix, "PROFILE")
+        self.assertEqual(config.log_level, "DEBUG")
+        self.assertFalse(config.dump_config)
+
+    def test_connection_requires_address(self):
+        with self.assertRaises(ToolConfigError):
+            require_connection_config(ToolConnectionConfig())
+
+    def test_hwp_logs_annotator_help_is_yaml_free(self):
+        parser = build_parser()
+        with self.assertRaises(SystemExit) as context:
+            with contextlib.redirect_stdout(io.StringIO()):
+                parser.parse_args(["--help"])
+        self.assertEqual(context.exception.code, 0)
+
+    def test_annotator_setup_creates_profile_without_echoing_secret(self):
+        answers = iter(
+            [
+                "pool",
+                "heater.local",
+                "6053",
+                "POOL",
+                "1.5",
+                "verbose",
+                "n",
+            ]
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            profile_path = Path(temp_dir) / "hwp-tools.json"
+            config = setup_profile_interactive(
+                ToolConnectionConfig(),
+                profile_path,
+                input_func=lambda _prompt: next(answers),
+                secret_func=lambda _prompt: "setup-secret",
+            )
+            listing = format_profiles(profile_path)
+            payload = load_profile_file(profile_path)
+
+        self.assertEqual(config.name, "pool")
+        self.assertEqual(config.address, "heater.local")
+        self.assertEqual(config.api_key, "setup-secret")
+        self.assertEqual(config.log_level, "VERBOSE")
+        self.assertFalse(config.dump_config)
+        self.assertEqual(payload["default_profile"], "pool")
+        self.assertIn("api_key=<set>", listing)
+        self.assertNotIn("setup-secret", listing)
+
+    def test_setup_allows_new_profile_name_from_cli(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            args = argparse.Namespace(
+                yaml=None,
+                profile="new-profile",
+                profile_file=str(Path(temp_dir) / "hwp-tools.json"),
+                device="heater.local",
+                api_key=None,
+                port=None,
+                log_prefix=None,
+                delay=None,
+                default_delay=None,
+                log_level=None,
+                dump_config=None,
+            )
+            config = resolve_connection_config(args, allow_missing_profile=True)
+
+        self.assertEqual(config.name, "new-profile")
+        self.assertEqual(config.address, "heater.local")
+
+    def test_gui_style_tag_entry_start_and_duration_windows(self):
+        start = time_tuple = time.localtime(1_700_000_000)
+        change = TagEntry.from_params(
+            TagType.CHANGE, text="F02 to 41.5", start_time=start
+        )
+        event = TagEntry.from_params(
+            TagType.EVENT, delay=10, text="compressor start", start_time=start
+        )
+
+        self.assertTrue(TagType.CHANGE.has_start_button)
+        self.assertFalse(TagType.EVENT.has_start_button)
+        self.assertEqual(change.get_start_time(), time_tuple)
+        self.assertEqual(time.mktime(event.get_start_time()), 1_699_999_990)
+
+    def test_tag_entry_search_filters_number_integer_and_temperatures(self):
+        line = (
+            "[RX]: Same  [84][B1 8C 5A 50 50 64 78 17 00 78][26] "
+            "CONFIG_4  (HEAT)"
+        )
+        number = TagEntry.from_params(TagType.NUMBER, value="23")
+        integer = TagEntry.from_params(TagType.INTEGER, value="23")
+        extended = TagEntry.from_params(TagType.TEMPERATURE_EXTENDED, value="40")
+        normal = TagEntry.from_params(TagType.TEMPERATURE, value="20")
+
+        self.assertTrue(number.filter(line)[0])
+        self.assertTrue(integer.filter(line)[0])
+        self.assertTrue(extended.filter(line)[0])
+        self.assertTrue(normal.filter(line)[0])
+
     def test_strip_ansi(self):
         self.assertEqual(strip_ansi("\x1b[31mhello\x1b[0m"), "hello")
 
@@ -154,6 +343,63 @@ class TestHwpAnalysis(unittest.TestCase):
         packets = parse_log_lines([LONG_CONFIG_LINE, SHORT_CONDITION_LINE])
         self.assertIn(packets[0].byte_key, index)
         self.assertIn(packets[1].byte_key, index)
+
+    def test_packet_view_model_marks_fixtures_menu_fields_and_checksum(self):
+        fixtures = load_fixture_files()
+        index = fixture_index_by_bytes(fixtures)
+        packet = parse_log_line(LONG_CONFIG_LINE)
+        view = build_packet_view(packet, index)
+
+        self.assertEqual(view.checksum_status, "valid")
+        self.assertTrue(view.fixture_matches)
+        menu_cells = [
+            cell for cell in view.cells if any(field.menu == "F01" for field in cell.menu_fields)
+        ]
+        self.assertEqual(len(menu_cells), 1)
+        self.assertIn("known-menu", menu_cells[0].tags)
+
+        invalid_packet = parse_log_line(LONG_CONFIG_LINE.replace("[98]", "[99]"))
+        invalid_view = build_packet_view(invalid_packet, index)
+        self.assertEqual(invalid_view.checksum_status, "invalid")
+        self.assertIn("checksum-invalid", invalid_view.cells[-1].tags)
+
+    def test_packet_view_state_marks_changed_bytes_by_frame_source_length(self):
+        state = PacketViewState()
+        first = parse_log_line(LONG_CONFIG_LINE)
+        second = parse_log_line(LONG_CONFIG_LINE.replace("B1 16", "B1 26").replace("[98]", "[A8]"))
+        state.build(first)
+        view = state.build(second)
+
+        changed_indexes = {cell.index for cell in view.cells if cell.changed}
+        self.assertIn(2, changed_indexes)
+        self.assertIn(11, changed_indexes)
+
+    def test_packet_view_model_handles_tx_and_short_frames(self):
+        tx_packet = parse_log_line(TX_COMMAND_LINE)
+        tx_view = build_packet_view(tx_packet)
+        short_packet = parse_log_line(SHORT_CONDITION_LINE)
+        short_view = build_packet_view(short_packet)
+
+        self.assertEqual(tx_view.packet.source, "controller")
+        self.assertEqual(short_view.packet.length, 9)
+        self.assertEqual(short_view.cells[-1].role, "checksum")
+
+    def test_packet_view_model_marks_known_passive_condition_fields(self):
+        packet = parse_log_line(COND2_TEMPERATURE_LINE)
+        view = build_packet_view(packet)
+
+        known_fields = {
+            field.field
+            for cell in view.cells
+            for field in cell.known_fields
+        }
+        self.assertEqual(packet.frame_type, "0xD2")
+        self.assertIn("t03_outlet", known_fields)
+        self.assertIn("t04_coil", known_fields)
+        self.assertIn("t06_exhaust", known_fields)
+        self.assertIn("t_aux_cond2", known_fields)
+        self.assertIn("known-field", view.cells[4].tags)
+        self.assertNotEqual(view.summary, "no known packet fields")
 
     def test_defrost_demo_fixture_pins_menu_expectations_and_pairs(self):
         fixture = load_fixture_file(

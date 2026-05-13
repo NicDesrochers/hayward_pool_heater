@@ -1,0 +1,12 @@
+# Runtime dependencies for workstation use of:
+#   python -m analysis.hwp_logs_annotator
+#
+# The ESPHome devcontainer already includes these. Install this file in a local
+# virtual environment when running the field annotator from Windows/macOS/Linux.
+aioesphomeapi
+
+# Optional: only needed when using --yaml fallback instead of entering the
+# device address/API key through --setup. Keep this lightweight; installing the
+# full ESPHome package on bleeding-edge Python can force slow resolver
+# backtracking and old PyYAML source builds.
+PyYAML>=6.0.2

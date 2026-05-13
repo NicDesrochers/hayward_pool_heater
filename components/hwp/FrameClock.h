@@ -117,9 +117,9 @@ typedef struct clock_time {
         auto cs_inv_rst = changed ? CS::invert_rst : "";
         for (int i = 0; i < ref.length(); i++) {
             if (ref[i] != current[i]) {
-                cs << cs_inv << ref[i] << cs_inv_rst;
+                cs << cs_inv << current[i] << cs_inv_rst;
             } else {
-                cs << ref[i];
+                cs << current[i];
             }
         }
         cs << separator;

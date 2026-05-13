@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "source": "github.com/sle118/hayward_pool_heater/issues/11 pac_decoder.h attachment",
+  "provenance": "Regression evidence from issue #11: CONFIG_1 setpoints use the extended temperature encoding raw=(temp+30)<<1|decimal, which prevents 34C+ setpoints from wrapping to low single-digit temperatures.",
+  "packets": [
+    {
+      "id": "issue11-conf1-r02-33-5",
+      "source_id": "issue-11-extended-temperature-edge",
+      "label": "CONFIG_1_R02_33_5",
+      "source": "controller",
+      "length": 12,
+      "frame_type": "0x81",
+      "bytes": ["0x81", "0xB1", "0x26", "0x6E", "0x7F", "0x64", "0x3D", "0x3D", "0x3D", "0x3D", "0x32", "0xCF"],
+      "checksum_valid": true,
+      "expected_checksum": "0xCF",
+      "notes": "R02 heating setpoint 33.5C sits at the old short-encoding edge."
+    },
+    {
+      "id": "issue11-conf1-r02-34-0",
+      "source_id": "issue-11-extended-temperature-edge",
+      "label": "CONFIG_1_R02_34_0",
+      "source": "controller",
+      "length": 12,
+      "frame_type": "0x81",
+      "bytes": ["0x81", "0xB1", "0x26", "0x6E", "0x80", "0x64", "0x3D", "0x3D", "0x3D", "0x3D", "0x32", "0xD0"],
+      "checksum_valid": true,
+      "expected_checksum": "0xD0",
+      "notes": "R02 heating setpoint 34.0C must encode as 0x80, not wrap through the short temperature format."
+    },
+    {
+      "id": "issue11-conf1-r02-35-0",
+      "source_id": "issue-11-extended-temperature-edge",
+      "label": "CONFIG_1_R02_35_0",
+      "source": "controller",
+      "length": 12,
+      "frame_type": "0x81",
+      "bytes": ["0x81", "0xB1", "0x26", "0x6E", "0x82", "0x64", "0x3D", "0x3D", "0x3D", "0x3D", "0x32", "0xD2"],
+      "checksum_valid": true,
+      "expected_checksum": "0xD2",
+      "notes": "R02 heating setpoint 35.0C must encode as 0x82; the old short format produced a low-temperature wraparound."
+    }
+  ],
+  "menu_expectations": [
+    {"packet_id": "issue11-conf1-r02-33-5", "menu": "R02", "field": "r02_setpoint_heating", "value": 33.5, "raw_byte_index": 4, "raw_byte_value": "0x7F", "frame_type": "0x81", "source": "controller"},
+    {"packet_id": "issue11-conf1-r02-34-0", "menu": "R02", "field": "r02_setpoint_heating", "value": 34.0, "raw_byte_index": 4, "raw_byte_value": "0x80", "frame_type": "0x81", "source": "controller"},
+    {"packet_id": "issue11-conf1-r02-35-0", "menu": "R02", "field": "r02_setpoint_heating", "value": 35.0, "raw_byte_index": 4, "raw_byte_value": "0x82", "frame_type": "0x81", "source": "controller"}
+  ],
+  "menu_pairs": [
+    {"id": "issue11-pair-r02-33-5-to-34-0", "menu": "R02", "field": "r02_setpoint_heating", "base_packet_id": "issue11-conf1-r02-33-5", "expected_packet_id": "issue11-conf1-r02-34-0", "raw_byte_index": 4, "expected_raw_byte_value": "0x80", "changed_byte_indexes": [4]},
+    {"id": "issue11-pair-r02-34-0-to-35-0", "menu": "R02", "field": "r02_setpoint_heating", "base_packet_id": "issue11-conf1-r02-34-0", "expected_packet_id": "issue11-conf1-r02-35-0", "raw_byte_index": 4, "expected_raw_byte_value": "0x82", "changed_byte_indexes": [4]}
+  ]
+}

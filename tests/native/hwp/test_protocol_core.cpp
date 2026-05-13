@@ -393,6 +393,40 @@ void test_config1_config3_demo_read_contracts() {
     assert(!protocol::read_conf3_setpoint_limit(r01.data(), r01.size(), 9).has_value());
 }
 
+void test_config1_extended_setpoint_regression_contracts() {
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> r02_33_5 = {
+        0x81, 0xB1, 0x26, 0x6E, 0x7F, 0x64, 0x3D, 0x3D, 0x3D, 0x3D, 0x32, 0xCF};
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> r02_34_0 = {
+        0x81, 0xB1, 0x26, 0x6E, 0x80, 0x64, 0x3D, 0x3D, 0x3D, 0x3D, 0x32, 0xD0};
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> r02_35_0 = {
+        0x81, 0xB1, 0x26, 0x6E, 0x82, 0x64, 0x3D, 0x3D, 0x3D, 0x3D, 0x32, 0xD2};
+
+    assert(protocol::encode_temperature_extended(33.5f) == 0x7F);
+    assert(protocol::encode_temperature_extended(34.0f) == 0x80);
+    assert(protocol::encode_temperature_extended(35.0f) == 0x82);
+    assert(protocol::encode_temperature(35.0f) != 0x82);
+
+    assert_float_eq(
+        protocol::read_conf1_temperature_parameter(r02_33_5.data(), r02_33_5.size(), 2).value(),
+        33.5f);
+    assert_float_eq(
+        protocol::read_conf1_temperature_parameter(r02_34_0.data(), r02_34_0.size(), 2).value(),
+        34.0f);
+    assert_float_eq(
+        protocol::read_conf1_temperature_parameter(r02_35_0.data(), r02_35_0.size(), 2).value(),
+        35.0f);
+
+    auto conf1 = r02_33_5;
+    assert(protocol::set_conf1_temperature_parameter(conf1.data(), conf1.size(), 2, 34.0f));
+    assert_packet_eq(conf1, r02_34_0);
+    assert(protocol::is_packet_checksum_valid(conf1.data(), conf1.size()));
+
+    assert(protocol::set_conf1_temperature_parameter(conf1.data(), conf1.size(), 2, 35.0f));
+    assert_packet_eq(conf1, r02_35_0);
+    assert(protocol::is_packet_checksum_valid(conf1.data(), conf1.size()));
+    assert(conf1[4] != 0x42);
+}
+
 void test_config1_demo_write_contracts() {
     const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> r01_base = {
         0x81, 0xB1, 0x26, 0x6E, 0x58, 0x64, 0x3D, 0x3D, 0x3D, 0x3D, 0x32, 0xA8};
@@ -541,6 +575,7 @@ int main() {
     test_fan_fixture_read_helpers();
     test_fan_command_byte_helpers();
     test_config1_config3_demo_read_contracts();
+    test_config1_extended_setpoint_regression_contracts();
     test_config1_demo_write_contracts();
     test_fan_fixture_write_contracts();
     test_config5_defrost_active_tx_contracts();

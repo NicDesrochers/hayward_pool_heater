@@ -427,7 +427,7 @@ std::optional<float> read_conf1_temperature_parameter(
     }
     const uint8_t raw_value = data[field_number + 2];
     if (field_number <= 3) {
-        return decode_temperature(raw_value);
+        return decode_temperature_extended(raw_value);
     }
     return decode_temperature_extended(raw_value);
 }
@@ -538,7 +538,7 @@ bool set_conf1_temperature_parameter(
         return false;
     }
     if (field_number <= 3) {
-        data[field_number + 2] = encode_temperature(value);
+        data[field_number + 2] = encode_temperature_extended(value);
     } else {
         data[field_number + 2] = encode_temperature_extended(value);
     }

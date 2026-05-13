@@ -22,9 +22,9 @@ mappings and require implemented helper fields to appear in this map.
 | Menu | Field | Meaning | Location | Encoding | Evidence | Status |
 |----|----|----|----|----|----|----|
 | H02 | `h02_mode_restrictions` | Mode restrictions | byte 2 | bit field enum | implemented config frame | implemented, byte-tested |
-| R01 | `r01_setpoint_cooling` | Cooling setpoint | byte 3 | temperature | demo command fixture | implemented, byte-tested |
-| R02 | `r02_setpoint_heating` | Heating setpoint | byte 4 | temperature | demo command fixture | implemented, byte-tested |
-| R03 | `r03_setpoint_auto` | Auto setpoint | byte 5 | temperature | demo command fixture | implemented, fixture-backed |
+| R01 | `r01_setpoint_cooling` | Cooling setpoint | byte 3 | extended temperature | demo command fixture / issue #11 | implemented, byte-tested |
+| R02 | `r02_setpoint_heating` | Heating setpoint | byte 4 | extended temperature | demo command fixture / issue #11 | implemented, byte-tested |
+| R03 | `r03_setpoint_auto` | Auto setpoint | byte 5 | extended temperature | demo command fixture / issue #11 | implemented, fixture-backed |
 | R04 | `r04_return_diff_cooling` | Cooling return differential | byte 6 | extended temperature/delta | demo command fixture | implemented, byte-tested |
 | R05 | `r05_shutdown_temp_diff_when_cooling` | Cooling shutdown differential | byte 7 | extended temperature/delta | demo command fixture | implemented, byte-tested |
 | R06 | `r06_return_diff_heating` | Heating return differential | byte 8 | extended temperature/delta | demo command fixture | implemented, byte-tested |

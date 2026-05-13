@@ -106,9 +106,9 @@ static_assert(sizeof(hp_mode_t) == 1, "sizeof(hp_mode_t) != 1");
 typedef struct conf_1 {
     uint8_t id;                         // Frame ID
     hp_mode_t mode;                     // H02 mode restriction bits at data[2]
-    temperature_t r01_setpoint_cooling; // R01 cooling setpoint temperature
-    temperature_t r02_setpoint_heating; // R02 heating setpoint temperature at data[4]
-    temperature_t r03_setpoint_auto;    // R03 auto-mode setpoint
+    temperature_extended_t r01_setpoint_cooling; // R01 cooling setpoint temperature
+    temperature_extended_t r02_setpoint_heating; // R02 heating setpoint temperature at data[4]
+    temperature_extended_t r03_setpoint_auto;    // R03 auto-mode setpoint
     temperature_extended_t
         r04_return_diff_cooling; // R04 low-range return temperature difference for cooling
     temperature_extended_t r05_shutdown_temp_diff_when_cooling; // R05 low-range shutdown temperature

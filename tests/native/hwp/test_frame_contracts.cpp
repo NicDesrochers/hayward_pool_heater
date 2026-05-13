@@ -284,6 +284,24 @@ void test_conf1_source_gated_parse_matches_protocol_core() {
                     protocol::read_conf1_f12_min_fan_voltage_pct(f12.data(), f12.size()).value());
 }
 
+void test_conf1_extended_setpoint_runtime_contract() {
+    const Packet r02_35_0 = {
+        0x81, 0xB1, 0x26, 0x6E, 0x82, 0x64, 0x3D, 0x3D, 0x3D, 0x3D, 0x32, 0xD2};
+
+    auto frame = stage_frame<hwp::FrameConf1>(r02_35_0, hwp::SOURCE_CONTROLLER);
+    assert_float_eq(frame.data().r02_setpoint_heating.decode(), 35.0f);
+    assert_float_eq(
+        frame.data().r02_setpoint_heating.decode(),
+        protocol::read_conf1_temperature_parameter(r02_35_0.data(), r02_35_0.size(), 2).value());
+
+    frame.set_target_cooling(34.0f);
+    assert(frame.data().r01_setpoint_cooling.raw == 0x80);
+    frame.set_target_heating(35.0f);
+    assert(frame.data().r02_setpoint_heating.raw == 0x82);
+    frame.set_target_auto(33.5f);
+    assert(frame.data().r03_setpoint_auto.raw == 0x7F);
+}
+
 void test_condition_parse_matches_protocol_core() {
     const Packet cond1 = {
         0xD1, 0xB1, 0x05, 0x00, 0x00, 0x00, 0x00, 0x78, 0x5E, 0x77, 0x1B, 0xEF};
@@ -380,6 +398,7 @@ int main() {
     test_conf4_parse_matches_protocol_core();
     test_conf5_parse_matches_protocol_core();
     test_conf1_source_gated_parse_matches_protocol_core();
+    test_conf1_extended_setpoint_runtime_contract();
     test_condition_parse_matches_protocol_core();
     test_conf3_parse_matches_protocol_core();
     test_passive_shape_contracts();

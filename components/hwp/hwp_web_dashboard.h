@@ -89,6 +89,7 @@ class HWPWebDashboard {
 
     std::string state_json() const;
     size_t packet_count() const { return this->packets_.size(); }
+    size_t latest_frame_count() const { return this->latest_frames_.size(); }
     size_t graph_point_count(const std::string& field_id) const;
     static const char* index_html();
     static std::string escape_json(const std::string& value);
@@ -117,6 +118,7 @@ class HWPWebDashboard {
     HWPWebConfig config_{};
     std::vector<PacketRecord> packets_{};
     std::vector<HWPWebField> fields_{};
+    std::map<std::string, PacketRecord> latest_frames_{};
     std::map<std::string, std::string> previous_field_values_{};
     std::map<std::string, std::vector<uint8_t>> previous_packet_bytes_{};
     std::map<std::string, std::vector<GraphPoint>> graph_history_{};
@@ -140,6 +142,8 @@ class HWPWebDashboard {
     void append_field(std::vector<HWPWebField>& fields, HWPWebField field);
     void append_graph_point(const HWPWebField& field);
     std::string packets_json() const;
+    std::string frames_json() const;
+    static void append_packet_json(std::ostringstream& out, const PacketRecord& packet);
     std::string fields_json() const;
     std::string graph_json() const;
     std::string meta_json(const std::string& status, bus_mode_t bus_mode) const;

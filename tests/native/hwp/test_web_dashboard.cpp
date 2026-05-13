@@ -56,7 +56,9 @@ void test_packet_ring_buffer_and_changed_bytes() {
     dashboard.record_packet(second, "Chg");
 
     assert(dashboard.packet_count() == 1);
+    assert(dashboard.latest_frame_count() == 1);
     const auto json = dashboard.state_json();
+    assert_contains(json, "\"frames\":[");
     assert_contains(json, "\"kind\":\"Chg\"");
     assert_contains(json, "\"checksum_valid\":true");
     assert_contains(json, "\"changed_bytes\":[false,false,false,true");
@@ -86,9 +88,12 @@ void test_field_snapshot_and_graph_trim() {
 void test_index_html_contains_annotation_helper() {
     const std::string html = hwp::HWPWebDashboard::index_html();
     assert_contains(html, "Values");
+    assert_contains(html, "Frames");
     assert_contains(html, "Packets");
     assert_contains(html, "Graphs");
     assert_contains(html, "Annotate");
+    assert_contains(html, "class=annotate");
+    assert_contains(html, "position:fixed");
     assert_contains(html, "Start");
     assert_contains(html, "Mark Event");
     assert_contains(html, "Export JSON");

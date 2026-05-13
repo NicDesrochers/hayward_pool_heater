@@ -39,22 +39,24 @@ namespace {
 const char HWP_WEB_INDEX[] =
     "<!doctype html><html><head><meta charset=utf-8><meta name=viewport "
     "content='width=device-width,initial-scale=1'><title>HWP</title><style>"
-    "body{margin:0;font:14px system-ui;background:#f5f7fa;color:#17202a}"
+    "body{margin:0 0 76px;font:14px system-ui;background:#f5f7fa;color:#17202a}"
     "header{padding:12px 16px;background:#17324d;color:white;display:flex;gap:12px;align-items:center}"
     "button{border:0;background:#dce6f1;padding:8px 10px;margin:0 4px 0 0;border-radius:4px}"
     "input{padding:8px;border:1px solid #c5d0dc;border-radius:4px;min-width:220px}"
     "button.active{background:#1d6fb8;color:white}.view{display:none;padding:10px}.view.active{display:block}"
     "table{border-collapse:collapse;width:100%;background:white}th,td{padding:6px 8px;border-bottom:1px solid #e1e5ea;text-align:left}"
     "tr.changed,span.changed{background:#fff2a8}.bad{color:#a40000;font-weight:700}.packet{font-family:ui-monospace,monospace;margin:6px 0;padding:8px;background:white;border-left:4px solid #8aa4bd;overflow:auto}"
+    ".annotate{position:fixed;left:0;right:0;bottom:0;z-index:20;padding:10px;background:#edf3f8;border-top:1px solid #c6d4e1;box-shadow:0 -2px 8px #0002}"
     ".meta{font-size:12px;color:#52616f}canvas{background:white;width:100%;height:220px;border:1px solid #d8dee6;margin:8px 0}"
     "</style></head><body><header><strong>HWP</strong><span id=meta></span></header>"
-    "<nav style='padding:8px;background:#e9eef4'><button data-tab=values class=active>Values</button><button data-tab=packets>Packets</button><button data-tab=graphs>Graphs</button></nav>"
+    "<nav style='padding:8px;background:#e9eef4'><button data-tab=values class=active>Values</button><button data-tab=frames>Frames</button><button data-tab=packets>Packets</button><button data-tab=graphs>Graphs</button></nav>"
     "<section id=values class='view active'><table><thead><tr><th>Field</th><th>Value</th><th>Age</th><th>Source</th><th>Frame</th><th>Raw</th></tr></thead><tbody id=valueRows></tbody></table></section>"
+    "<section id=frames class=view><div class=meta>Latest packet seen for each frame/source/length, including unknown frames.</div><div id=frameRows></div></section>"
     "<section id=packets class=view><div id=packetRows></div></section>"
     "<section id=graphs class=view><canvas id=g1 width=900 height=220></canvas><canvas id=g2 width=900 height=220></canvas><canvas id=g3 width=900 height=220></canvas></section>"
-    "<section style='padding:10px;background:#edf3f8;border-top:1px solid #d8dee6'><strong>Annotate</strong> <input id=annNote placeholder='label or note'><button id=annStart>Start</button><button id=annEvent>Mark Event</button><button id=annEnd>End</button><button id=annExport>Export JSON</button><button id=annClear>Clear</button><span id=annCount class=meta></span></section>"
+    "<section class=annotate><strong>Annotate</strong> <input id=annNote placeholder='label or note'><button id=annStart>Start</button><button id=annEvent>Mark Event</button><button id=annEnd>End</button><button id=annExport>Export JSON</button><button id=annClear>Clear</button><span id=annCount class=meta></span></section>"
     "<script>"
-    "const ANN_KEY='hwp.web.annotations.v1';let state={fields:[],packets:[],graphs:{},meta:{}};let changed={};let tab='values';"
+    "const ANN_KEY='hwp.web.annotations.v1';let state={fields:[],frames:[],packets:[],graphs:{},meta:{}};let changed={};let tab='values';"
     "function anns(){try{return JSON.parse(localStorage.getItem(ANN_KEY)||'[]')}catch(e){return[]}}"
     "function saveAnns(a){localStorage.setItem(ANN_KEY,JSON.stringify(a));annCount.textContent=a.length+' annotations'}"
     "function latestPacket(){return state.packets.length?state.packets[state.packets.length-1]:null}"
@@ -64,7 +66,8 @@ const char HWP_WEB_INDEX[] =
     "annStart.onclick=()=>addAnn('start');annEvent.onclick=()=>addAnn('event');annEnd.onclick=()=>addAnn('end');annClear.onclick=()=>{if(confirm('Clear local HWP annotations?'))saveAnns([])};"
     "annExport.onclick=()=>{let data=JSON.stringify({schema:'hwp-web-annotations-v1',exported_at:new Date().toISOString(),annotations:anns()},null,2);let u=URL.createObjectURL(new Blob([data],{type:'application/json'}));let a=document.createElement('a');a.href=u;a.download='hwp-web-annotations.json';a.click();URL.revokeObjectURL(u)};"
     "function age(ms){if(!ms)return'';let base=state.meta.uptime_ms||0;let s=Math.max(0,Math.floor((base-ms)/1000));return s<60?s+'s':Math.floor(s/60)+'m '+String(s%60).padStart(2,'0')+'s'}"
-    "function render(){document.getElementById('meta').textContent=`${state.meta.status||''} ${state.meta.bus_mode||''} ${state.meta.revision||''}`;let now=Date.now();valueRows.innerHTML=state.fields.map(f=>`<tr class='${changed[f.id]>now?'changed':''}'><td>${f.label}</td><td>${f.value} ${f.unit||''}</td><td>${age(f.seen_ms)}</td><td>${f.source}</td><td>${f.frame}</td><td>${f.raw}</td></tr>`).join('');packetRows.innerHTML=state.packets.slice().reverse().map(p=>`<div class=packet><div class=meta>${p.kind} ${p.frame} ${p.label} ${p.source} ${p.checksum_valid?'ok':'<span class=bad>bad checksum</span>'}</div>[${p.bytes.map((b,i)=>`<span class='${p.changed_bytes[i]?'changed':''}'>${b.toString(16).padStart(2,'0').toUpperCase()}</span>`).join(' ')}]</div>`).join('');drawGraphs()}"
+    "function packetHtml(p){return`<div class=packet><div class=meta>#${p.sequence} ${age(p.seen_ms)} ${p.kind} ${p.frame} ${p.label} ${p.source} ${p.length}b ${p.checksum_valid?'ok':'<span class=bad>bad checksum</span>'}</div>[${p.bytes.map((b,i)=>`<span class='${p.changed_bytes[i]?'changed':''}'>${b.toString(16).padStart(2,'0').toUpperCase()}</span>`).join(' ')}]</div>`}"
+    "function render(){document.getElementById('meta').textContent=`${state.meta.status||''} ${state.meta.bus_mode||''} ${state.meta.revision||''}`;let now=Date.now();valueRows.innerHTML=state.fields.map(f=>`<tr class='${changed[f.id]>now?'changed':''}'><td>${f.label}</td><td>${f.value} ${f.unit||''}</td><td>${age(f.seen_ms)}</td><td>${f.source}</td><td>${f.frame}</td><td>${f.raw}</td></tr>`).join('');frameRows.innerHTML=(state.frames||[]).slice().reverse().map(packetHtml).join('');packetRows.innerHTML=state.packets.slice().reverse().map(packetHtml).join('');drawGraphs()}"
     "function drawOne(id,names){let c=document.getElementById(id),x=c.getContext('2d');x.clearRect(0,0,c.width,c.height);let series=names.map(n=>({n,p:state.graphs[n]||[]})).filter(s=>s.p.length);if(!series.length)return;let vals=series.flatMap(s=>s.p.map(p=>p.value));let lo=Math.min(...vals),hi=Math.max(...vals);if(lo===hi){lo-=1;hi+=1}let colors=['#1d6fb8','#c45f1a','#2e7d32','#7b1fa2','#a00030','#00838f','#6d4c41'];series.forEach((s,si)=>{x.strokeStyle=colors[si%colors.length];x.beginPath();s.p.forEach((p,i)=>{let px=40+i*Math.max(1,(c.width-260)/Math.max(1,s.p.length-1));let py=190-(p.value-lo)*(160/(hi-lo));if(i)x.lineTo(px,py);else x.moveTo(px,py)});x.stroke();x.fillStyle=x.strokeStyle;x.fillText(s.n, c.width-200, 24+si*18)});x.fillStyle='#555';x.fillText(lo.toFixed(1),4,194);x.fillText(hi.toFixed(1),4,36)}"
     "function drawGraphs(){drawOne('g1',['t02_inlet','t03_outlet','t04_coil','t06_exhaust','t_aux_cond2']);drawOne('g2',['r01_setpoint_cooling','r02_setpoint_heating','r03_setpoint_auto','r08_min_cool_setpoint','r09_max_cooling_setpoint','r10_min_heating_setpoint','r11_max_heating_setpoint']);drawOne('g3',['r04_return_diff_cooling','r05_shutdown_temp_diff_when_cooling','r06_return_diff_heating','r07_shutdown_diff_heating','d03_defrosting_cycle_time_minutes','d04_max_defrost_time_minutes','d05_min_economy_defrost_time_minutes','f08_fan_low_speed_running_time','f09_fan_stop_low_speed_running_time','f12_min_fan_voltage_pct','f13_max_fan_voltage_pct'])}"
     "let base=location.pathname.replace(/\\/$/,'');"
@@ -160,6 +163,7 @@ void HWPWebDashboard::record_packet(const BaseFrame& frame, const std::string& k
     }
     this->previous_packet_bytes_[key] = record.bytes;
     this->packets_.push_back(record);
+    this->latest_frames_[key] = record;
     this->trim_packets();
     this->dirty_ = true;
 }
@@ -232,6 +236,7 @@ std::string HWPWebDashboard::state_json() const {
     out << "{";
     out << "\"meta\":" << meta_json(this->last_status_, this->last_bus_mode_) << ",";
     out << "\"fields\":" << fields_json() << ",";
+    out << "\"frames\":" << frames_json() << ",";
     out << "\"packets\":" << packets_json() << ",";
     out << "\"graphs\":" << graph_json();
     out << "}";
@@ -267,29 +272,44 @@ std::string HWPWebDashboard::packets_json() const {
     std::ostringstream out;
     out << "[";
     for (size_t i = 0; i < this->packets_.size(); i++) {
-        const auto& packet = this->packets_[i];
         if (i) out << ",";
-        out << "{";
-        out << "\"sequence\":" << packet.sequence << ",";
-        out << "\"seen_ms\":" << packet.seen_ms << ",";
-        append_json_pair(out, "kind", packet.kind);
-        append_json_pair(out, "label", packet.label);
-        append_json_pair(out, "source", packet.source);
-        append_json_pair(out, "frame", packet.frame);
-        out << "\"length\":" << packet.length << ",";
-        out << "\"checksum_valid\":" << bool_json(packet.checksum_valid) << ",";
-        out << "\"changed\":" << bool_json(packet.changed) << ",";
-        out << "\"bytes\":" << bytes_to_json(packet.bytes) << ",";
-        out << "\"changed_bytes\":[";
-        for (size_t j = 0; j < packet.changed_bytes.size(); j++) {
-            if (j) out << ",";
-            out << bool_json(packet.changed_bytes[j]);
-        }
-        out << "]";
-        out << "}";
+        append_packet_json(out, this->packets_[i]);
     }
     out << "]";
     return out.str();
+}
+
+std::string HWPWebDashboard::frames_json() const {
+    std::ostringstream out;
+    out << "[";
+    size_t index = 0;
+    for (const auto& entry : this->latest_frames_) {
+        if (index++) out << ",";
+        append_packet_json(out, entry.second);
+    }
+    out << "]";
+    return out.str();
+}
+
+void HWPWebDashboard::append_packet_json(std::ostringstream& out, const PacketRecord& packet) {
+    out << "{";
+    out << "\"sequence\":" << packet.sequence << ",";
+    out << "\"seen_ms\":" << packet.seen_ms << ",";
+    append_json_pair(out, "kind", packet.kind);
+    append_json_pair(out, "label", packet.label);
+    append_json_pair(out, "source", packet.source);
+    append_json_pair(out, "frame", packet.frame);
+    out << "\"length\":" << packet.length << ",";
+    out << "\"checksum_valid\":" << bool_json(packet.checksum_valid) << ",";
+    out << "\"changed\":" << bool_json(packet.changed) << ",";
+    out << "\"bytes\":" << bytes_to_json(packet.bytes) << ",";
+    out << "\"changed_bytes\":[";
+    for (size_t j = 0; j < packet.changed_bytes.size(); j++) {
+        if (j) out << ",";
+        out << bool_json(packet.changed_bytes[j]);
+    }
+    out << "]";
+    out << "}";
 }
 
 std::string HWPWebDashboard::graph_json() const {

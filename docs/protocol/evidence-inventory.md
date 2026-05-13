@@ -34,13 +34,13 @@ Summary:
 |----|----:|----:|----:|
 | Annotated windows | 65 | 47 packet-window matches | 7 packet windows not yet covered |
 | Annotated windows with packets | 54 | 47 | 7 |
-| Arduino demo packets | 43 | 41 | 2 |
+| Arduino demo packets | 43 | 42 | 1 |
 
 The simulator packet corpus is broader than the first golden packet fixture
 slice. `CONFIG_1` R01-R07, `CONFIG_2` D01, `CONFIG_3` R09-R11, and
 `CONFIG_5` D05/D06 command-style examples are now tracked as menu-backed
-fixtures. Remaining useful simulator examples cover only additional
-temperature/status packets.
+fixtures. The remaining useful simulator example is an uncertain `COND_D`
+status packet.
 
 ## Notable Remaining Evidence
 
@@ -52,7 +52,7 @@ tracked as fixtures are non-fan windows from 2024-10-31:
 
 Uncovered simulator packets include:
 
-- `COND_2`/`COND_D`: additional temperature/status examples
+- `COND_D`: additional status example with unclear field meanings
 
 ## Interpretation
 

@@ -346,6 +346,28 @@ void test_condition_parse_matches_protocol_core() {
                         protocol::read_cond2_temperature(cond2.data(), cond2.size(), 6).value());
         assert(protocol::read_cond2_temperature(cond2.data(), cond2.size(), 8).has_value());
     }
+
+    {
+        const Packet temp_out_1 = {
+            0xD2, 0xB1, 0x11, 0x5E, 0x52, 0x4C, 0x4E, 0x00, 0x64, 0x00, 0x00, 0x42};
+        auto frame = stage_frame<hwp::FrameConditions2>(temp_out_1, hwp::SOURCE_HEATER);
+        hwp::heat_pump_data_t data;
+        frame.parse(data);
+        assert(data.t03_temperature_outlet.has_value());
+        assert(data.t04_temperature_coil.has_value());
+        assert(data.t06_temperature_exhaust.has_value());
+        assert_float_eq(data.t03_temperature_outlet.value(),
+                        protocol::read_cond2_temperature(
+                            temp_out_1.data(), temp_out_1.size(), 3).value());
+        assert_float_eq(data.t04_temperature_coil.value(),
+                        protocol::read_cond2_temperature(
+                            temp_out_1.data(), temp_out_1.size(), 4).value());
+        assert_float_eq(data.t06_temperature_exhaust.value(),
+                        protocol::read_cond2_temperature(
+                            temp_out_1.data(), temp_out_1.size(), 6).value());
+        assert_float_eq(protocol::read_cond2_temperature(
+                            temp_out_1.data(), temp_out_1.size(), 8).value(), 20.0f);
+    }
 }
 
 void test_conf3_parse_matches_protocol_core() {

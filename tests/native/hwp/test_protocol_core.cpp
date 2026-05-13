@@ -414,6 +414,32 @@ void test_config1_config3_demo_read_contracts() {
     assert(!protocol::read_conf3_setpoint_limit(r01.data(), r01.size(), 9).has_value());
 }
 
+void test_cond2_demo_temperature_read_contracts() {
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> temp_out_1 = {
+        0xD2, 0xB1, 0x11, 0x5E, 0x52, 0x4C, 0x4E, 0x00, 0x64, 0x00, 0x00, 0x42};
+
+    assert_float_eq(
+        protocol::read_cond2_temperature(temp_out_1.data(), temp_out_1.size(), 3).value(),
+        11.0f);
+    assert_float_eq(
+        protocol::read_cond2_temperature(temp_out_1.data(), temp_out_1.size(), 4).value(),
+        9.0f);
+    assert_float_eq(
+        protocol::read_cond2_temperature(temp_out_1.data(), temp_out_1.size(), 6).value(),
+        8.0f);
+    assert_float_eq(
+        protocol::read_cond2_temperature(temp_out_1.data(), temp_out_1.size(), 8).value(),
+        20.0f);
+    assert(protocol::is_packet_checksum_valid(temp_out_1.data(), temp_out_1.size()));
+    assert(!protocol::read_cond2_temperature(temp_out_1.data(), temp_out_1.size(), 7)
+                .has_value());
+
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH_SHORT> short_frame = {
+        0xD2, 0x1B, 0x06, 0x28, 0x07, 0x0D, 0xA0, 0x8C, 0x89};
+    assert(!protocol::read_cond2_temperature(short_frame.data(), short_frame.size(), 3)
+                .has_value());
+}
+
 void test_config1_extended_setpoint_regression_contracts() {
     const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> r02_33_5 = {
         0x81, 0xB1, 0x26, 0x6E, 0x7F, 0x64, 0x3D, 0x3D, 0x3D, 0x3D, 0x32, 0xCF};
@@ -697,6 +723,7 @@ int main() {
     test_fan_fixture_read_helpers();
     test_fan_command_byte_helpers();
     test_config1_config3_demo_read_contracts();
+    test_cond2_demo_temperature_read_contracts();
     test_config1_extended_setpoint_regression_contracts();
     test_config1_demo_write_contracts();
     test_fan_fixture_write_contracts();

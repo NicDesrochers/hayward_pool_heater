@@ -40,6 +40,18 @@
       "notes": "Base temp-out frame with inlet/coil/exhaust-style values in source notes."
     },
     {
+      "id": "demo-temp-out-1",
+      "source_id": "p_28",
+      "label": "TEMP_OUT_1",
+      "source": "heater",
+      "length": 12,
+      "frame_type": "0xD2",
+      "bytes": ["0xD2", "0xB1", "0x11", "0x5E", "0x52", "0x4C", "0x4E", "0x00", "0x64", "0x00", "0x00", "0x42"],
+      "checksum_valid": true,
+      "expected_checksum": "0x42",
+      "notes": "Demo COND_2/TEMP_OUT frame: outlet 11.0C, coil 9.0C, exhaust 8.0C, auxiliary 20.0C. This is read/decode evidence only."
+    },
+    {
       "id": "base-temp-in-b",
       "source_id": "base_4",
       "label": "TEMP_IN_B",

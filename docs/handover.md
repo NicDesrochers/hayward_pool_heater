@@ -21,6 +21,7 @@ This repo is now developed inside the ESPHome devcontainer. Read:
 - The first native C++ seam lives in `components/hwp/protocol_core.*` and covers dependency-light packet helpers plus fan mode, defrost, flow-meter, and heat-pump restriction conversions.
 - Component-local adapter headers keep climate/logger/time/RMT coupling out of core frame tests where practical. `HWP_NATIVE_TEST` uses those adapters to compile runtime frame contracts without full ESPHome or hardware RMT dependencies.
 - Curated packet fixtures from `tmp/hwp/analysis/simulator/DemoFrames.h` live under `tests/fixtures/packets/` and validate with stdlib Python tests. Those simulator packets are hardware-derived reference frames, not synthetic-only samples.
+- The remaining useful simulator `COND_2` temperature example, `p_28`, is tracked as passive read/decode evidence. It pins current outlet/coil/exhaust/aux decode behavior without proving broader temperature encoding edges.
 - A curated subset from the recent ignored `tmp/hwp/POOL_esphome_logs.log` trace is tracked as `tests/fixtures/packets/hwp_hardware_log_2025_06_24.json`; it covers representative real RX/change frames for `0x81`, `0x82`, `0x83`, `0x84`, `0x85`, `0x86`, `0xD1`, `0xD2`, `0xDD`, plus clock/controller frames. The proof CLI found all 15 checksum-valid packets from that fixture in the full ignored log.
 - A curated annotation fixture from `tmp/hwp/POOL_esphome_logs.log.2024-11-01` lives under `tests/fixtures/annotations/`; it captures fan-control tagger windows for F01 and F02-F13 as read/write packet contracts. The remaining fan edge windows are now imported: F02 41.0, F03 15.5, F08 1, F10 coil source, F12 50, and F13 99/100.
 - Some annotation sessions came from checking read-only technical-menu/status values, not changing writable settings. Treat those as read/decode evidence only unless paired with controller command bytes, simulator command examples, or live echo evidence.
@@ -74,7 +75,7 @@ Choose the next slice from normal project priorities rather than tmp merge work.
 Good candidates:
 
 - review `COND_1`/`COND_2` temperature encoding separately if hardware evidence shows values above the short-format range; the issue #11 fix intentionally changed only `CONFIG_1` setpoint encoding in this slice
-- mine the remaining non-fan 2024-10-31 condition/clock `test` windows only if they add decode coverage beyond current passive runtime contracts
+- mine the remaining non-fan 2024-10-31 condition/clock `test` windows only if they add decode coverage beyond current passive runtime contracts; `COND_D` remains research-only until at least one field meaning is named
 - run the next supervised active TX validation for `u02_pulses_per_liter` only after the remaining fixture evidence has been triaged; capture command and echo packets before adding the next active-TX fixture
 - add the next low-level native seam for queue behavior
 - extract capture conversion as repo-native tooling

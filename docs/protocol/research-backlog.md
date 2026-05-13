@@ -26,7 +26,7 @@ separate command packet or simulator command example.
 | ID | Area | Evidence | Current State | Human Work Needed | Implementation Gate |
 |----|------|----------|---------------|-------------------|---------------------|
 | RES-001 | `COND_D` / `0xDD` fields | Arduino simulator `p_30`; hardware logs show repeated `COND_D` packets | Packet shape and checksum are known, but field meanings are unclear | Compare `COND_D` changes against heater display/status screens and operating state; identify whether bytes map to errors, counters, temperatures, or state bits | Add fixture read contracts only after at least one field has a named hypothesis |
-| RES-002 | `COND_2` / `0xD2` temperature edge evidence | Arduino simulator `p_28`; 2024-10-31 annotation windows | Current decode matches observed log output for common temperatures | Find higher/edge temperature values that distinguish short vs extended temperature encoding, if available | Add regression fixture only for the specific decode claim proven by the source |
+| RES-002 | `COND_2` / `0xD2` temperature edge evidence | Arduino simulator `p_28`; 2024-10-31 annotation windows | `p_28` is fixture-backed for current outlet/coil/exhaust/aux temperature decode, but it uses common values that do not distinguish every possible encoding edge | Find higher/edge temperature values that distinguish short vs extended temperature encoding, if available | Add broader regression fixture only for the specific encoding claim proven by the source |
 | RES-003 | `CLOCK` / `0xCF` controller frame | 2024-10-31 annotation windows around time changes | Frame is parsed as controller clock; time byte behavior appears visible | Confirm byte layout from multiple minute/hour/day/month transitions | Add passive clock field contracts after layout is confirmed |
 | RES-004 | `U01` flow meter enable | Implemented CONFIG_5 bit; no dedicated tracked command fixture yet | Field is named in runtime but evidence is weaker than fan/defrost fields | Find simulator, annotation, or hardware echo evidence for U01 changes | Require command-byte fixture before broadening active-control claims |
 | RES-005 | `U02` pulses per liter | Implemented CONFIG_5 byte; candidate future active TX | Runtime field exists; active behavior remains safety-sensitive | Capture command and echo packets during supervised hardware change; watch for adjacent CONFIG_5 normalization | Add active-TX fixture before claiming field operation |
@@ -44,4 +44,3 @@ should help humans close the backlog above:
 - Emit draft fixture snippets for human review without automatically accepting
   field meanings.
 - Keep full logs ignored; only curated fixtures and notes should be tracked.
-

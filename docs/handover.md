@@ -7,7 +7,8 @@ This repo is now developed inside the ESPHome devcontainer. Read:
 1. `AGENTS.md` for operational rules and verification commands.
 2. `docs/features.md` for project status and next feature slices.
 3. `docs/testing/backlog.md` for detailed testing tasks.
-4. `docs/tmp-hwp-salvage.md` only if a task explicitly needs archival tmp reference material.
+4. `docs/protocol/menu-packet-map.md` before protocol, helper, or active-control changes.
+5. `docs/tmp-hwp-salvage.md` only if a task explicitly needs archival tmp reference material.
 
 ## Current State
 
@@ -22,6 +23,7 @@ This repo is now developed inside the ESPHome devcontainer. Read:
 - A curated subset from the recent ignored `tmp/hwp/POOL_esphome_logs.log` trace is tracked as `tests/fixtures/packets/hwp_hardware_log_2025_06_24.json`; it covers representative real RX/change frames for `0x81`, `0x82`, `0x83`, `0x84`, `0x85`, `0x86`, `0xD1`, `0xD2`, `0xDD`, plus clock/controller frames. The proof CLI found all 15 checksum-valid packets from that fixture in the full ignored log.
 - A curated annotation fixture from `tmp/hwp/POOL_esphome_logs.log.2024-11-01` lives under `tests/fixtures/annotations/`; it captures fan-control tagger windows for F01 and F02-F13 as read/write packet contracts.
 - The remaining ignored annotation logs and Arduino simulator packets are inventoried by `python -m analysis.hwp_analyze evidence --limit 25`. The current scan found 65 annotation windows, 54 packet-bearing windows, and 43 simulator packets; see `docs/protocol/evidence-inventory.md` before deciding the next fixture import.
+- Technical manual menu options are mapped to frame/byte/encoding/evidence status in `docs/protocol/menu-packet-map.md`, with machine-readable metadata in `analysis/hwp_menu_map.py`. Check this map before adding or exposing protocol behavior.
 - Fan field candidates from the tmp tree are reviewed in `docs/protocol/fan-field-review.md` and covered by fixture-backed Python tests.
 - Runtime decode naming for F02-F09, F10, F11, and F13 is merged in the frame structs. F10/F11 dependency-light conversions are covered in `protocol_core`.
 - Runtime `FrameConf1/2/4/5` matching and parsing are covered by adapter-backed native tests against the F01-F13 packet contracts.
@@ -48,7 +50,7 @@ Inside the devcontainer:
 python -m unittest discover -s tests -p 'test_*.py'
 python -m analysis.hwp_analyze fixtures
 python -m analysis.hwp_analyze active-tx --fixture tests/fixtures/active_tx/hwp_active_tx_config5_defrost_2026_05_12.json
-python -m analysis.hwp_analyze evidence --limit 25
+python -m analysis.hwp_analyze evidence --menu --limit 25
 python -m analysis.hwp_analyze prove --input tmp/hwp/POOL_esphome_logs.log --fixture tests/fixtures/packets/hwp_hardware_log_2025_06_24.json
 python -m analysis.hwp_analyze prove-annotations --input tmp/hwp/POOL_esphome_logs.log.2024-11-01 --fixture tests/fixtures/annotations/hwp_annotated_fan_control_2024_11_01.json
 ./scripts/test-esphome.sh --local

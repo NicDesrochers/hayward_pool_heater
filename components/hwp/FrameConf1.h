@@ -45,7 +45,7 @@ namespace hwp {
  * @brief Heating pump mode structure
  *
  * - power: Indicates whether the heating pump is powered on or off.
- * - h02_mode: Represents H02 mode using the HeatPumpRestrict:
+ * - h02_mode: Represents H02 mode-restriction menu using the HeatPumpRestrict:
  *   - 0: Cooling only (MODE_RESTRICT_COOLING).
  *   - 1: Heating, cooling, and automatic modes (MODE_ANY).
  *   - 2: Heating only (MODE_RESTRICT_HEATING).
@@ -93,30 +93,31 @@ static_assert(sizeof(hp_mode_t) == 1, "sizeof(hp_mode_t) != 1");
  * @brief Holds the temperature program settings for cooling, heating, and auto modes.
  *
  * - mode: Mode structure for controlling power, heating, and cooling modes.
- * - r01_setpoint_cooling: Cooling setpoint temperature.
- * - r02_setpoint_heating: Heating setpoint temperature.
- * - r03_setpoint_auto: Setpoint for auto mode.
- * - r04_return_diff_cooling: Return temperature difference during cooling.
- * - r05_shutdown_temp_diff_when_cooling: Shutdown temperature difference when cooling.
- * - r06_return_diff_heating: Return temperature difference during heating.
- * - r07_shutdown_diff_heating: Shutdown temperature difference when heating.
+ * - R01: Cooling setpoint temperature.
+ * - R02: Heating setpoint temperature.
+ * - R03: Setpoint for auto mode.
+ * - R04: Return temperature difference during cooling.
+ * - R05: Shutdown temperature difference when cooling.
+ * - R06: Return temperature difference during heating.
+ * - R07: Shutdown temperature difference when heating.
+ * - F12: Minimum fan voltage limit percent.
  * - reserved_7: Reserved for future or unknown use.
  */
 typedef struct conf_1 {
     uint8_t id;                         // Frame ID
-    hp_mode_t mode;                     // Mode structure at data[2]
-    temperature_t r01_setpoint_cooling; // Cooling setpoint temperature
-    temperature_t r02_setpoint_heating; // Heating setpoint temperature at data[4]
-    temperature_t r03_setpoint_auto;    // Auto mode setpoint
+    hp_mode_t mode;                     // H02 mode restriction bits at data[2]
+    temperature_t r01_setpoint_cooling; // R01 cooling setpoint temperature
+    temperature_t r02_setpoint_heating; // R02 heating setpoint temperature at data[4]
+    temperature_t r03_setpoint_auto;    // R03 auto-mode setpoint
     temperature_extended_t
-        r04_return_diff_cooling; // low_range. Return temperature difference for cooling
-    temperature_extended_t r05_shutdown_temp_diff_when_cooling; // low_range. Shutdown temperature
+        r04_return_diff_cooling; // R04 low-range return temperature difference for cooling
+    temperature_extended_t r05_shutdown_temp_diff_when_cooling; // R05 low-range shutdown temperature
                                                                 // difference when cooling
     temperature_extended_t
-        r06_return_diff_heating; // low_range. Return temperature difference for heating
+        r06_return_diff_heating; // R06 low-range return temperature difference for heating
     temperature_extended_t
-        r07_shutdown_diff_heating; // low_range. Shutdown temperature difference when heating
-    small_integer_t f12_min_fan_voltage_pct; // Minimum fan voltage limit percent
+        r07_shutdown_diff_heating; // R07 low-range shutdown temperature difference when heating
+    small_integer_t f12_min_fan_voltage_pct; // F12 minimum fan voltage limit percent
 
     bool operator==(const optional<struct conf_1>& other) const {
         return other.has_value() && *this == other.value();

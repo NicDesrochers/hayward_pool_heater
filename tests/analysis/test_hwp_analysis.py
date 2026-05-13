@@ -45,8 +45,10 @@ from analysis.hwp_fixtures import (
 from analysis.hwp_evidence_inventory import (
     build_evidence_inventory,
     inventory_field_counts,
+    menu_coverage_summary,
     summarize_demo_frames,
 )
+from analysis.hwp_menu_map import MENU_BY_CODE, MENU_BY_FIELD, validate_menu_packet_map
 from analysis.hwp_log_parser import (
     parse_annotation_windows,
     parse_log_line,
@@ -198,6 +200,84 @@ static const packet_t p_1 = packet_t(false, 12, std::string("base conf"), data_1
         self.assertTrue(all(packet.is_covered for packet in packets))
         self.assertEqual(packets[0].frame_type, "0x84")
         self.assertTrue(packets[0].controllable)
+
+    def test_menu_packet_map_validates_and_pins_core_mappings(self):
+        validate_menu_packet_map()
+        expectations = {
+            "F13": ("f13_max_fan_voltage_pct", "0x82", 10, None),
+            "F12": ("f12_min_fan_voltage_pct", "0x81", 10, None),
+            "F02": ("f02_fan_high_speed_cool_setpoint", "0x84", 2, None),
+            "F09": ("f09_fan_stop_low_speed_running_time", "0x84", 9, None),
+            "F11": ("f11_speed_control_module", "0x85", 2, 3),
+            "D06": ("d06_defrost_eco_mode", "0x85", 2, 6),
+            "U02": ("u02_pulses_per_liter", "0x85", 10, None),
+            "R09": ("r09_max_cooling_setpoint", "0x83", 8, None),
+            "S02": ("s02_water_flow", "0xD1", 3, 2),
+        }
+        for menu, expected in expectations.items():
+            with self.subTest(menu=menu):
+                field, frame, byte_index, bit_index = expected
+                entry = MENU_BY_CODE[menu]
+                self.assertEqual(entry.field, field)
+                self.assertEqual(entry.frame, frame)
+                self.assertEqual(entry.byte_index, byte_index)
+                self.assertEqual(entry.bit_index, bit_index)
+
+    def test_menu_packet_map_covers_implemented_helper_fields(self):
+        implemented_fields = {
+            "d01_defrost_start",
+            "d02_defrost_end",
+            "d03_defrosting_cycle_time_minutes",
+            "d04_max_defrost_time_minutes",
+            "d05_min_economy_defrost_time_minutes",
+            "d06_defrost_eco_mode",
+            "f01_fan_mode",
+            "f02_fan_high_speed_cool_setpoint",
+            "f03_fan_low_speed_temp_in_cooling_set_point",
+            "f04_fan_stop_temp_in_cooling_set_point",
+            "f05_fan_high_speed_temp_in_heating_set_point",
+            "f06_fan_low_speed_temp_in_heating_set_point",
+            "f07_fan_stop_temp_in_heating_set_point",
+            "f08_fan_low_speed_running_time",
+            "f09_fan_stop_low_speed_running_time",
+            "f10_fan_speed_control_temp",
+            "f11_speed_control_module",
+            "f12_min_fan_voltage_pct",
+            "f13_max_fan_voltage_pct",
+            "h02_mode_restrictions",
+            "r01_setpoint_cooling",
+            "r02_setpoint_heating",
+            "r03_setpoint_auto",
+            "r04_return_diff_cooling",
+            "r05_shutdown_temp_diff_when_cooling",
+            "r06_return_diff_heating",
+            "r07_shutdown_diff_heating",
+            "r08_min_cool_setpoint",
+            "r09_max_cooling_setpoint",
+            "r10_min_heating_setpoint",
+            "r11_max_heating_setpoint",
+            "u01_flow_meter",
+            "u02_pulses_per_liter",
+        }
+        self.assertEqual(implemented_fields - set(MENU_BY_FIELD), set())
+
+    def test_menu_coverage_summary_finds_annotation_and_demo_evidence(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            log_path = Path(temp_dir) / "annotated.log"
+            log_path.write_text("".join(ANNOTATED_WINDOW_LINES), encoding="utf-8")
+            demo_path = Path(temp_dir) / "DemoFrames.h"
+            demo_path.write_text(
+                """
+const uint8_t data_0[12] = {0x83, 0xB1, 0x46, 0x23, 0x0A, 0x23, 0x23, 0x3C, 0x84, 0x46, 0x8C, 0x7F};
+static const packet_t p_0 = packet_t(true, 12, std::string("r09=36"), data_0, std::string(""));
+""",
+                encoding="utf-8",
+            )
+            inventory = build_evidence_inventory((log_path,), demo_path)
+
+        summary = menu_coverage_summary(inventory)
+        self.assertEqual(summary["F02"][1], 1)
+        self.assertTrue(summary["R09"][2])
 
     def test_annotation_fixture_loads_reference_windows(self):
         fixture = load_annotation_fixture_file(

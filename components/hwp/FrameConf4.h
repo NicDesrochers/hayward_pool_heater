@@ -37,16 +37,21 @@
 #include "base_frame.h"
 namespace esphome {
 namespace hwp {
+/**
+ * @brief Fan configuration menu packet.
+ *
+ * Maps technical-menu options F02-F09 onto CONFIG_4 payload bytes.
+ */
 typedef struct conf_4 {
     uint8_t id;                                      ///< ID byte
-    temperature_extended_t f02_fan_high_speed_cool_setpoint;
-    temperature_extended_t f03_fan_low_speed_temp_in_cooling_set_point;
-    temperature_extended_t f04_fan_stop_temp_in_cooling_set_point;
-    temperature_extended_t f05_fan_high_speed_temp_in_heating_set_point;
-    temperature_extended_t f06_fan_low_speed_temp_in_heating_set_point;
-    temperature_extended_t f07_fan_stop_temp_in_heating_set_point;
-    small_integer_t f08_fan_low_speed_running_time;
-    small_integer_t f09_fan_stop_low_speed_running_time;
+    temperature_extended_t f02_fan_high_speed_cool_setpoint; // F02
+    temperature_extended_t f03_fan_low_speed_temp_in_cooling_set_point; // F03
+    temperature_extended_t f04_fan_stop_temp_in_cooling_set_point; // F04
+    temperature_extended_t f05_fan_high_speed_temp_in_heating_set_point; // F05
+    temperature_extended_t f06_fan_low_speed_temp_in_heating_set_point; // F06
+    temperature_extended_t f07_fan_stop_temp_in_heating_set_point; // F07
+    small_integer_t f08_fan_low_speed_running_time; // F08
+    small_integer_t f09_fan_stop_low_speed_running_time; // F09
     bits_details_t unknown;
     
     bool operator==(const optional<struct conf_4>& other) const {

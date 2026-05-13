@@ -55,6 +55,7 @@ from .hwp_evidence_inventory import (
     build_evidence_inventory,
     inventory_field_counts,
     inventory_frame_counts,
+    menu_coverage_summary,
 )
 from .hwp_log_parser import packet_counts, parse_annotation_file, parse_log_file
 
@@ -150,6 +151,11 @@ def main(argv: list[str] | None = None) -> int:
         default=12,
         help="Maximum uncovered examples to print.",
     )
+    evidence_parser.add_argument(
+        "--menu",
+        action="store_true",
+        help="Print manual menu-code coverage from the protocol map.",
+    )
 
     args = parser.parse_args(argv)
     try:
@@ -173,7 +179,7 @@ def main(argv: list[str] | None = None) -> int:
                 if args.input
                 else DEFAULT_EVIDENCE_LOGS
             )
-            return _cmd_evidence(inputs, Path(args.demo_frames), args.limit)
+            return _cmd_evidence(inputs, Path(args.demo_frames), args.limit, args.menu)
     except (FixtureValidationError, OSError) as err:
         print(f"error: {err}", file=sys.stderr)
         return 2
@@ -344,6 +350,7 @@ def _cmd_evidence(
     input_paths: tuple[Path, ...],
     demo_frames_path: Path,
     limit: int,
+    include_menu: bool,
 ) -> int:
     inventory = build_evidence_inventory(input_paths, demo_frames_path)
     packet_windows = inventory.packet_windows
@@ -380,6 +387,22 @@ def _cmd_evidence(
         inventory_frame_counts(inventory.windows, inventory.demo_packets).items()
     ):
         print(f"  {frame_type}: {count}")
+
+    if include_menu:
+        print("Menu coverage:")
+        for menu, (entry, annotation_count, has_demo) in sorted(
+            menu_coverage_summary(inventory).items()
+        ):
+            evidence = []
+            if annotation_count:
+                evidence.append(f"annotations={annotation_count}")
+            if has_demo:
+                evidence.append("demo=yes")
+            print(
+                f"  {menu}: {entry.frame} {entry.location}, "
+                f"{entry.implementation_status}, {entry.safety_status}, "
+                f"{', '.join(evidence) or 'no scanned evidence'}"
+            )
 
     if limit > 0 and uncovered_windows:
         print("Uncovered annotated examples:")

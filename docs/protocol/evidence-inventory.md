@@ -5,10 +5,14 @@ reference material. The full logs and copied simulator remain ignored; this
 document and the `analysis.hwp_analyze evidence` command are the tracked entry
 points.
 
+Use `docs/protocol/menu-packet-map.md` for the technical-menu-to-frame source of
+truth before importing more fixtures or broadening active controls.
+
 ## Command
 
 ```sh
 python -m analysis.hwp_analyze evidence --limit 25
+python -m analysis.hwp_analyze evidence --menu --limit 25
 ```
 
 ## Current Scan

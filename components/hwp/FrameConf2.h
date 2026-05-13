@@ -43,8 +43,8 @@ typedef struct fanmode_details {
     union {
         struct {
             uint8_t unknown_x : 3;        // Bits 0-2: Unknown purpose
-            uint8_t f10_speed_source : 1; // Bit 3: fan speed control temperature source
-            uint8_t mode : 4;             // Bits 4-7: Fan mode (4 bits)
+            uint8_t f10_speed_source : 1; // F10 bit 3: fan speed control temperature source
+            uint8_t mode : 4;             // F01 bits 4-7: fan mode
         };
         bits_details_t raw; // Raw byte representation
     };
@@ -72,24 +72,25 @@ static_assert(sizeof(fanmode_details_t) == 1, "Invalid fanmode_details_t size");
 /**
  * @brief Represents the fan state, including defrost settings and unknown bits.
  *
- * - fan_mode: Fan mode and unknown bits combined in a structure.
- * - d01_defrost_start: Defrost start temperature.
- * - d02_defrost_end: Defrost end temperature.
- * - d03_defrosting_cycle_time_minutes: Time duration for the defrost cycle in minutes.
- * - d04_max_defrost_time_minutes: Maximum defrost time in minutes.
+ * - F01/F10: Fan mode and fan speed control temperature source.
+ * - D01: Defrost start temperature.
+ * - D02: Defrost end temperature.
+ * - D03: Time duration for the defrost cycle in minutes.
+ * - D04: Maximum defrost time in minutes.
+ * - F13: Maximum fan voltage limit percent.
  * - unknown_5 to unknown_8: Reserved or unknown fields.
  */
 typedef struct conf_2 {
     uint8_t id;                                         ///< ID byte
-    fanmode_details_t fan_mode;                         // Fan mode and unknown bits
-    temperature_extended_t d01_defrost_start;           // Defrost start temperature
-    temperature_t d02_defrost_end;                      // Defrost end temperature at data[4]
-    decimal_number_t d03_defrosting_cycle_time_minutes; // Defrost cycle time in minutes
-    decimal_number_t d04_max_defrost_time_minutes;      // Maximum defrost time in minutes
+    fanmode_details_t fan_mode;                         // F01/F10 fan mode/source byte
+    temperature_extended_t d01_defrost_start;           // D01 defrost start temperature
+    temperature_t d02_defrost_end;                      // D02 defrost end temperature at data[4]
+    decimal_number_t d03_defrosting_cycle_time_minutes; // D03 defrost cycle time in minutes
+    decimal_number_t d04_max_defrost_time_minutes;      // D04 maximum defrost time in minutes
     bits_details_t unknown_5;                           // Reserved or unknown field (6th byte)
     bits_details_t unknown_6;                           // Reserved or unknown field (7th byte)
     bits_details_t unknown_7;                           // Reserved or unknown field (8th byte)
-    small_integer_t f13_max_fan_voltage_pct;            // Maximum fan voltage limit percent
+    small_integer_t f13_max_fan_voltage_pct;            // F13 maximum fan voltage limit percent
     bool operator==(const optional<struct conf_2>& other) const {
         return other.has_value() && *this == *other;
     }

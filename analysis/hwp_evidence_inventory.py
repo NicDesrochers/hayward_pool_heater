@@ -42,6 +42,7 @@ from .hwp_fixtures import (
     load_fixture_files,
 )
 from .hwp_log_parser import ParsedAnnotationWindow, parse_annotation_file
+from .hwp_menu_map import MENU_PACKET_MAP, MenuPacketMapping
 
 
 DEFAULT_EVIDENCE_LOGS = (
@@ -135,6 +136,19 @@ class EvidenceInventory:
     @property
     def uncovered_demo_packets(self) -> tuple[DemoPacketSummary, ...]:
         return tuple(packet for packet in self.demo_packets if not packet.is_covered)
+
+
+def menu_coverage_summary(
+    inventory: EvidenceInventory,
+) -> dict[str, tuple[MenuPacketMapping, int, bool]]:
+    field_counts = inventory_field_counts(inventory.windows)
+    demo_labels = {packet.label.lower() for packet in inventory.demo_packets}
+    summary: dict[str, tuple[MenuPacketMapping, int, bool]] = {}
+    for entry in MENU_PACKET_MAP:
+        annotation_count = field_counts.get(entry.menu, Counter()).get("packet_windows", 0)
+        has_demo = _menu_has_demo_label(entry.menu, demo_labels)
+        summary[entry.menu] = (entry, annotation_count, has_demo)
+    return summary
 
 
 def build_tracked_packet_index() -> dict[tuple[int, ...], set[TrackedPacketEvidence]]:
@@ -292,6 +306,13 @@ def _field_from_label(label: str) -> str:
     if not match:
         return "<unknown>"
     return match.group("field").upper()
+
+
+def _menu_has_demo_label(menu: str, labels: set[str]) -> bool:
+    menu_lower = menu.lower()
+    if menu_lower in labels:
+        return True
+    return any(label.startswith(f"{menu_lower}=") for label in labels)
 
 
 def _add_tracked(

@@ -11,6 +11,7 @@ Keep agent startup cheap. `AGENTS.md` stays operational, `docs/handover.md` stay
 - `docs/features.md`: feature/status tracker and cross-cutting roadmap.
 - `docs/testing/strategy.md`: durable testing approach.
 - `docs/testing/backlog.md`: detailed testing task table.
+- `docs/protocol/menu-packet-map.md`: manual menu option to packet/frame contract.
 - `documents/`: manuals, photos, schematics, and source material.
 
 ## Status Values
@@ -46,6 +47,7 @@ Feature rows should be short. Put details in a linked doc only when they are nee
 
 1. Read `AGENTS.md`, then `docs/handover.md`.
 2. Check `docs/features.md` and the relevant focused tracker.
-3. Make the smallest coherent change for the current slice.
-4. Run verification from `AGENTS.md` or the focused tracker.
-5. Update only the tracker rows and handover facts affected by the slice.
+3. For protocol, frame, helper, or active-control changes, check `docs/protocol/menu-packet-map.md` and update it when the menu contract changes.
+4. Make the smallest coherent change for the current slice.
+5. Run verification from `AGENTS.md` or the focused tracker.
+6. Update only the tracker rows and handover facts affected by the slice.

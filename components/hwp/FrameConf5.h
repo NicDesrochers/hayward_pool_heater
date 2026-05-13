@@ -41,14 +41,13 @@ namespace hwp {
 /**
  * @brief Represents configuration A packet with defrost and flow meter settings.
  *
- * - `unknown_1_3`: Unknown bits (bits 1-3).
- * - `U01_flow_meter`: Flow meter activation (bit 4).
- * - `d06_defrost_eco_mode`: Defrosting economy mode (bit 5).
- * - `unknown_4_6`: Unknown bits (bits 6-8).
+ * - `U01_flow_meter`: U01 flow meter activation.
+ * - `f11_speed_control_module_disabled`: F11 speed-control module state.
+ * - `d06_defrost_eco_mode`: D06 defrosting economy mode.
  * - `unknown_bit_8`: Reserved for future use.
- * - `d05_min_economy_defrost_time_minutes`: Minimum defrost time in economy mode (in minutes).
+ * - `d05_min_economy_defrost_time_minutes`: D05 minimum defrost time in economy mode.
  * - `unknown_4` to `unknown_8`: Reserved or unknown fields.
- * - `U02_pulses_per_liter`: Flow meter pulses per liter (10th byte).
+ * - `U02_pulses_per_liter`: U02 flow meter pulses per liter (10th byte).
  */
 #pragma pack(push, 1)
 
@@ -57,11 +56,11 @@ typedef struct conf_5_byte_2 {
         struct {
             uint8_t unknown_1 : 1;            // Unknown field
             uint8_t unknown_2 : 1;            // Unknown field
-            uint8_t U01_flow_meter : 1;       // Flow meter (3rd bit)
-            uint8_t f11_speed_control_module_disabled : 1; // Speed control module disabled
+            uint8_t U01_flow_meter : 1;       // U01 flow meter enable (3rd bit)
+            uint8_t f11_speed_control_module_disabled : 1; // F11 speed control module disabled
             uint8_t unknown_5 : 1;            // Unknown field
             uint8_t unknown_6 : 1;            // Unknown field
-            uint8_t d06_defrost_eco_mode : 1; // Defrost mode economy (7th bit)
+            uint8_t d06_defrost_eco_mode : 1; // D06 defrost economy mode (7th bit)
             uint8_t unknown_8 : 1;            // Unknown field
         };
         bits_details_t raw_byte_2; // Raw byte representation
@@ -116,13 +115,13 @@ typedef struct conf_5 {
     conf_5_byte_2_t flags_a;
 
     decimal_number_t
-        d05_min_economy_defrost_time_minutes; // Minimum defrost time in economy mode (minutes)
+        d05_min_economy_defrost_time_minutes; // D05 minimum defrost time in economy mode
     bits_details_t unknown_4;                 // Reserved field
     bits_details_t unknown_5;                 // Reserved field
     bits_details_t unknown_6;                 // Reserved field
     bits_details_t unknown_7;                 // Reserved field
     bits_details_t unknown_8;                 // Reserved field
-    large_integer_t U02_pulses_per_liter;             // Flow meter pulses per liter (10th byte)
+    large_integer_t U02_pulses_per_liter;             // U02 flow meter pulses per liter
 
     bool operator==(const optional<conf_5>& other) const {
         return other.has_value() && *this == *other;

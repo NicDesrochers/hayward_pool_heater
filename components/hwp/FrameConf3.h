@@ -42,10 +42,10 @@ namespace hwp {
  * @brief Defines the temperature setpoint limits for cooling and heating modes.
  *
  * - unknown_1 to unknown_5: Unknown reserved fields.
- * - r08_min_cool_setpoint: Minimum cooling setpoint temperature.
- * - r09_max_cooling_setpoint: Maximum cooling setpoint temperature.
- * - r10_min_heating_setpoint: Minimum heating setpoint temperature.
- * - r11_max_heating_setpoint: Maximum heating setpoint temperature.
+ * - R08: Minimum cooling setpoint temperature.
+ * - R09: Maximum cooling setpoint temperature.
+ * - R10: Minimum heating setpoint temperature.
+ * - R11: Maximum heating setpoint temperature.
  */
 typedef struct conf_3 {
     uint8_t id;                                      ///< ID byte
@@ -54,10 +54,10 @@ typedef struct conf_3 {
     bits_details_t unknown_3;                        // Unknown field
     bits_details_t unknown_4;                        // Unknown field
     bits_details_t unknown_5;                        // Unknown field
-    temperature_extended_t r08_min_cool_setpoint;    // Minimum cooling setpoint
-    temperature_extended_t r09_max_cooling_setpoint; // Maximum cooling setpoint
-    temperature_extended_t r10_min_heating_setpoint; // Minimum heating setpoint
-    temperature_extended_t r11_max_heating_setpoint; // Maximum heating setpoint
+    temperature_extended_t r08_min_cool_setpoint;    // R08 minimum cooling setpoint
+    temperature_extended_t r09_max_cooling_setpoint; // R09 maximum cooling setpoint
+    temperature_extended_t r10_min_heating_setpoint; // R10 minimum heating setpoint
+    temperature_extended_t r11_max_heating_setpoint; // R11 maximum heating setpoint
     bool operator==(const optional<struct conf_3>& other) const {
         return other.has_value() && *this == *other;
     }

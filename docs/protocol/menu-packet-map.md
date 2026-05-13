@@ -7,6 +7,11 @@ from menu intent and evidence rather than raw bytes alone.
 The machine-readable copy lives in `analysis/hwp_menu_map.py`; tests pin core
 mappings and require implemented helper fields to appear in this map.
 
+Some annotation evidence came from checking read-only technical-menu/status
+values rather than changing writable settings. Those observations are useful
+read/decode evidence, but they are not command/write proof unless paired with a
+controller command packet, simulator command example, or live heater echo.
+
 ## Status Terms
 
 - `implemented`: frame/helper plumbing exists.
@@ -37,7 +42,7 @@ mappings and require implemented helper fields to appear in this map.
 |----|----|----|----|----|----|----|
 | F01 | `f01_fan_mode` | Fan mode | byte 2 | upper nibble enum | annotation fixture | implemented, byte-tested |
 | F10 | `f10_fan_speed_control_temp` | Fan speed control temperature source | byte 2 bit 3 | boolean enum | annotation fixture | implemented, byte-tested |
-| D01 | `d01_defrost_start` | Defrost start temperature | byte 3 | extended temperature | Arduino simulator packet | implemented, needs fixture import |
+| D01 | `d01_defrost_start` | Defrost start temperature | byte 3 | extended temperature | demo command fixture | implemented, byte-tested |
 | D02 | `d02_defrost_end` | Defrost end temperature | byte 4 | temperature | implemented config frame | implemented, needs fixture import |
 | D03 | `d03_defrosting_cycle_time_minutes` | Defrosting cycle time | byte 5 | decimal minutes | implemented config frame | implemented, needs fixture import |
 | D04 | `d04_max_defrost_time_minutes` | Maximum defrost time | byte 6 | decimal minutes | implemented config frame | implemented, needs fixture import |
@@ -71,8 +76,8 @@ mappings and require implemented helper fields to appear in this map.
 |----|----|----|----|----|----|----|
 | U01 | `u01_flow_meter` | Flow meter enable | byte 2 bit 2 | boolean enum | implemented config frame | implemented, needs fixture import |
 | F11 | `f11_speed_control_module` | Speed-control module enable | byte 2 bit 3 | inverted boolean enum | annotation fixture | implemented, byte-tested |
-| D06 | `d06_defrost_eco_mode` | Defrost economy mode | byte 2 bit 6 | boolean enum | active TX echo fixture | implemented, live-echo-validated |
-| D05 | `d05_min_economy_defrost_time_minutes` | Minimum economy defrost time | byte 3 | decimal minutes | Arduino simulator packet | implemented, needs fixture import |
+| D06 | `d06_defrost_eco_mode` | Defrost economy mode | byte 2 bit 6 | boolean enum | active TX echo fixture / demo command fixture | implemented, live-echo-validated |
+| D05 | `d05_min_economy_defrost_time_minutes` | Minimum economy defrost time | byte 3 | decimal minutes | demo command fixture | implemented, byte-tested |
 | U02 | `u02_pulses_per_liter` | Flow-meter pulses per liter | byte 10 | large integer | implemented config frame | implemented, needs fixture import |
 
 ## Status Packet

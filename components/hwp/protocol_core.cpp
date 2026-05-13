@@ -384,6 +384,20 @@ float decode_temperature(uint8_t value) {
     return (value & 0x80) != 0 ? -result : result;
 }
 
+uint8_t encode_decimal_number(float value) {
+    const float abs_value = std::fabs(value);
+    const uint8_t decimal = (std::fabs(abs_value - static_cast<int>(abs_value)) >= 0.5f) ? 1 : 0;
+    const uint8_t integer = static_cast<uint8_t>(abs_value) & 0x3F;
+    const uint8_t negative = value < 0.0f ? 1 : 0;
+    return static_cast<uint8_t>((negative << 7) | (integer << 1) | decimal);
+}
+
+float decode_decimal_number(uint8_t value) {
+    float result =
+        static_cast<float>((value >> 1) & 0x3F) + ((value & 0x01) != 0 ? 0.5f : 0.0f);
+    return (value & 0x80) != 0 ? -result : result;
+}
+
 uint8_t encode_small_integer(float value) {
     return static_cast<uint8_t>(std::round(value));
 }
@@ -439,6 +453,13 @@ std::optional<uint8_t> read_conf2_f01_fan_mode(const uint8_t* data, size_t lengt
     return normalize_fan_mode_raw((data[2] >> 4) & 0x0F);
 }
 
+std::optional<float> read_conf2_d01_defrost_start(const uint8_t* data, size_t length) {
+    if (!has_const_long_frame_type(data, length, 0x82)) {
+        return std::nullopt;
+    }
+    return decode_temperature_extended(data[3]);
+}
+
 std::optional<uint8_t> read_conf2_f10_fan_speed_control_temp(
     const uint8_t* data, size_t length) {
     if (!has_const_long_frame_type(data, length, 0x82)) {
@@ -479,6 +500,14 @@ std::optional<uint8_t> read_conf5_d06_defrost_eco_mode(const uint8_t* data, size
         return std::nullopt;
     }
     return ((data[2] >> 6) & 0x01) != 0 ? DEFROST_ECO : DEFROST_NORMAL;
+}
+
+std::optional<float> read_conf5_d05_min_economy_defrost_time_minutes(
+    const uint8_t* data, size_t length) {
+    if (!has_const_long_frame_type(data, length, 0x85)) {
+        return std::nullopt;
+    }
+    return decode_decimal_number(data[3]);
 }
 
 std::optional<float> read_conf1_f12_min_fan_voltage_pct(const uint8_t* data, size_t length) {
@@ -564,6 +593,15 @@ bool set_conf2_f01_fan_mode(uint8_t* data, size_t length, uint8_t value) {
     return true;
 }
 
+bool set_conf2_d01_defrost_start(uint8_t* data, size_t length, float value) {
+    if (!has_long_frame_type(data, length, 0x82)) {
+        return false;
+    }
+    data[3] = encode_temperature_extended(value);
+    update_long_checksum(data);
+    return true;
+}
+
 bool set_conf2_f10_fan_speed_control_temp(uint8_t* data, size_t length, uint8_t value) {
     if (!has_long_frame_type(data, length, 0x82)) {
         return false;
@@ -600,6 +638,15 @@ bool set_conf5_f11_speed_control_module(uint8_t* data, size_t length, uint8_t va
         return false;
     }
     data[2] = static_cast<uint8_t>((data[2] & ~0x08) | ((value & 0x01) << 3));
+    update_long_checksum(data);
+    return true;
+}
+
+bool set_conf5_d05_min_economy_defrost_time_minutes(uint8_t* data, size_t length, float value) {
+    if (!has_long_frame_type(data, length, 0x85)) {
+        return false;
+    }
+    data[3] = encode_decimal_number(value);
     update_long_checksum(data);
     return true;
 }

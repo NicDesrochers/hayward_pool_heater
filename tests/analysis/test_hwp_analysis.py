@@ -155,6 +155,26 @@ class TestHwpAnalysis(unittest.TestCase):
         self.assertIn(packets[0].byte_key, index)
         self.assertIn(packets[1].byte_key, index)
 
+    def test_defrost_demo_fixture_pins_menu_expectations_and_pairs(self):
+        fixture = load_fixture_file(
+            "tests/fixtures/packets/hwp_defrost_demo_command_contracts.json"
+        )
+        expectations = {(expectation.menu, expectation.value) for expectation in fixture.menu_expectations}
+        self.assertIn(("D01", -7.5), expectations)
+        self.assertIn(("D01", -7.0), expectations)
+        self.assertIn(("D05", 10.0), expectations)
+        self.assertIn(("D05", 5.0), expectations)
+        self.assertIn(("D06", "Eco"), expectations)
+        self.assertIn(("D06", "Normal"), expectations)
+
+        pairs = {pair.id: pair for pair in fixture.menu_pairs}
+        self.assertEqual(pairs["demo-pair-d01-neg-7-0-to-neg-7-5"].changed_byte_indexes, (3,))
+        self.assertEqual(pairs["demo-pair-d05-3-0-to-10-0"].changed_byte_indexes, (3,))
+        self.assertEqual(pairs["demo-pair-d06-normal-to-eco"].changed_byte_indexes, (2,))
+        for packet in fixture.packets:
+            with self.subTest(packet=packet.id):
+                self.assertTrue(packet.checksum_valid)
+
     def test_parse_annotation_window(self):
         windows = parse_annotation_windows(ANNOTATED_WINDOW_LINES)
         self.assertEqual(len(windows), 1)

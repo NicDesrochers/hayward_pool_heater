@@ -38,6 +38,7 @@ from analysis.hwp_fixtures import (
     parse_hex_byte,
     validate_unique_packet_ids,
 )
+from analysis.hwp_menu_map import MENU_BY_CODE
 
 
 REQUIRED_FRAME_TYPES = {
@@ -120,15 +121,15 @@ class TestPacketFixtures(unittest.TestCase):
                 "R09",
                 "R10",
                 "R11",
+                "D01",
+                "D05",
+                "D06",
             }.issubset(menus)
         )
 
         for expectation in self.menu_expectations:
             with self.subTest(menu=expectation.menu, packet=expectation.packet_id):
-                expected_frame_type = (
-                    "0x83" if expectation.menu in {"R09", "R10", "R11"} else "0x81"
-                )
-                self.assertEqual(expectation.frame_type, expected_frame_type)
+                self.assertEqual(expectation.frame_type, MENU_BY_CODE[expectation.menu].frame)
                 self.assertIn(expectation.source, {"heater", "controller"})
                 self.assertGreaterEqual(expectation.raw_byte_index, 0)
                 self.assertLess(expectation.raw_byte_index, 12)
@@ -137,6 +138,7 @@ class TestPacketFixtures(unittest.TestCase):
         pairs_by_menu = {pair.menu: pair for pair in self.menu_pairs}
         self.assertTrue({"R01", "R02", "R04", "R05", "R06", "R07"}.issubset(pairs_by_menu))
         self.assertTrue({"R09", "R10", "R11"}.issubset(pairs_by_menu))
+        self.assertTrue({"D01", "D05", "D06"}.issubset(pairs_by_menu))
         self.assertNotIn("R03", pairs_by_menu)
 
         for pair in self.menu_pairs:

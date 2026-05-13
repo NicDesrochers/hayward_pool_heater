@@ -7,6 +7,8 @@ points.
 
 Use `docs/protocol/menu-packet-map.md` for the technical-menu-to-frame source of
 truth before importing more fixtures or broadening active controls.
+Use `docs/protocol/research-backlog.md` for uncertain fields that need human
+analysis before implementation.
 
 ## Command
 
@@ -32,12 +34,13 @@ Summary:
 |----|----:|----:|----:|
 | Annotated windows | 65 | 47 packet-window matches | 7 packet windows not yet covered |
 | Annotated windows with packets | 54 | 47 | 7 |
-| Arduino demo packets | 43 | 35 | 8 |
+| Arduino demo packets | 43 | 41 | 2 |
 
 The simulator packet corpus is broader than the first golden packet fixture
-slice. `CONFIG_1` R01-R07 and `CONFIG_3` R09-R11 command-style examples are
-now tracked as menu-backed fixtures. Remaining useful simulator examples cover
-D01/D05/D06 and additional temperature/status packets.
+slice. `CONFIG_1` R01-R07, `CONFIG_2` D01, `CONFIG_3` R09-R11, and
+`CONFIG_5` D05/D06 command-style examples are now tracked as menu-backed
+fixtures. Remaining useful simulator examples cover only additional
+temperature/status packets.
 
 ## Notable Remaining Evidence
 
@@ -49,8 +52,6 @@ tracked as fixtures are non-fan windows from 2024-10-31:
 
 Uncovered simulator packets include:
 
-- `CONFIG_2`: D01 defrost start examples
-- `CONFIG_5`: D05 and another D06 example with a different adjacent byte state
 - `COND_2`/`COND_D`: additional temperature/status examples
 
 ## Interpretation
@@ -61,11 +62,16 @@ should still be imported in small tracked fixture slices, with checksums,
 field expectations, and command/echo or read/write contracts where the source
 supports them.
 
+Not every annotation window represents a writable menu action. Some annotation
+sessions were created while checking values in read-only technical menus or
+status screens. For those packets, the evidence can prove observed read/decode
+behavior and byte changes, but it should not be promoted to a command/write
+contract unless there is a separate controller-originated packet, simulator
+command example, or live hardware echo.
+
 ## Suggested Import Order
 
-1. Add `CONFIG_2`/`CONFIG_5` defrost simulator examples for D01/D05/D06 as
-   passive command-byte fixtures,
-   keeping live active-TX claims limited to the already captured D06 echo
-   fixture until more hardware echo logs exist.
-2. Mine the 2024-10-31 condition/clock `test` windows only if they add new
+1. Mine the 2024-10-31 condition/clock `test` windows only if they add new
    decode coverage beyond the current passive runtime contracts.
+2. Track unresolved or ambiguous findings in `docs/protocol/research-backlog.md`
+   until the analysis tooling or a human review can turn them into fixtures.

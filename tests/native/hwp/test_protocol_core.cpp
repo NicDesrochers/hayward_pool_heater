@@ -611,6 +611,76 @@ void test_config5_defrost_active_tx_contracts() {
     assert(protocol::is_packet_checksum_valid(normal_command.data(), normal_command.size()));
 }
 
+void test_defrost_demo_command_contracts() {
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> d01_neg_7_0 = {
+        0x82, 0xB1, 0x16, 0x2E, 0x58, 0x50, 0x10, 0x1E, 0x03, 0x01, 0x64, 0xB5};
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> d01_neg_7_5 = {
+        0x82, 0xB1, 0x16, 0x2D, 0x58, 0x50, 0x10, 0x1E, 0x03, 0x01, 0x64, 0xB4};
+
+    assert_float_eq(
+        protocol::read_conf2_d01_defrost_start(d01_neg_7_0.data(), d01_neg_7_0.size()).value(),
+        -7.0f);
+    assert_float_eq(
+        protocol::read_conf2_d01_defrost_start(d01_neg_7_5.data(), d01_neg_7_5.size()).value(),
+        -7.5f);
+    auto conf2 = d01_neg_7_0;
+    assert(protocol::set_conf2_d01_defrost_start(conf2.data(), conf2.size(), -7.5f));
+    assert_packet_eq(conf2, d01_neg_7_5);
+    assert(protocol::is_packet_checksum_valid(conf2.data(), conf2.size()));
+
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> d05_3_0 = {
+        0x85, 0xB1, 0x00, 0x06, 0x1E, 0x16, 0x00, 0x08, 0x00, 0x00, 0xCD, 0x45};
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> d05_4_0 = {
+        0x85, 0xB1, 0x00, 0x08, 0x1E, 0x16, 0x00, 0x08, 0x00, 0x00, 0xCD, 0x47};
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> d05_5_0 = {
+        0x85, 0xB1, 0x00, 0x0A, 0x1E, 0x16, 0x00, 0x08, 0x00, 0x00, 0xCD, 0x49};
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> d05_10_0 = {
+        0x85, 0xB1, 0x00, 0x14, 0x1E, 0x16, 0x00, 0x08, 0x00, 0x00, 0xCD, 0x53};
+
+    assert(protocol::encode_decimal_number(10.0f) == 0x14);
+    assert_float_eq(protocol::decode_decimal_number(0x0A), 5.0f);
+    assert_float_eq(protocol::read_conf5_d05_min_economy_defrost_time_minutes(
+                        d05_3_0.data(), d05_3_0.size()).value(), 3.0f);
+    assert_float_eq(protocol::read_conf5_d05_min_economy_defrost_time_minutes(
+                        d05_4_0.data(), d05_4_0.size()).value(), 4.0f);
+    assert_float_eq(protocol::read_conf5_d05_min_economy_defrost_time_minutes(
+                        d05_5_0.data(), d05_5_0.size()).value(), 5.0f);
+    assert_float_eq(protocol::read_conf5_d05_min_economy_defrost_time_minutes(
+                        d05_10_0.data(), d05_10_0.size()).value(), 10.0f);
+
+    auto conf5 = d05_3_0;
+    assert(protocol::set_conf5_d05_min_economy_defrost_time_minutes(
+        conf5.data(), conf5.size(), 10.0f));
+    assert_packet_eq(conf5, d05_10_0);
+    assert(protocol::set_conf5_d05_min_economy_defrost_time_minutes(
+        conf5.data(), conf5.size(), 4.0f));
+    assert_packet_eq(conf5, d05_4_0);
+    assert(protocol::set_conf5_d05_min_economy_defrost_time_minutes(
+        conf5.data(), conf5.size(), 5.0f));
+    assert_packet_eq(conf5, d05_5_0);
+
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> d05_5_0_d06_eco = {
+        0x85, 0xB1, 0x40, 0x0A, 0x1E, 0x16, 0x00, 0x08, 0x00, 0x00, 0xCD, 0x89};
+    conf5 = d05_5_0;
+    assert(protocol::set_conf5_d06_defrost_eco_mode(
+        conf5.data(), conf5.size(), protocol::DEFROST_ECO));
+    assert_packet_eq(conf5, d05_5_0_d06_eco);
+    assert(protocol::read_conf5_d06_defrost_eco_mode(
+               d05_5_0_d06_eco.data(), d05_5_0_d06_eco.size()).value() ==
+           protocol::DEFROST_ECO);
+
+    std::array<uint8_t, protocol::FRAME_DATA_LENGTH_SHORT> short_frame = {
+        0x82, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x1C};
+    assert(!protocol::read_conf2_d01_defrost_start(
+                short_frame.data(), short_frame.size()).has_value());
+    assert(!protocol::read_conf5_d05_min_economy_defrost_time_minutes(
+                short_frame.data(), short_frame.size()).has_value());
+    assert(!protocol::set_conf2_d01_defrost_start(
+        short_frame.data(), short_frame.size(), -7.5f));
+    assert(!protocol::set_conf5_d05_min_economy_defrost_time_minutes(
+        short_frame.data(), short_frame.size(), 5.0f));
+}
+
 int main() {
     test_invert_bytes();
     test_short_checksum();
@@ -631,4 +701,5 @@ int main() {
     test_config1_demo_write_contracts();
     test_fan_fixture_write_contracts();
     test_config5_defrost_active_tx_contracts();
+    test_defrost_demo_command_contracts();
 }

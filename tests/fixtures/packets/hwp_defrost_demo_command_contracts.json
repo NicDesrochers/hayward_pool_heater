@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "source": "tmp/hwp/analysis/simulator/DemoFrames.h",
+  "provenance": "Checksum-valid simulator/demo defrost command examples from copied tmp/hwp reference tree. These contracts pin menu byte locations and passive command bytes only; live active-control claims remain limited to separately tracked hardware echo fixtures.",
+  "packets": [
+    {
+      "id": "demo-conf5-d05-10-0",
+      "source_id": "p_1",
+      "label": "CONFIG_5_D05_10_0",
+      "source": "controller",
+      "length": 12,
+      "frame_type": "0x85",
+      "bytes": ["0x85", "0xB1", "0x00", "0x14", "0x1E", "0x16", "0x00", "0x08", "0x00", "0x00", "0xCD", "0x53"],
+      "checksum_valid": true,
+      "expected_checksum": "0x53",
+      "notes": "Demo command-style CONFIG_5 frame labeled d05 10 minutes."
+    },
+    {
+      "id": "demo-conf5-d05-3-0",
+      "source_id": "p_2",
+      "label": "CONFIG_5_D05_3_0",
+      "source": "controller",
+      "length": 12,
+      "frame_type": "0x85",
+      "bytes": ["0x85", "0xB1", "0x00", "0x06", "0x1E", "0x16", "0x00", "0x08", "0x00", "0x00", "0xCD", "0x45"],
+      "checksum_valid": true,
+      "expected_checksum": "0x45",
+      "notes": "Demo command-style CONFIG_5 frame labeled d05 3 minutes."
+    },
+    {
+      "id": "demo-conf5-d06-eco",
+      "source_id": "p_3",
+      "label": "CONFIG_5_D06_ECO",
+      "source": "controller",
+      "length": 12,
+      "frame_type": "0x85",
+      "bytes": ["0x85", "0xB1", "0x40", "0x06", "0x1E", "0x16", "0x00", "0x08", "0x00", "0x00", "0xCD", "0x85"],
+      "checksum_valid": true,
+      "expected_checksum": "0x85",
+      "notes": "Demo command-style CONFIG_5 frame labeled d06=1 / ECO."
+    },
+    {
+      "id": "demo-conf5-d06-normal",
+      "source_id": "p_4",
+      "label": "CONFIG_5_D06_NORMAL",
+      "source": "controller",
+      "length": 12,
+      "frame_type": "0x85",
+      "bytes": ["0x85", "0xB1", "0x00", "0x06", "0x1E", "0x16", "0x00", "0x08", "0x00", "0x00", "0xCD", "0x45"],
+      "checksum_valid": true,
+      "expected_checksum": "0x45",
+      "notes": "Demo command-style CONFIG_5 frame labeled d06=0 / NORMAL."
+    },
+    {
+      "id": "demo-conf2-d01-neg-7-5",
+      "source_id": "p_23",
+      "label": "CONFIG_2_D01_NEG_7_5",
+      "source": "controller",
+      "length": 12,
+      "frame_type": "0x82",
+      "bytes": ["0x82", "0xB1", "0x16", "0x2D", "0x58", "0x50", "0x10", "0x1E", "0x03", "0x01", "0x64", "0xB4"],
+      "checksum_valid": true,
+      "expected_checksum": "0xB4",
+      "notes": "Demo command-style CONFIG_2 frame labeled d01=-7.5."
+    },
+    {
+      "id": "demo-conf2-d01-neg-7-0",
+      "source_id": "p_24",
+      "label": "CONFIG_2_D01_NEG_7_0",
+      "source": "controller",
+      "length": 12,
+      "frame_type": "0x82",
+      "bytes": ["0x82", "0xB1", "0x16", "0x2E", "0x58", "0x50", "0x10", "0x1E", "0x03", "0x01", "0x64", "0xB5"],
+      "checksum_valid": true,
+      "expected_checksum": "0xB5",
+      "notes": "Demo command-style CONFIG_2 frame labeled d01=-7."
+    },
+    {
+      "id": "demo-conf5-d05-4-0",
+      "source_id": "p_25",
+      "label": "CONFIG_5_D05_4_0",
+      "source": "controller",
+      "length": 12,
+      "frame_type": "0x85",
+      "bytes": ["0x85", "0xB1", "0x00", "0x08", "0x1E", "0x16", "0x00", "0x08", "0x00", "0x00", "0xCD", "0x47"],
+      "checksum_valid": true,
+      "expected_checksum": "0x47",
+      "notes": "Demo command-style CONFIG_5 frame labeled d05=4."
+    },
+    {
+      "id": "demo-conf5-d05-5-0",
+      "source_id": "p_26",
+      "label": "CONFIG_5_D05_5_0",
+      "source": "controller",
+      "length": 12,
+      "frame_type": "0x85",
+      "bytes": ["0x85", "0xB1", "0x00", "0x0A", "0x1E", "0x16", "0x00", "0x08", "0x00", "0x00", "0xCD", "0x49"],
+      "checksum_valid": true,
+      "expected_checksum": "0x49",
+      "notes": "Demo command-style CONFIG_5 frame labeled d05=5."
+    },
+    {
+      "id": "demo-conf5-d05-5-0-d06-eco",
+      "source_id": "p_27",
+      "label": "CONFIG_5_D05_5_0_D06_ECO",
+      "source": "controller",
+      "length": 12,
+      "frame_type": "0x85",
+      "bytes": ["0x85", "0xB1", "0x40", "0x0A", "0x1E", "0x16", "0x00", "0x08", "0x00", "0x00", "0xCD", "0x89"],
+      "checksum_valid": true,
+      "expected_checksum": "0x89",
+      "notes": "Demo command-style CONFIG_5 frame labeled d06=1 with D05 already at 5 minutes."
+    }
+  ],
+  "menu_expectations": [
+    {"packet_id": "demo-conf2-d01-neg-7-5", "menu": "D01", "field": "d01_defrost_start", "value": -7.5, "raw_byte_index": 3, "raw_byte_value": "0x2D", "frame_type": "0x82", "source": "controller"},
+    {"packet_id": "demo-conf2-d01-neg-7-0", "menu": "D01", "field": "d01_defrost_start", "value": -7.0, "raw_byte_index": 3, "raw_byte_value": "0x2E", "frame_type": "0x82", "source": "controller"},
+    {"packet_id": "demo-conf5-d05-10-0", "menu": "D05", "field": "d05_min_economy_defrost_time_minutes", "value": 10.0, "raw_byte_index": 3, "raw_byte_value": "0x14", "frame_type": "0x85", "source": "controller"},
+    {"packet_id": "demo-conf5-d05-3-0", "menu": "D05", "field": "d05_min_economy_defrost_time_minutes", "value": 3.0, "raw_byte_index": 3, "raw_byte_value": "0x06", "frame_type": "0x85", "source": "controller"},
+    {"packet_id": "demo-conf5-d05-4-0", "menu": "D05", "field": "d05_min_economy_defrost_time_minutes", "value": 4.0, "raw_byte_index": 3, "raw_byte_value": "0x08", "frame_type": "0x85", "source": "controller"},
+    {"packet_id": "demo-conf5-d05-5-0", "menu": "D05", "field": "d05_min_economy_defrost_time_minutes", "value": 5.0, "raw_byte_index": 3, "raw_byte_value": "0x0A", "frame_type": "0x85", "source": "controller"},
+    {"packet_id": "demo-conf5-d05-5-0-d06-eco", "menu": "D05", "field": "d05_min_economy_defrost_time_minutes", "value": 5.0, "raw_byte_index": 3, "raw_byte_value": "0x0A", "frame_type": "0x85", "source": "controller"},
+    {"packet_id": "demo-conf5-d06-eco", "menu": "D06", "field": "d06_defrost_eco_mode", "value": "Eco", "raw_byte_index": 2, "raw_byte_value": "0x40", "frame_type": "0x85", "source": "controller"},
+    {"packet_id": "demo-conf5-d06-normal", "menu": "D06", "field": "d06_defrost_eco_mode", "value": "Normal", "raw_byte_index": 2, "raw_byte_value": "0x00", "frame_type": "0x85", "source": "controller"},
+    {"packet_id": "demo-conf5-d05-5-0-d06-eco", "menu": "D06", "field": "d06_defrost_eco_mode", "value": "Eco", "raw_byte_index": 2, "raw_byte_value": "0x40", "frame_type": "0x85", "source": "controller"}
+  ],
+  "menu_pairs": [
+    {"id": "demo-pair-d01-neg-7-0-to-neg-7-5", "menu": "D01", "field": "d01_defrost_start", "base_packet_id": "demo-conf2-d01-neg-7-0", "expected_packet_id": "demo-conf2-d01-neg-7-5", "raw_byte_index": 3, "expected_raw_byte_value": "0x2D", "changed_byte_indexes": [3]},
+    {"id": "demo-pair-d05-3-0-to-10-0", "menu": "D05", "field": "d05_min_economy_defrost_time_minutes", "base_packet_id": "demo-conf5-d05-3-0", "expected_packet_id": "demo-conf5-d05-10-0", "raw_byte_index": 3, "expected_raw_byte_value": "0x14", "changed_byte_indexes": [3]},
+    {"id": "demo-pair-d05-3-0-to-4-0", "menu": "D05", "field": "d05_min_economy_defrost_time_minutes", "base_packet_id": "demo-conf5-d05-3-0", "expected_packet_id": "demo-conf5-d05-4-0", "raw_byte_index": 3, "expected_raw_byte_value": "0x08", "changed_byte_indexes": [3]},
+    {"id": "demo-pair-d05-4-0-to-5-0", "menu": "D05", "field": "d05_min_economy_defrost_time_minutes", "base_packet_id": "demo-conf5-d05-4-0", "expected_packet_id": "demo-conf5-d05-5-0", "raw_byte_index": 3, "expected_raw_byte_value": "0x0A", "changed_byte_indexes": [3]},
+    {"id": "demo-pair-d06-normal-to-eco", "menu": "D06", "field": "d06_defrost_eco_mode", "base_packet_id": "demo-conf5-d06-normal", "expected_packet_id": "demo-conf5-d06-eco", "raw_byte_index": 2, "expected_raw_byte_value": "0x40", "changed_byte_indexes": [2]},
+    {"id": "demo-pair-d06-normal-to-eco-with-d05-5", "menu": "D06", "field": "d06_defrost_eco_mode", "base_packet_id": "demo-conf5-d05-5-0", "expected_packet_id": "demo-conf5-d05-5-0-d06-eco", "raw_byte_index": 2, "expected_raw_byte_value": "0x40", "changed_byte_indexes": [2]}
+  ]
+}
+

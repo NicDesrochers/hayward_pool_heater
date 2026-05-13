@@ -8,7 +8,8 @@ This repo is now developed inside the ESPHome devcontainer. Read:
 2. `docs/features.md` for project status and next feature slices.
 3. `docs/testing/backlog.md` for detailed testing tasks.
 4. `docs/protocol/menu-packet-map.md` before protocol, helper, or active-control changes.
-5. `docs/tmp-hwp-salvage.md` only if a task explicitly needs archival tmp reference material.
+5. `docs/protocol/research-backlog.md` for uncertain fields that need human analysis.
+6. `docs/tmp-hwp-salvage.md` only if a task explicitly needs archival tmp reference material.
 
 ## Current State
 
@@ -22,10 +23,14 @@ This repo is now developed inside the ESPHome devcontainer. Read:
 - Curated packet fixtures from `tmp/hwp/analysis/simulator/DemoFrames.h` live under `tests/fixtures/packets/` and validate with stdlib Python tests. Those simulator packets are hardware-derived reference frames, not synthetic-only samples.
 - A curated subset from the recent ignored `tmp/hwp/POOL_esphome_logs.log` trace is tracked as `tests/fixtures/packets/hwp_hardware_log_2025_06_24.json`; it covers representative real RX/change frames for `0x81`, `0x82`, `0x83`, `0x84`, `0x85`, `0x86`, `0xD1`, `0xD2`, `0xDD`, plus clock/controller frames. The proof CLI found all 15 checksum-valid packets from that fixture in the full ignored log.
 - A curated annotation fixture from `tmp/hwp/POOL_esphome_logs.log.2024-11-01` lives under `tests/fixtures/annotations/`; it captures fan-control tagger windows for F01 and F02-F13 as read/write packet contracts. The remaining fan edge windows are now imported: F02 41.0, F03 15.5, F08 1, F10 coil source, F12 50, and F13 99/100.
+- Some annotation sessions came from checking read-only technical-menu/status values, not changing writable settings. Treat those as read/decode evidence only unless paired with controller command bytes, simulator command examples, or live echo evidence.
 - `tests/fixtures/packets/hwp_demo_command_contracts.json` tracks simulator/demo command examples for `CONFIG_1` R01-R07 and `CONFIG_3` R09-R11. R01/R02/R04-R07 and R09-R11 have one-byte pair contracts; R03 is fixture-backed as an observed byte because the source corpus does not contain a clean one-byte before/after pair.
+- `tests/fixtures/packets/hwp_defrost_demo_command_contracts.json` tracks simulator/demo command examples for `CONFIG_2` D01 and `CONFIG_5` D05/D06. D01 and D05 now have passive one-byte command contracts; D06 still has the stronger live echo fixture for active-control claims.
 - `tests/fixtures/packets/hwp_config1_temperature_extended_regression.json` tracks the issue #11 high-setpoint regression. `CONFIG_1` R01/R02/R03 setpoints must use extended temperature encoding, with 33.5C/34.0C/35.0C mapping to `0x7F`/`0x80`/`0x82` rather than wrapping through the short temperature format.
 - The remaining ignored annotation logs and Arduino simulator packets are inventoried by `python -m analysis.hwp_analyze evidence --limit 25`. The current scan found 65 annotation windows, 54 packet-bearing windows, and 43 simulator packets. All F01-F13 fan packet windows are now tracked; remaining uncovered annotation windows are non-fan 2024-10-31 condition/clock/test snippets.
 - Technical manual menu options are mapped to frame/byte/encoding/evidence status in `docs/protocol/menu-packet-map.md`, with machine-readable metadata in `analysis/hwp_menu_map.py`. Check this map before adding or exposing protocol behavior.
+- Uncertain or unknown fields are tracked in `docs/protocol/research-backlog.md` so they can be revisited with human review and future analysis tooling instead of drifting into implementation by accident.
+- Community installation examples live under `docs/success-stories/`. The first tracked story preserves discussion #9's HP55TR E08 bypass report, local photos, and Home Assistant result as documentation evidence only.
 - Fan field candidates from the tmp tree are reviewed in `docs/protocol/fan-field-review.md` and covered by fixture-backed Python tests.
 - Runtime decode naming for F02-F09, F10, F11, and F13 is merged in the frame structs. F10/F11 dependency-light conversions are covered in `protocol_core`.
 - Runtime `FrameConf1/2/4/5` matching and parsing are covered by adapter-backed native tests against the F01-F13 packet contracts.
@@ -69,7 +74,7 @@ Choose the next slice from normal project priorities rather than tmp merge work.
 Good candidates:
 
 - review `COND_1`/`COND_2` temperature encoding separately if hardware evidence shows values above the short-format range; the issue #11 fix intentionally changed only `CONFIG_1` setpoint encoding in this slice
-- import the remaining defrost simulator examples for `CONFIG_2` D01 and `CONFIG_5` D05/D06 as passive command-byte fixtures
+- mine the remaining non-fan 2024-10-31 condition/clock `test` windows only if they add decode coverage beyond current passive runtime contracts
 - run the next supervised active TX validation for `u02_pulses_per_liter` only after the remaining fixture evidence has been triaged; capture command and echo packets before adding the next active-TX fixture
 - add the next low-level native seam for queue behavior
 - extract capture conversion as repo-native tooling

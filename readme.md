@@ -39,6 +39,10 @@ The following pool heaters have been tested and are known to be compatible with 
 - **Majestic** heat pump (Hayward white label) using a **PC1001** controller.
 - **CPAC111** heat pump (Hayward) using a **PC1001** controller.
 
+## Success Stories
+
+Community examples are collected under [docs/success-stories](docs/success-stories/index.md). The first tracked story documents a reported [Hayward HP55TR E08 bypass and Home Assistant control installation](docs/success-stories/hp55tr-e08-bypass.md) with photos of the PC1000 connection, ESP32/level-shifter wiring, enclosure, and Home Assistant climate entity.
+
 
 ## Features
 - **Receive Current Parameters:** Get real-time data from your pool heater, including temperatures and operating modes.

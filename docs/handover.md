@@ -22,6 +22,7 @@ This repo is now developed inside the ESPHome devcontainer. Read:
 - Curated packet fixtures from `tmp/hwp/analysis/simulator/DemoFrames.h` live under `tests/fixtures/packets/` and validate with stdlib Python tests. Those simulator packets are hardware-derived reference frames, not synthetic-only samples.
 - A curated subset from the recent ignored `tmp/hwp/POOL_esphome_logs.log` trace is tracked as `tests/fixtures/packets/hwp_hardware_log_2025_06_24.json`; it covers representative real RX/change frames for `0x81`, `0x82`, `0x83`, `0x84`, `0x85`, `0x86`, `0xD1`, `0xD2`, `0xDD`, plus clock/controller frames. The proof CLI found all 15 checksum-valid packets from that fixture in the full ignored log.
 - A curated annotation fixture from `tmp/hwp/POOL_esphome_logs.log.2024-11-01` lives under `tests/fixtures/annotations/`; it captures fan-control tagger windows for F01 and F02-F13 as read/write packet contracts.
+- `tests/fixtures/packets/hwp_demo_command_contracts.json` tracks simulator/demo command examples for `CONFIG_1` R01-R07 and `CONFIG_3` R09-R11. R01/R02/R04-R07 and R09-R11 have one-byte pair contracts; R03 is fixture-backed as an observed byte because the source corpus does not contain a clean one-byte before/after pair.
 - The remaining ignored annotation logs and Arduino simulator packets are inventoried by `python -m analysis.hwp_analyze evidence --limit 25`. The current scan found 65 annotation windows, 54 packet-bearing windows, and 43 simulator packets; see `docs/protocol/evidence-inventory.md` before deciding the next fixture import.
 - Technical manual menu options are mapped to frame/byte/encoding/evidence status in `docs/protocol/menu-packet-map.md`, with machine-readable metadata in `analysis/hwp_menu_map.py`. Check this map before adding or exposing protocol behavior.
 - Fan field candidates from the tmp tree are reviewed in `docs/protocol/fan-field-review.md` and covered by fixture-backed Python tests.
@@ -66,8 +67,8 @@ Choose the next slice from normal project priorities rather than tmp merge work.
 
 Good candidates:
 
-- import the uncovered simulator command examples for `CONFIG_1` R01-R07 and `CONFIG_3` R09-R11 as fixture-backed passive command contracts
 - expand the fan annotation fixture with uncovered F02/F03/F08/F10/F12/F13 edge values from the evidence inventory
+- import the remaining defrost simulator examples for `CONFIG_2` D01 and `CONFIG_5` D05/D06 as passive command-byte fixtures
 - run the next supervised active TX validation for `u02_pulses_per_liter` only after the remaining fixture evidence has been triaged; capture command and echo packets before adding the next active-TX fixture
 - add the next low-level native seam for queue behavior
 - extract capture conversion as repo-native tooling

@@ -360,6 +360,21 @@ float decode_temperature_extended(uint8_t value) {
            ((value & 0x01) != 0 ? 0.5f : 0.0f);
 }
 
+uint8_t encode_temperature(float temperature) {
+    const float abs_temperature = std::fabs(temperature);
+    float encoded_temperature = abs_temperature;
+    uint8_t offset = 0;
+    if (encoded_temperature >= 2.0f) {
+        offset = 1;
+        encoded_temperature -= 2.0f;
+    }
+    const uint8_t decimal =
+        (std::fabs(abs_temperature - static_cast<int>(abs_temperature)) >= 0.5f) ? 1 : 0;
+    const uint8_t integer = static_cast<uint8_t>(encoded_temperature) & 0x1F;
+    const uint8_t negative = temperature < 0.0f ? 1 : 0;
+    return static_cast<uint8_t>((negative << 7) | (offset << 6) | (integer << 1) | decimal);
+}
+
 float decode_temperature(uint8_t value) {
     float result =
         static_cast<float>((value >> 1) & 0x1F) + ((value & 0x01) != 0 ? 0.5f : 0.0f);
@@ -390,6 +405,32 @@ void update_long_checksum(uint8_t* data) {
     data[FRAME_DATA_LENGTH - 1] = calculate_long_checksum(data, FRAME_DATA_LENGTH);
 }
 } // namespace
+
+std::optional<uint8_t> read_conf1_h02_mode_restriction(const uint8_t* data, size_t length) {
+    if (!has_const_long_frame_type(data, length, 0x81)) {
+        return std::nullopt;
+    }
+    if ((data[2] & 0x08) != 0) {
+        return HEAT_PUMP_HEATING_ONLY;
+    }
+    if ((data[2] & 0x04) != 0) {
+        return HEAT_PUMP_ANY_MODE;
+    }
+    return HEAT_PUMP_COOLING_ONLY;
+}
+
+std::optional<float> read_conf1_temperature_parameter(
+    const uint8_t* data, size_t length, uint8_t field_number) {
+    if (!has_const_long_frame_type(data, length, 0x81) || field_number < 1 ||
+        field_number > 7) {
+        return std::nullopt;
+    }
+    const uint8_t raw_value = data[field_number + 2];
+    if (field_number <= 3) {
+        return decode_temperature(raw_value);
+    }
+    return decode_temperature_extended(raw_value);
+}
 
 std::optional<uint8_t> read_conf2_f01_fan_mode(const uint8_t* data, size_t length) {
     if (!has_const_long_frame_type(data, length, 0x82)) {
@@ -489,6 +530,20 @@ std::optional<float> read_conf3_setpoint_limit(
         return std::nullopt;
     }
     return decode_temperature_extended(data[field_number - 1]);
+}
+
+bool set_conf1_temperature_parameter(
+    uint8_t* data, size_t length, uint8_t field_number, float value) {
+    if (!has_long_frame_type(data, length, 0x81) || field_number < 1 || field_number > 7) {
+        return false;
+    }
+    if (field_number <= 3) {
+        data[field_number + 2] = encode_temperature(value);
+    } else {
+        data[field_number + 2] = encode_temperature_extended(value);
+    }
+    update_long_checksum(data);
+    return true;
 }
 
 bool set_conf1_f12_min_fan_voltage_pct(uint8_t* data, size_t length, float value) {

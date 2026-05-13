@@ -342,6 +342,100 @@ void test_fan_command_byte_helpers() {
     assert(!protocol::set_conf4_fan_parameter(conf4.data(), conf4.size(), 10, 1.0f));
 }
 
+void test_config1_config3_demo_read_contracts() {
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> h02 = {
+        0x81, 0xB1, 0x26, 0x6D, 0x58, 0x64, 0x3D, 0x3D, 0x3D, 0x3D, 0x32, 0xA7};
+    assert(protocol::read_conf1_h02_mode_restriction(h02.data(), h02.size()).value() ==
+           protocol::HEAT_PUMP_ANY_MODE);
+
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> r01 = {
+        0x81, 0xB1, 0x26, 0x71, 0x58, 0x64, 0x3D, 0x3D, 0x3D, 0x3D, 0x32, 0xAB};
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> r02 = {
+        0x81, 0xB1, 0x26, 0x6E, 0x56, 0x64, 0x3D, 0x3D, 0x3D, 0x3D, 0x32, 0xA6};
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> r03 = {
+        0x81, 0xB1, 0x26, 0x6E, 0x59, 0x68, 0x3D, 0x3D, 0x3D, 0x3D, 0x32, 0xAD};
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> r04 = {
+        0x81, 0xB1, 0x26, 0x6E, 0x59, 0x68, 0x3F, 0x3D, 0x3D, 0x3D, 0x32, 0xAF};
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> r05 = {
+        0x81, 0xB1, 0x26, 0x6E, 0x59, 0x68, 0x3D, 0x43, 0x3D, 0x3D, 0x32, 0xB3};
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> r06 = {
+        0x81, 0xB1, 0x26, 0x6E, 0x59, 0x68, 0x3D, 0x3D, 0x45, 0x3D, 0x32, 0xB5};
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> r07 = {
+        0x81, 0xB1, 0x26, 0x6E, 0x59, 0x68, 0x3D, 0x3D, 0x3D, 0x41, 0x32, 0xB1};
+
+    assert_float_eq(
+        protocol::read_conf1_temperature_parameter(r01.data(), r01.size(), 1).value(), 26.5f);
+    assert_float_eq(
+        protocol::read_conf1_temperature_parameter(r02.data(), r02.size(), 2).value(), 13.0f);
+    assert_float_eq(
+        protocol::read_conf1_temperature_parameter(r03.data(), r03.size(), 3).value(), 22.0f);
+    assert_float_eq(
+        protocol::read_conf1_temperature_parameter(r04.data(), r04.size(), 4).value(), 1.5f);
+    assert_float_eq(
+        protocol::read_conf1_temperature_parameter(r05.data(), r05.size(), 5).value(), 3.5f);
+    assert_float_eq(
+        protocol::read_conf1_temperature_parameter(r06.data(), r06.size(), 6).value(), 4.5f);
+    assert_float_eq(
+        protocol::read_conf1_temperature_parameter(r07.data(), r07.size(), 7).value(), 2.5f);
+
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> r09 = {
+        0x83, 0xB1, 0x46, 0x23, 0x0A, 0x23, 0x23, 0x3C, 0x84, 0x46, 0x8C, 0x7F};
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> r10 = {
+        0x83, 0xB1, 0x46, 0x23, 0x0A, 0x23, 0x23, 0x3C, 0x82, 0x4B, 0x8C, 0x82};
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> r11 = {
+        0x83, 0xB1, 0x46, 0x23, 0x0A, 0x23, 0x23, 0x3C, 0x82, 0x46, 0x89, 0x7A};
+    assert_float_eq(protocol::read_conf3_setpoint_limit(r09.data(), r09.size(), 9).value(), 36.0f);
+    assert_float_eq(protocol::read_conf3_setpoint_limit(r10.data(), r10.size(), 10).value(), 7.5f);
+    assert_float_eq(protocol::read_conf3_setpoint_limit(r11.data(), r11.size(), 11).value(), 38.5f);
+
+    assert(!protocol::read_conf1_temperature_parameter(r09.data(), r09.size(), 1).has_value());
+    assert(!protocol::read_conf1_temperature_parameter(r01.data(), r01.size(), 8).has_value());
+    assert(!protocol::read_conf3_setpoint_limit(r01.data(), r01.size(), 9).has_value());
+}
+
+void test_config1_demo_write_contracts() {
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> r01_base = {
+        0x81, 0xB1, 0x26, 0x6E, 0x58, 0x64, 0x3D, 0x3D, 0x3D, 0x3D, 0x32, 0xA8};
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> r01_expected = {
+        0x81, 0xB1, 0x26, 0x71, 0x58, 0x64, 0x3D, 0x3D, 0x3D, 0x3D, 0x32, 0xAB};
+    auto conf1 = r01_base;
+    assert(protocol::set_conf1_temperature_parameter(conf1.data(), conf1.size(), 1, 26.5f));
+    assert_packet_eq(conf1, r01_expected);
+
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> r02_expected = {
+        0x81, 0xB1, 0x26, 0x6E, 0x56, 0x64, 0x3D, 0x3D, 0x3D, 0x3D, 0x32, 0xA6};
+    conf1 = r01_base;
+    assert(protocol::set_conf1_temperature_parameter(conf1.data(), conf1.size(), 2, 13.0f));
+    assert_packet_eq(conf1, r02_expected);
+
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> common_base = {
+        0x81, 0xB1, 0x26, 0x6E, 0x59, 0x68, 0x3D, 0x3D, 0x3D, 0x3D, 0x32, 0xAD};
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> r04_expected = {
+        0x81, 0xB1, 0x26, 0x6E, 0x59, 0x68, 0x3F, 0x3D, 0x3D, 0x3D, 0x32, 0xAF};
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> r05_expected = {
+        0x81, 0xB1, 0x26, 0x6E, 0x59, 0x68, 0x3D, 0x43, 0x3D, 0x3D, 0x32, 0xB3};
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> r06_expected = {
+        0x81, 0xB1, 0x26, 0x6E, 0x59, 0x68, 0x3D, 0x3D, 0x45, 0x3D, 0x32, 0xB5};
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> r07_expected = {
+        0x81, 0xB1, 0x26, 0x6E, 0x59, 0x68, 0x3D, 0x3D, 0x3D, 0x41, 0x32, 0xB1};
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> expected[] = {
+        r04_expected, r05_expected, r06_expected, r07_expected};
+    const float values[] = {1.5f, 3.5f, 4.5f, 2.5f};
+    for (uint8_t field = 4; field <= 7; ++field) {
+        conf1 = common_base;
+        assert(protocol::set_conf1_temperature_parameter(
+            conf1.data(), conf1.size(), field, values[field - 4]));
+        assert_packet_eq(conf1, expected[field - 4]);
+        assert(protocol::is_packet_checksum_valid(conf1.data(), conf1.size()));
+    }
+
+    std::array<uint8_t, protocol::FRAME_DATA_LENGTH_SHORT> short_frame = {
+        0x81, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x1C};
+    assert(!protocol::set_conf1_temperature_parameter(
+        short_frame.data(), short_frame.size(), 1, 26.5f));
+    assert(!protocol::set_conf1_temperature_parameter(conf1.data(), conf1.size(), 8, 1.0f));
+}
+
 void test_fan_fixture_write_contracts() {
     const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> conf1_base = {
         0x81, 0xB1, 0x1A, 0x72, 0x48, 0x72, 0x3D, 0x3D, 0x3D, 0x3D, 0x32, 0x9E};
@@ -446,6 +540,8 @@ int main() {
     test_fan_mode_custom_strings();
     test_fan_fixture_read_helpers();
     test_fan_command_byte_helpers();
+    test_config1_config3_demo_read_contracts();
+    test_config1_demo_write_contracts();
     test_fan_fixture_write_contracts();
     test_config5_defrost_active_tx_contracts();
 }

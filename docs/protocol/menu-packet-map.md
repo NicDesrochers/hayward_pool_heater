@@ -11,6 +11,8 @@ mappings and require implemented helper fields to appear in this map.
 
 - `implemented`: frame/helper plumbing exists.
 - `read-only`: parsed and exposed but not written by the component.
+- `fixture-backed`: tracked fixture coverage exists, but no write helper or live
+  control claim exists.
 - `byte-tested`: command-byte generation or read/write fixture coverage exists.
 - `live-echo-validated`: supervised hardware write and heater echo evidence exists.
 - `needs fixture import`: evidence exists in tmp/simulator material but should be converted into tracked fixtures before broadening behavior claims.
@@ -20,13 +22,13 @@ mappings and require implemented helper fields to appear in this map.
 | Menu | Field | Meaning | Location | Encoding | Evidence | Status |
 |----|----|----|----|----|----|----|
 | H02 | `h02_mode_restrictions` | Mode restrictions | byte 2 | bit field enum | implemented config frame | implemented, byte-tested |
-| R01 | `r01_setpoint_cooling` | Cooling setpoint | byte 3 | temperature | Arduino simulator packet | implemented, needs fixture import |
-| R02 | `r02_setpoint_heating` | Heating setpoint | byte 4 | temperature | Arduino simulator packet | implemented, needs fixture import |
-| R03 | `r03_setpoint_auto` | Auto setpoint | byte 5 | temperature | Arduino simulator packet | implemented, needs fixture import |
-| R04 | `r04_return_diff_cooling` | Cooling return differential | byte 6 | extended temperature/delta | Arduino simulator packet | implemented, needs fixture import |
-| R05 | `r05_shutdown_temp_diff_when_cooling` | Cooling shutdown differential | byte 7 | extended temperature/delta | Arduino simulator packet | implemented, needs fixture import |
-| R06 | `r06_return_diff_heating` | Heating return differential | byte 8 | extended temperature/delta | Arduino simulator packet | implemented, needs fixture import |
-| R07 | `r07_shutdown_diff_heating` | Heating shutdown differential | byte 9 | extended temperature/delta | Arduino simulator packet | implemented, needs fixture import |
+| R01 | `r01_setpoint_cooling` | Cooling setpoint | byte 3 | temperature | demo command fixture | implemented, byte-tested |
+| R02 | `r02_setpoint_heating` | Heating setpoint | byte 4 | temperature | demo command fixture | implemented, byte-tested |
+| R03 | `r03_setpoint_auto` | Auto setpoint | byte 5 | temperature | demo command fixture | implemented, fixture-backed |
+| R04 | `r04_return_diff_cooling` | Cooling return differential | byte 6 | extended temperature/delta | demo command fixture | implemented, byte-tested |
+| R05 | `r05_shutdown_temp_diff_when_cooling` | Cooling shutdown differential | byte 7 | extended temperature/delta | demo command fixture | implemented, byte-tested |
+| R06 | `r06_return_diff_heating` | Heating return differential | byte 8 | extended temperature/delta | demo command fixture | implemented, byte-tested |
+| R07 | `r07_shutdown_diff_heating` | Heating shutdown differential | byte 9 | extended temperature/delta | demo command fixture | implemented, byte-tested |
 | F12 | `f12_min_fan_voltage_pct` | Minimum fan voltage percent | byte 10 | integer percent | annotated log window | implemented, byte-tested |
 
 ## CONFIG_2 / `0x82`
@@ -46,9 +48,9 @@ mappings and require implemented helper fields to appear in this map.
 | Menu | Field | Meaning | Location | Encoding | Evidence | Status |
 |----|----|----|----|----|----|----|
 | R08 | `r08_min_cool_setpoint` | Minimum cooling setpoint limit | byte 7 | extended temperature | runtime fixture | read-only |
-| R09 | `r09_max_cooling_setpoint` | Maximum cooling setpoint limit | byte 8 | extended temperature | Arduino simulator packet | read-only, needs fixture import |
-| R10 | `r10_min_heating_setpoint` | Minimum heating setpoint limit | byte 9 | extended temperature | Arduino simulator packet | read-only, needs fixture import |
-| R11 | `r11_max_heating_setpoint` | Maximum heating setpoint limit | byte 10 | extended temperature | Arduino simulator packet | read-only, needs fixture import |
+| R09 | `r09_max_cooling_setpoint` | Maximum cooling setpoint limit | byte 8 | extended temperature | demo command fixture | read-only, fixture-backed |
+| R10 | `r10_min_heating_setpoint` | Minimum heating setpoint limit | byte 9 | extended temperature | demo command fixture | read-only, fixture-backed |
+| R11 | `r11_max_heating_setpoint` | Maximum heating setpoint limit | byte 10 | extended temperature | demo command fixture | read-only, fixture-backed |
 
 ## CONFIG_4 / `0x84`
 

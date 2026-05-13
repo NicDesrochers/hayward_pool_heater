@@ -32,12 +32,12 @@ Summary:
 |----|----:|----:|----:|
 | Annotated windows | 65 | 35 packet-window matches | 19 packet windows not yet covered |
 | Annotated windows with packets | 54 | 35 | 19 |
-| Arduino demo packets | 43 | 16 | 27 |
+| Arduino demo packets | 43 | 35 | 8 |
 
 The simulator packet corpus is broader than the first golden packet fixture
-slice. It includes proven command-style examples for R01-R07, R09-R11,
-D01/D05/D06, and temperature/status packets. These should be imported as
-focused fixtures before changing related command generation.
+slice. `CONFIG_1` R01-R07 and `CONFIG_3` R09-R11 command-style examples are
+now tracked as menu-backed fixtures. Remaining useful simulator examples cover
+D01/D05/D06 and additional temperature/status packets.
 
 ## Notable Remaining Evidence
 
@@ -51,8 +51,6 @@ Annotated windows not yet tracked as fixtures include:
 
 Uncovered simulator packets include:
 
-- `CONFIG_1`: mode auto plus R01-R07 setpoint/differential examples
-- `CONFIG_3`: R09-R11 limit examples
 - `CONFIG_2`: D01 defrost start examples
 - `CONFIG_5`: D05 and another D06 example with a different adjacent byte state
 - `COND_2`/`COND_D`: additional temperature/status examples
@@ -67,12 +65,11 @@ supports them.
 
 ## Suggested Import Order
 
-1. Add a simulator command-fixture slice for `CONFIG_1` R01-R07 and
-   `CONFIG_3` R09-R11 because the simulator has many checksum-valid examples.
-2. Expand fan-control annotation fixtures for the uncovered F02/F03/F08/F10/F12/F13
+1. Expand fan-control annotation fixtures for the uncovered F02/F03/F08/F10/F12/F13
    windows so duplicate/edge values are tracked.
-3. Add `CONFIG_5` D05/D06 simulator examples as passive command-byte fixtures,
+2. Add `CONFIG_2`/`CONFIG_5` defrost simulator examples for D01/D05/D06 as
+   passive command-byte fixtures,
    keeping live active-TX claims limited to the already captured D06 echo
    fixture until more hardware echo logs exist.
-4. Mine the 2024-10-31 condition/clock `test` windows only if they add new
+3. Mine the 2024-10-31 condition/clock `test` windows only if they add new
    decode coverage beyond the current passive runtime contracts.

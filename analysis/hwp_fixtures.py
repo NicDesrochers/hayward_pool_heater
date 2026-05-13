@@ -31,6 +31,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
+from .hwp_menu_map import MENU_BY_CODE
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FIXTURE_DIR = REPO_ROOT / "tests" / "fixtures" / "packets"
@@ -73,12 +75,40 @@ class PacketFixture:
 
 
 @dataclass(frozen=True)
+class PacketMenuExpectation:
+    fixture_name: str
+    packet_id: str
+    menu: str
+    field: str
+    value: float | str
+    raw_byte_index: int
+    raw_byte_value: int
+    frame_type: str
+    source: str
+
+
+@dataclass(frozen=True)
+class PacketMenuPairContract:
+    fixture_name: str
+    id: str
+    menu: str
+    field: str
+    base_packet_id: str
+    expected_packet_id: str
+    raw_byte_index: int
+    expected_raw_byte_value: int
+    changed_byte_indexes: tuple[int, ...]
+
+
+@dataclass(frozen=True)
 class FixtureFile:
     path: Path
     schema_version: int
     source: str
     provenance: str
     packets: tuple[PacketFixture, ...]
+    menu_expectations: tuple[PacketMenuExpectation, ...]
+    menu_pairs: tuple[PacketMenuPairContract, ...]
 
     @property
     def name(self) -> str:
@@ -129,6 +159,8 @@ def load_fixture_file(path: Path | str) -> FixtureFile:
     source = raw_fixture.get("source")
     provenance = raw_fixture.get("provenance")
     raw_packets = raw_fixture.get("packets")
+    raw_menu_expectations = raw_fixture.get("menu_expectations", [])
+    raw_menu_pairs = raw_fixture.get("menu_pairs", [])
 
     if schema_version != 1:
         raise FixtureValidationError(
@@ -142,12 +174,22 @@ def load_fixture_file(path: Path | str) -> FixtureFile:
         raise FixtureValidationError(f"{fixture_path}: missing packets")
 
     packets = tuple(_parse_packet(fixture_path.name, packet) for packet in raw_packets)
+    packet_index = {packet.id: packet for packet in packets}
+    menu_expectations = tuple(
+        _parse_menu_expectation(fixture_path.name, expectation, packet_index)
+        for expectation in raw_menu_expectations
+    )
+    menu_pairs = tuple(
+        _parse_menu_pair(fixture_path.name, pair, packet_index) for pair in raw_menu_pairs
+    )
     return FixtureFile(
         path=fixture_path,
         schema_version=schema_version,
         source=source,
         provenance=provenance,
         packets=packets,
+        menu_expectations=menu_expectations,
+        menu_pairs=menu_pairs,
     )
 
 
@@ -175,6 +217,14 @@ def validate_unique_packet_ids(fixtures: Iterable[FixtureFile]) -> None:
         if packet.id in seen:
             raise FixtureValidationError(f"duplicate packet id {packet.id!r}")
         seen.add(packet.id)
+
+
+def all_menu_expectations(fixtures: Iterable[FixtureFile]) -> tuple[PacketMenuExpectation, ...]:
+    return tuple(expectation for fixture in fixtures for expectation in fixture.menu_expectations)
+
+
+def all_menu_pairs(fixtures: Iterable[FixtureFile]) -> tuple[PacketMenuPairContract, ...]:
+    return tuple(pair for fixture in fixtures for pair in fixture.menu_pairs)
 
 
 def _parse_packet(fixture_name: str, packet: dict) -> PacketFixture:
@@ -235,4 +285,137 @@ def _parse_packet(fixture_name: str, packet: dict) -> PacketFixture:
         checksum_valid=checksum_valid,
         expected_checksum=expected_checksum,
         notes=notes,
+    )
+
+
+def _parse_menu_expectation(
+    fixture_name: str, expectation: dict, packet_index: dict[str, PacketFixture]
+) -> PacketMenuExpectation:
+    required = {
+        "packet_id",
+        "menu",
+        "field",
+        "value",
+        "raw_byte_index",
+        "raw_byte_value",
+        "frame_type",
+        "source",
+    }
+    missing = required - set(expectation)
+    if missing:
+        raise FixtureValidationError(
+            f"{fixture_name}: menu expectation missing {sorted(missing)}"
+        )
+
+    packet_id = expectation["packet_id"]
+    packet = packet_index.get(packet_id)
+    if packet is None:
+        raise FixtureValidationError(
+            f"{fixture_name}: menu expectation references unknown packet {packet_id!r}"
+        )
+
+    menu = expectation["menu"]
+    mapping = MENU_BY_CODE.get(menu)
+    if mapping is None:
+        raise FixtureValidationError(f"{fixture_name}: unknown menu code {menu!r}")
+    if expectation["field"] != mapping.field:
+        raise FixtureValidationError(f"{fixture_name}: {menu}: field mismatch")
+    if expectation["frame_type"] != mapping.frame or packet.frame_type != mapping.frame:
+        raise FixtureValidationError(f"{fixture_name}: {menu}: frame mismatch")
+    if expectation["source"] != packet.source:
+        raise FixtureValidationError(f"{fixture_name}: {menu}: source mismatch")
+
+    raw_byte_index = expectation["raw_byte_index"]
+    if raw_byte_index != mapping.byte_index:
+        raise FixtureValidationError(f"{fixture_name}: {menu}: byte index mismatch")
+    raw_byte_value = parse_hex_byte(expectation["raw_byte_value"])
+    if packet.bytes[raw_byte_index] != raw_byte_value:
+        raise FixtureValidationError(f"{fixture_name}: {menu}: raw byte mismatch")
+
+    value = expectation["value"]
+    if not isinstance(value, (int, float, str)):
+        raise FixtureValidationError(f"{fixture_name}: {menu}: bad expectation value")
+
+    return PacketMenuExpectation(
+        fixture_name=fixture_name,
+        packet_id=packet_id,
+        menu=menu,
+        field=expectation["field"],
+        value=value,
+        raw_byte_index=raw_byte_index,
+        raw_byte_value=raw_byte_value,
+        frame_type=expectation["frame_type"],
+        source=expectation["source"],
+    )
+
+
+def _parse_menu_pair(
+    fixture_name: str, pair: dict, packet_index: dict[str, PacketFixture]
+) -> PacketMenuPairContract:
+    required = {
+        "id",
+        "menu",
+        "field",
+        "base_packet_id",
+        "expected_packet_id",
+        "raw_byte_index",
+        "expected_raw_byte_value",
+        "changed_byte_indexes",
+    }
+    missing = required - set(pair)
+    if missing:
+        raise FixtureValidationError(f"{fixture_name}: menu pair missing {sorted(missing)}")
+
+    menu = pair["menu"]
+    mapping = MENU_BY_CODE.get(menu)
+    if mapping is None:
+        raise FixtureValidationError(f"{fixture_name}: unknown menu code {menu!r}")
+    if pair["field"] != mapping.field:
+        raise FixtureValidationError(f"{fixture_name}: {menu}: pair field mismatch")
+
+    base_packet = packet_index.get(pair["base_packet_id"])
+    expected_packet = packet_index.get(pair["expected_packet_id"])
+    if base_packet is None or expected_packet is None:
+        raise FixtureValidationError(f"{fixture_name}: {menu}: pair references unknown packet")
+    if base_packet.frame_type != mapping.frame or expected_packet.frame_type != mapping.frame:
+        raise FixtureValidationError(f"{fixture_name}: {menu}: pair frame mismatch")
+    if base_packet.source != expected_packet.source:
+        raise FixtureValidationError(f"{fixture_name}: {menu}: pair source mismatch")
+    if not base_packet.checksum_valid or not expected_packet.checksum_valid:
+        raise FixtureValidationError(f"{fixture_name}: {menu}: pair checksum invalid")
+
+    raw_byte_index = pair["raw_byte_index"]
+    if raw_byte_index != mapping.byte_index:
+        raise FixtureValidationError(f"{fixture_name}: {menu}: pair byte index mismatch")
+    expected_raw_byte_value = parse_hex_byte(pair["expected_raw_byte_value"])
+    if expected_packet.bytes[raw_byte_index] != expected_raw_byte_value:
+        raise FixtureValidationError(f"{fixture_name}: {menu}: pair expected byte mismatch")
+
+    changed_byte_indexes = tuple(pair["changed_byte_indexes"])
+    if not all(isinstance(index, int) for index in changed_byte_indexes):
+        raise FixtureValidationError(f"{fixture_name}: {menu}: bad changed byte indexes")
+    checksum_index = expected_packet.length - 1
+    actual_changed = tuple(
+        index
+        for index, (base_value, expected_value) in enumerate(
+            zip(base_packet.bytes, expected_packet.bytes, strict=True)
+        )
+        if index != checksum_index and base_value != expected_value
+    )
+    if actual_changed != changed_byte_indexes:
+        raise FixtureValidationError(
+            f"{fixture_name}: {menu}: changed bytes {actual_changed} != "
+            f"{changed_byte_indexes}"
+        )
+
+    return PacketMenuPairContract(
+        fixture_name=fixture_name,
+        id=pair["id"],
+        menu=menu,
+        field=pair["field"],
+        base_packet_id=pair["base_packet_id"],
+        expected_packet_id=pair["expected_packet_id"],
+        raw_byte_index=raw_byte_index,
+        expected_raw_byte_value=expected_raw_byte_value,
+        changed_byte_indexes=changed_byte_indexes,
     )

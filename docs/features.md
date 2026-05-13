@@ -24,6 +24,7 @@ The tmp merge track is closed. The current hardware-test focus has moved from re
 | TEST-073 | Active TX echo fixtures | Done | Successful active write/echo windows are tracked and validated as regression evidence | CONFIG_5 D06 defrost eco/normal commands and heater echoes validate checksums, source direction, requested bit value, and observed byte-4 normalization |
 | TEST-074 | Annotated evidence inventory | Done | Tmp annotated logs and Arduino simulator packets are inventoried against tracked fixtures | Current scan found 65 annotation windows and 43 simulator packets; see `docs/protocol/evidence-inventory.md` |
 | TEST-075 | Menu-to-packet protocol contracts | Done | Manual menu options map to frame/byte/encoding evidence before more active controls are added | `analysis/hwp_menu_map.py` and `docs/protocol/menu-packet-map.md` cover implemented F/D/R/U/H/S options |
+| TEST-076 | CONFIG_1/CONFIG_3 demo command fixtures | Done | Demo command examples for R01-R07 and R09-R11 are tracked as menu-backed byte contracts | `hwp_demo_command_contracts.json` pins checksums, menu byte locations, and one-byte pairs where the source supports them |
 | TEST-070 | QEMU target test feasibility | Planned | Document install needs and prove one minimal ESP-IDF/ESP32 QEMU test app can run | Devcontainer has Debian `qemu-system-xtensa`, but not ESP-IDF or an ESP32 QEMU machine yet |
 | TEST-080 | ESPHome host-platform feasibility | Blocked | Host compile/run path exists or blocker is documented | Current component is ESP32/RMT-bound |
 | TEST-090 | Manual hardware-in-the-loop procedures | Done | Passive and active-control validation procedures are documented | See `docs/testing/manual-hil.md`; not default CI |
@@ -62,7 +63,7 @@ The tmp merge track is closed. The current hardware-test focus has moved from re
 |----|---------|--------|------------|-------|
 | PROTO-010 | Protocol notes organization | Planned | Protocol interpretation notes live under `docs/protocol/` | Keep `AGENTS.md` operational only |
 | PROTO-020 | Golden packet fixture format | Done | Packet fixture schema is documented and easy to review | JSON fixture plus stdlib validation tests |
-| PROTO-030 | Active command expectations | In Progress | Generated command bytes match known-safe expectations | Fan-control F01-F13 byte contracts are covered; CONFIG_5 defrost eco/normal has fixture-backed live TX/echo evidence; broader active command expectations remain safety-sensitive |
+| PROTO-030 | Active command expectations | In Progress | Generated command bytes match known-safe expectations | Fan-control F01-F13 and CONFIG_1 R01/R02/R04-R07 byte contracts are covered; CONFIG_5 defrost eco/normal has fixture-backed live TX/echo evidence; broader active command expectations remain safety-sensitive |
 | PROTO-040 | `tmp/hwp` salvage closure | Done | Useful copied-tree assets and merge guardrails are documented with final disposition | See `docs/tmp-hwp-salvage.md` |
 | PROTO-050 | Menu-to-packet source of truth | Done | Technical manual menu options are linked to frames, byte locations, encodings, evidence, and safety status | Check `docs/protocol/menu-packet-map.md` before protocol or active-control changes |
 | SAFETY-010 | Passive hardware validation | Done | Manual procedure documents setup and expected observations | See `docs/testing/manual-hil.md`; not default CI |

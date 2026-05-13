@@ -29,6 +29,8 @@ import unittest
 from analysis.hwp_fixtures import (
     REQUIRED_PACKET_KEYS,
     FixtureValidationError,
+    all_menu_expectations,
+    all_menu_pairs,
     all_packets,
     calculate_checksum,
     format_hex_byte,
@@ -56,6 +58,8 @@ class TestPacketFixtures(unittest.TestCase):
     def setUpClass(cls):
         cls.fixtures = load_fixture_files()
         cls.packets = all_packets(cls.fixtures)
+        cls.menu_expectations = all_menu_expectations(cls.fixtures)
+        cls.menu_pairs = all_menu_pairs(cls.fixtures)
 
     def test_fixture_schema(self):
         self.assertGreaterEqual(len(self.fixtures), 2)
@@ -100,6 +104,45 @@ class TestPacketFixtures(unittest.TestCase):
                     invalid_packets.append(packet.id)
 
         self.assertEqual(invalid_packets, ["demo-type-dd-invalid-change"])
+
+    def test_demo_menu_expectations_pin_menu_locations(self):
+        menus = {expectation.menu for expectation in self.menu_expectations}
+        self.assertTrue(
+            {
+                "H02",
+                "R01",
+                "R02",
+                "R03",
+                "R04",
+                "R05",
+                "R06",
+                "R07",
+                "R09",
+                "R10",
+                "R11",
+            }.issubset(menus)
+        )
+
+        for expectation in self.menu_expectations:
+            with self.subTest(menu=expectation.menu, packet=expectation.packet_id):
+                expected_frame_type = (
+                    "0x83" if expectation.menu in {"R09", "R10", "R11"} else "0x81"
+                )
+                self.assertEqual(expectation.frame_type, expected_frame_type)
+                self.assertIn(expectation.source, {"heater", "controller"})
+                self.assertGreaterEqual(expectation.raw_byte_index, 0)
+                self.assertLess(expectation.raw_byte_index, 12)
+
+    def test_demo_menu_pairs_change_only_the_menu_byte(self):
+        pairs_by_menu = {pair.menu: pair for pair in self.menu_pairs}
+        self.assertTrue({"R01", "R02", "R04", "R05", "R06", "R07"}.issubset(pairs_by_menu))
+        self.assertTrue({"R09", "R10", "R11"}.issubset(pairs_by_menu))
+        self.assertNotIn("R03", pairs_by_menu)
+
+        for pair in self.menu_pairs:
+            with self.subTest(pair=pair.id):
+                self.assertEqual(pair.changed_byte_indexes, (pair.raw_byte_index,))
+                self.assertEqual(len(pair.changed_byte_indexes), 1)
 
     def test_shared_hex_parser_rejects_bad_values(self):
         for value in ("82", "0x1", "0x100", 4):

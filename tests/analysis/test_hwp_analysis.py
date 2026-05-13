@@ -27,12 +27,14 @@
 import contextlib
 import io
 import argparse
+import struct
 import tempfile
 import time
 import unittest
 from pathlib import Path
 
 from analysis import hwp_analyze
+from analysis import hwp_web_capture
 from analysis.TagEntry import TagEntry, TagType
 from analysis.hwp_active_tx_fixtures import (
     allowed_normalization_differences,
@@ -176,6 +178,68 @@ ANNOTATED_WINDOW_LINES = [
 
 
 class TestHwpAnalysis(unittest.TestCase):
+    def test_web_capture_parses_viewport_sizes(self):
+        sizes = hwp_web_capture.parse_size_spec("phone=390x844,tablet=768x1024")
+
+        self.assertEqual([size.name for size in sizes], ["phone", "tablet"])
+        self.assertEqual((sizes[1].width, sizes[1].height), (768, 1024))
+        self.assertEqual(sizes[1].filename, "hwp-web-tablet.png")
+        self.assertEqual(
+            hwp_web_capture.selected_readme_path(Path("analysis/screenshots"), sizes, "tablet"),
+            Path("analysis/screenshots/hwp-web-tablet.png"),
+        )
+
+    def test_web_capture_dry_run_outputs_expected_paths(self):
+        sizes = hwp_web_capture.parse_size_spec("tablet=768x1024")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            outputs = hwp_web_capture.capture_screenshots(
+                base_url="http://device.local/hwp",
+                out_dir=Path(temp_dir),
+                sizes=sizes,
+                wait_ms=0,
+                dry_run=True,
+            )
+
+        self.assertEqual(len(outputs), 1)
+        self.assertEqual(outputs[0].name, "hwp-web-tablet.png")
+
+    def test_web_capture_validates_png_dimensions(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "capture.png"
+            png_header = (
+                b"\x89PNG\r\n\x1a\n"
+                b"\x00\x00\x00\rIHDR"
+                + struct.pack(">II", 768, 1024)
+            )
+            path.write_bytes(png_header + b"\x08\x02\x00\x00\x00" + (b"x" * 2048))
+
+            self.assertEqual(hwp_web_capture.png_dimensions(path), (768, 1024))
+            hwp_web_capture.validate_png(path, 768, 1024)
+
+            with self.assertRaises(ValueError):
+                hwp_web_capture.validate_png(path, 390, 844)
+
+    def test_web_capture_help_and_dry_run_command(self):
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            result = hwp_web_capture.main(
+                [
+                    "--base-url",
+                    "http://device.local/hwp",
+                    "--out-dir",
+                    "analysis/screenshots",
+                    "--sizes",
+                    "tablet=768x1024",
+                    "--readme-size",
+                    "tablet",
+                    "--dry-run",
+                ]
+            )
+
+        self.assertEqual(result, 0)
+        text = output.getvalue()
+        self.assertIn("analysis/screenshots/hwp-web-tablet.png", text)
+        self.assertIn("README capture: analysis/screenshots/hwp-web-tablet.png", text)
+
     def test_connection_profiles_round_trip_without_printing_secret(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             profile_path = Path(temp_dir) / "hwp-tools.json"

@@ -36,6 +36,8 @@ climate:
 ```
 
   The default path is `/hwp`; `/hwp/state.json` returns the latest decoded fields, packet buffer, graph samples, revision, bus mode, and status; `/hwp/events` streams SSE updates. It is a tablet-friendly field-analysis view only, not a heater-control or annotation surface.
+- The firmware web dashboard has a small browser-local **Annotate** helper. It stores `Start`, `End`, and `Mark Event` entries in `localStorage`, exports JSON from the browser, and does not persist data on the ESP32. Keep raw exports local unless a field session produces evidence worth curating into fixtures or notes.
+- Web UI screenshots can be regenerated from a live device with `python -m analysis.hwp_web_capture --base-url http://<device-address>/hwp --out-dir analysis/screenshots --readme-size tablet`. The analysis workflow and safety notes live in `analysis/README.md`.
 - Manual annotation windows are parsed by the same CLI. Use `python -m analysis.hwp_analyze annotations --input tmp/hwp/POOL_esphome_logs.log.2024-11-01` and `prove-annotations` for curated tagger windows.
 - The first native C++ seam lives in `components/hwp/protocol_core.*` and covers dependency-light packet helpers plus fan mode, defrost, flow-meter, and heat-pump restriction conversions.
 - Component-local adapter headers keep climate/logger/time/RMT coupling out of core frame tests where practical. `HWP_NATIVE_TEST` uses those adapters to compile runtime frame contracts without full ESPHome or hardware RMT dependencies.
@@ -81,6 +83,7 @@ python -m analysis.hwp_analyze fixtures
 python -m analysis.hwp_analyze active-tx --fixture tests/fixtures/active_tx/hwp_active_tx_config5_defrost_2026_05_12.json
 python -m analysis.hwp_analyze evidence --menu --limit 25
 python -m analysis.hwp_logs_annotator --help
+python -m analysis.hwp_web_capture --help
 python -m analysis.hwp_analyze prove --input tmp/hwp/POOL_esphome_logs.log --fixture tests/fixtures/packets/hwp_hardware_log_2025_06_24.json
 python -m analysis.hwp_analyze prove-annotations --input tmp/hwp/POOL_esphome_logs.log.2024-11-01 --fixture tests/fixtures/annotations/hwp_annotated_fan_control_2024_11_01.json
 ./scripts/test-esphome.sh --local

@@ -83,8 +83,23 @@ void test_field_snapshot_and_graph_trim() {
     assert_contains(json, "\"bus_mode\":\"RX\"");
 }
 
+void test_index_html_contains_annotation_helper() {
+    const std::string html = hwp::HWPWebDashboard::index_html();
+    assert_contains(html, "Values");
+    assert_contains(html, "Packets");
+    assert_contains(html, "Graphs");
+    assert_contains(html, "Annotate");
+    assert_contains(html, "Start");
+    assert_contains(html, "Mark Event");
+    assert_contains(html, "Export JSON");
+    assert_contains(html, "hwp.web.annotations.v1");
+    assert_contains(html, "localStorage");
+    assert_contains(html, "hwp-web-annotations.json");
+}
+
 int main() {
     test_packet_ring_buffer_and_changed_bytes();
     test_field_snapshot_and_graph_trim();
+    test_index_html_contains_annotation_helper();
     return 0;
 }

@@ -90,6 +90,7 @@ class HWPWebDashboard {
     std::string state_json() const;
     size_t packet_count() const { return this->packets_.size(); }
     size_t graph_point_count(const std::string& field_id) const;
+    static const char* index_html();
     static std::string escape_json(const std::string& value);
 
   private:

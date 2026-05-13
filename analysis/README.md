@@ -7,7 +7,7 @@ into a heater-control surface. The quickest field workflow is:
 2. Open `http://<device-address>/hwp` from a tablet.
 3. Use **Values** for decoded fields, **Frames** for the latest packet seen for
    each frame/source/length, **Packets** for recent bus traffic, and **Graphs**
-   for trends.
+   for retained device-side trends.
 4. Use the **Annotate** controls to mark the start/end of a menu action or an
    observed event.
 5. Export the browser-local JSON annotations after the field session, then
@@ -68,8 +68,8 @@ help gather evidence for those items:
 
 - Compare packet changes while navigating read-only technical menus.
 - Warm or cool suspected temperature sensors gently by hand or with an ice pack,
-  then watch the Values, Frames, Packets, and Graphs tabs for correlated
-  changes.
+  then watch the Values, Frames, Packets, and device-retained Graphs tabs for
+  correlated changes.
 - Change safe writable menu values one at a time and capture command/echo
   windows with **Start** and **End** annotations.
 - Observe pump, flow, defrost, and idle/running transitions only when the system

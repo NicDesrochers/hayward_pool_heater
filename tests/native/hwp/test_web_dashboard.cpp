@@ -83,6 +83,7 @@ void test_field_snapshot_and_graph_trim() {
     assert_contains(json, "\"value\":\"13.5\"");
     assert_contains(json, "\"changed\":true");
     assert_contains(json, "\"bus_mode\":\"RX\"");
+    assert_contains(json, "\"t\":");
 }
 
 void test_index_html_contains_annotation_helper() {
@@ -91,6 +92,11 @@ void test_index_html_contains_annotation_helper() {
     assert_contains(html, "Frames");
     assert_contains(html, "Packets");
     assert_contains(html, "Graphs");
+    assert_contains(html, "Recent graph history is retained on the device");
+    assert_contains(html, "devicePixelRatio");
+    assert_contains(html, "Setpoints And Limits");
+    assert_contains(html, "Differentials And Timers");
+    assert_contains(html, "Fan Values");
     assert_contains(html, "Annotate");
     assert_contains(html, "class=annotate");
     assert_contains(html, "position:fixed");

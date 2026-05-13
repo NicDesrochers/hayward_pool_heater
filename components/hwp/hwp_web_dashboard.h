@@ -112,6 +112,7 @@ class HWPWebDashboard {
 
     struct GraphPoint {
         uint32_t sequence{0};
+        uint32_t seen_ms{0};
         float value{0.0f};
     };
 

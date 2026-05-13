@@ -47,13 +47,17 @@ const char HWP_WEB_INDEX[] =
     "table{border-collapse:collapse;width:100%;background:white}th,td{padding:6px 8px;border-bottom:1px solid #e1e5ea;text-align:left}"
     "tr.changed,span.changed{background:#fff2a8}.bad{color:#a40000;font-weight:700}.packet{font-family:ui-monospace,monospace;margin:6px 0;padding:8px;background:white;border-left:4px solid #8aa4bd;overflow:auto}"
     ".annotate{position:fixed;left:0;right:0;bottom:0;z-index:20;padding:10px;background:#edf3f8;border-top:1px solid #c6d4e1;box-shadow:0 -2px 8px #0002}"
-    ".meta{font-size:12px;color:#52616f}canvas{background:white;width:100%;height:220px;border:1px solid #d8dee6;margin:8px 0}"
+    ".meta{font-size:12px;color:#52616f}.chart{background:white;border:1px solid #d8dee6;margin:10px 0;padding:8px}.chart h3{margin:0 0 4px;font-size:15px;color:#17324d}.chart p{margin:0 0 6px}.chart canvas{display:block;width:100%;height:260px}"
     "</style></head><body><header><strong>HWP</strong><span id=meta></span></header>"
     "<nav style='padding:8px;background:#e9eef4'><button data-tab=values class=active>Values</button><button data-tab=frames>Frames</button><button data-tab=packets>Packets</button><button data-tab=graphs>Graphs</button></nav>"
     "<section id=values class='view active'><table><thead><tr><th>Field</th><th>Value</th><th>Age</th><th>Source</th><th>Frame</th><th>Raw</th></tr></thead><tbody id=valueRows></tbody></table></section>"
     "<section id=frames class=view><div class=meta>Latest packet seen for each frame/source/length, including unknown frames.</div><div id=frameRows></div></section>"
     "<section id=packets class=view><div id=packetRows></div></section>"
-    "<section id=graphs class=view><canvas id=g1 width=900 height=220></canvas><canvas id=g2 width=900 height=220></canvas><canvas id=g3 width=900 height=220></canvas></section>"
+    "<section id=graphs class=view><div class=meta>Recent graph history is retained on the device and sent with state.json, so the chart starts with the latest sliding window.</div>"
+    "<div class=chart><h3>Temperatures</h3><p class=meta id=g1m></p><canvas id=g1></canvas></div>"
+    "<div class=chart><h3>Setpoints And Limits</h3><p class=meta id=g2m></p><canvas id=g2></canvas></div>"
+    "<div class=chart><h3>Differentials And Timers</h3><p class=meta id=g3m></p><canvas id=g3></canvas></div>"
+    "<div class=chart><h3>Fan Values</h3><p class=meta id=g4m></p><canvas id=g4></canvas></div></section>"
     "<section class=annotate><strong>Annotate</strong> <input id=annNote placeholder='label or note'><button id=annStart>Start</button><button id=annEvent>Mark Event</button><button id=annEnd>End</button><button id=annExport>Export JSON</button><button id=annClear>Clear</button><span id=annCount class=meta></span></section>"
     "<script>"
     "const ANN_KEY='hwp.web.annotations.v1';let state={fields:[],frames:[],packets:[],graphs:{},meta:{}};let changed={};let tab='values';"
@@ -68,11 +72,13 @@ const char HWP_WEB_INDEX[] =
     "function age(ms){if(!ms)return'';let base=state.meta.uptime_ms||0;let s=Math.max(0,Math.floor((base-ms)/1000));return s<60?s+'s':Math.floor(s/60)+'m '+String(s%60).padStart(2,'0')+'s'}"
     "function packetHtml(p){return`<div class=packet><div class=meta>#${p.sequence} ${age(p.seen_ms)} ${p.kind} ${p.frame} ${p.label} ${p.source} ${p.length}b ${p.checksum_valid?'ok':'<span class=bad>bad checksum</span>'}</div>[${p.bytes.map((b,i)=>`<span class='${p.changed_bytes[i]?'changed':''}'>${b.toString(16).padStart(2,'0').toUpperCase()}</span>`).join(' ')}]</div>`}"
     "function render(){document.getElementById('meta').textContent=`${state.meta.status||''} ${state.meta.bus_mode||''} ${state.meta.revision||''}`;let now=Date.now();valueRows.innerHTML=state.fields.map(f=>`<tr class='${changed[f.id]>now?'changed':''}'><td>${f.label}</td><td>${f.value} ${f.unit||''}</td><td>${age(f.seen_ms)}</td><td>${f.source}</td><td>${f.frame}</td><td>${f.raw}</td></tr>`).join('');frameRows.innerHTML=(state.frames||[]).slice().reverse().map(packetHtml).join('');packetRows.innerHTML=state.packets.slice().reverse().map(packetHtml).join('');drawGraphs()}"
-    "function drawOne(id,names){let c=document.getElementById(id),x=c.getContext('2d');x.clearRect(0,0,c.width,c.height);let series=names.map(n=>({n,p:state.graphs[n]||[]})).filter(s=>s.p.length);if(!series.length)return;let vals=series.flatMap(s=>s.p.map(p=>p.value));let lo=Math.min(...vals),hi=Math.max(...vals);if(lo===hi){lo-=1;hi+=1}let colors=['#1d6fb8','#c45f1a','#2e7d32','#7b1fa2','#a00030','#00838f','#6d4c41'];series.forEach((s,si)=>{x.strokeStyle=colors[si%colors.length];x.beginPath();s.p.forEach((p,i)=>{let px=40+i*Math.max(1,(c.width-260)/Math.max(1,s.p.length-1));let py=190-(p.value-lo)*(160/(hi-lo));if(i)x.lineTo(px,py);else x.moveTo(px,py)});x.stroke();x.fillStyle=x.strokeStyle;x.fillText(s.n, c.width-200, 24+si*18)});x.fillStyle='#555';x.fillText(lo.toFixed(1),4,194);x.fillText(hi.toFixed(1),4,36)}"
-    "function drawGraphs(){drawOne('g1',['t02_inlet','t03_outlet','t04_coil','t06_exhaust','t_aux_cond2']);drawOne('g2',['r01_setpoint_cooling','r02_setpoint_heating','r03_setpoint_auto','r08_min_cool_setpoint','r09_max_cooling_setpoint','r10_min_heating_setpoint','r11_max_heating_setpoint']);drawOne('g3',['r04_return_diff_cooling','r05_shutdown_temp_diff_when_cooling','r06_return_diff_heating','r07_shutdown_diff_heating','d03_defrosting_cycle_time_minutes','d04_max_defrost_time_minutes','d05_min_economy_defrost_time_minutes','f08_fan_low_speed_running_time','f09_fan_stop_low_speed_running_time','f12_min_fan_voltage_pct','f13_max_fan_voltage_pct'])}"
+    "function fmeta(){let m={};state.fields.forEach(f=>m[f.id]=f);return m}"
+    "function resizeCanvas(c){let r=c.getBoundingClientRect(),d=window.devicePixelRatio||1,w=Math.max(320,Math.floor(r.width)),h=Math.max(220,Math.floor(r.height));if(c.width!==Math.floor(w*d)||c.height!==Math.floor(h*d)){c.width=Math.floor(w*d);c.height=Math.floor(h*d)}let x=c.getContext('2d');x.setTransform(d,0,0,d,0,0);return{x,w,h}}"
+    "function drawOne(id,names){let c=document.getElementById(id),{x,w,h}=resizeCanvas(c),m=fmeta();x.clearRect(0,0,w,h);let series=names.map(n=>({id:n,label:(m[n]&&m[n].label)||n,unit:(m[n]&&m[n].unit)||'',p:state.graphs[n]||[]})).filter(s=>s.p.length);let note=document.getElementById(id+'m');if(!series.length){note.textContent='Waiting for retained samples from the device.';return}let vals=series.flatMap(s=>s.p.map(p=>p.value));let times=series.flatMap(s=>s.p.map(p=>p.t||p.sequence||0));let lo=Math.min(...vals),hi=Math.max(...vals),t0=Math.min(...times),t1=Math.max(...times);if(lo===hi){lo-=1;hi+=1}let pad=(hi-lo)*0.08;lo-=pad;hi+=pad;if(t0===t1)t0-=1;let l=48,r=Math.max(120,Math.min(260,w*0.32)),top=18,b=h-34,gw=w-l-r,gh=b-top;let colors=['#1d6fb8','#c45f1a','#2e7d32','#7b1fa2','#a00030','#00838f','#6d4c41','#455a64'];x.strokeStyle='#dce3eb';x.lineWidth=1;x.fillStyle='#5b6773';x.font='12px system-ui';for(let i=0;i<=4;i++){let y=top+gh*i/4;x.beginPath();x.moveTo(l,y);x.lineTo(l+gw,y);x.stroke();let v=hi-(hi-lo)*i/4;x.fillText(v.toFixed(1),6,y+4)}x.strokeStyle='#93a4b5';x.strokeRect(l,top,gw,gh);series.forEach((s,si)=>{x.strokeStyle=colors[si%colors.length];x.lineWidth=2;x.beginPath();s.p.forEach((p,i)=>{let tt=p.t||p.sequence||0,px=l+(tt-t0)*gw/(t1-t0),py=top+gh-(p.value-lo)*gh/(hi-lo);if(i)x.lineTo(px,py);else x.moveTo(px,py)});x.stroke();let last=s.p[s.p.length-1];let y=24+si*18;x.fillStyle=x.strokeStyle;x.fillRect(w-r+8,y-8,9,9);x.fillText(`${s.label}: ${last.value.toFixed(1)}${s.unit?' '+s.unit:''}`,w-r+22,y)});let span=Math.max(0,Math.round((t1-t0)/1000));note.textContent=`${series.length} series, ${span}s retained window, ${Math.max(...series.map(s=>s.p.length))} samples max`}"
+    "function drawGraphs(){drawOne('g1',['t02_inlet','t03_outlet','t04_coil','t06_exhaust','t_aux_cond2']);drawOne('g2',['r01_setpoint_cooling','r02_setpoint_heating','r03_setpoint_auto','r08_min_cool_setpoint','r09_max_cooling_setpoint','r10_min_heating_setpoint','r11_max_heating_setpoint']);drawOne('g3',['r04_return_diff_cooling','r05_shutdown_temp_diff_when_cooling','r06_return_diff_heating','r07_shutdown_diff_heating','d03_defrosting_cycle_time_minutes','d04_max_defrost_time_minutes','d05_min_economy_defrost_time_minutes']);drawOne('g4',['f02_fan_high_speed_cool_setpoint','f03_fan_low_speed_temp_in_cooling_set_point','f04_fan_stop_temp_in_cooling_set_point','f05_fan_high_speed_temp_in_heating_set_point','f06_fan_low_speed_temp_in_heating_set_point','f07_fan_stop_temp_in_heating_set_point','f08_fan_low_speed_running_time','f09_fan_stop_low_speed_running_time','f12_min_fan_voltage_pct','f13_max_fan_voltage_pct'])}"
     "let base=location.pathname.replace(/\\/$/,'');"
     "async function load(){state=await fetch(base+'/state.json').then(r=>r.json());render()}"
-    "saveAnns(anns());load();setInterval(render,1000);let es=new EventSource(base+'/events');es.addEventListener('state',e=>{state=JSON.parse(e.data);state.fields.forEach(f=>{if(f.changed)changed[f.id]=Date.now()+4000});render()});"
+    "saveAnns(anns());load();setInterval(render,1000);addEventListener('resize',drawGraphs);let es=new EventSource(base+'/events');es.addEventListener('state',e=>{state=JSON.parse(e.data);state.fields.forEach(f=>{if(f.changed)changed[f.id]=Date.now()+4000});render()});"
     "</script></body></html>";
 
 void append_json_pair(std::ostringstream& out, const char* key, const std::string& value, bool comma = true) {
@@ -321,7 +327,8 @@ std::string HWPWebDashboard::graph_json() const {
         out << "\"" << escape_json(entry.first) << "\":[";
         for (size_t i = 0; i < entry.second.size(); i++) {
             if (i) out << ",";
-            out << "{\"sequence\":" << entry.second[i].sequence << ",\"value\":" << entry.second[i].value << "}";
+            out << "{\"sequence\":" << entry.second[i].sequence << ",\"t\":"
+                << entry.second[i].seen_ms << ",\"value\":" << entry.second[i].value << "}";
         }
         out << "]";
     }
@@ -343,7 +350,7 @@ std::string HWPWebDashboard::meta_json(const std::string& status, bus_mode_t bus
 void HWPWebDashboard::append_graph_point(const HWPWebField& field) {
     if (!field.numeric) return;
     auto& points = this->graph_history_[field.id];
-    points.push_back(GraphPoint{++this->field_sequence_, field.numeric_value});
+    points.push_back(GraphPoint{++this->field_sequence_, field.seen_ms, field.numeric_value});
     trim_graph(field.id);
 }
 

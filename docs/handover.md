@@ -9,7 +9,8 @@ This repo is now developed inside the ESPHome devcontainer. Read:
 3. `docs/testing/backlog.md` for detailed testing tasks.
 4. `docs/protocol/menu-packet-map.md` before protocol, helper, or active-control changes.
 5. `docs/protocol/research-backlog.md` for uncertain fields that need human analysis.
-6. `docs/tmp-hwp-salvage.md` only if a task explicitly needs archival tmp reference material.
+6. `analysis/README.md` for field annotator, firmware web dashboard, annotation export, and screenshot capture workflow.
+7. `docs/tmp-hwp-salvage.md` only if a task explicitly needs archival tmp reference material.
 
 ## Current State
 
@@ -37,7 +38,7 @@ climate:
 
   The default path is `/hwp`; `/hwp/state.json` returns the latest decoded fields, packet buffer, graph samples, revision, bus mode, and status; `/hwp/events` streams SSE updates. It is a tablet-friendly field-analysis view only, not a heater-control or annotation surface.
 - The firmware web dashboard has a small browser-local **Annotate** helper. It stores `Start`, `End`, and `Mark Event` entries in `localStorage`, exports JSON from the browser, and does not persist data on the ESP32. Keep raw exports local unless a field session produces evidence worth curating into fixtures or notes.
-- Web UI screenshots can be regenerated from a live device with `python -m analysis.hwp_web_capture --base-url http://<device-address>/hwp --out-dir analysis/screenshots --readme-size tablet`. The analysis workflow and safety notes live in `analysis/README.md`.
+- Web UI screenshots can be regenerated from a live device with `python -m analysis.hwp_web_capture --base-url http://<device-address>/hwp --out-dir analysis/screenshots --readme-size tablet`. `analysis/screenshots/*` is generated and ignored by default except for the curated README tablet image. The analysis workflow and safety notes live in `analysis/README.md`.
 - Manual annotation windows are parsed by the same CLI. Use `python -m analysis.hwp_analyze annotations --input tmp/hwp/POOL_esphome_logs.log.2024-11-01` and `prove-annotations` for curated tagger windows.
 - The first native C++ seam lives in `components/hwp/protocol_core.*` and covers dependency-light packet helpers plus fan mode, defrost, flow-meter, and heat-pump restriction conversions.
 - Component-local adapter headers keep climate/logger/time/RMT coupling out of core frame tests where practical. `HWP_NATIVE_TEST` uses those adapters to compile runtime frame contracts without full ESPHome or hardware RMT dependencies.

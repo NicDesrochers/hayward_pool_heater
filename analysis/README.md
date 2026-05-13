@@ -26,6 +26,39 @@ python -m analysis.hwp_web_capture \
 The command captures phone, tablet, and desktop media sizes by default. The
 README intentionally references only the tablet capture.
 
+## Screenshot Maintenance
+
+Generated screenshots are local evidence artifacts. `analysis/screenshots/*` is
+ignored by default so repeated captures do not dirty the repo, except for the
+curated README image `analysis/screenshots/hwp-web-tablet.png`.
+
+For a quick tooling check, run:
+
+```sh
+python -m analysis.hwp_web_capture --help
+```
+
+For a real capture session, use a flashed device serving `/hwp`:
+
+```sh
+python -m analysis.hwp_web_capture \
+  --base-url http://<device-address>/hwp \
+  --out-dir analysis/screenshots \
+  --readme-size tablet
+```
+
+The capture tool validates that each PNG has the requested dimensions and a
+non-trivial file size. If a documentation slice needs to refresh the published
+image, regenerate all media sizes, review the tablet image, then add only the
+curated README image:
+
+```sh
+git add analysis/screenshots/hwp-web-tablet.png
+```
+
+Do not commit full field-session exports, raw captures, API keys, passwords, or
+URLs containing credentials.
+
 ## Identification Backlog
 
 Use [docs/protocol/research-backlog.md](../docs/protocol/research-backlog.md)

@@ -18,6 +18,7 @@ ESPHome external component for a Hayward pool heat pump controller.
 ## Important Paths
 
 - `components/hwp/`: ESPHome external component implementation.
+- `analysis/`: headless analysis tools, GUI field annotator, and firmware web UI capture tooling.
 - `examples/`: user-facing compile examples.
 - `tests/components/hwp/`: ESPHome compile/config fixtures and Python schema tests.
 - `.devcontainer/`: VS Code devcontainer definition.
@@ -36,6 +37,7 @@ For a new slice, read in this order:
 2. `docs/handover.md`
 3. `docs/features.md`
 4. The focused tracker for the slice, usually `docs/testing/backlog.md`
+5. For analysis, annotator, or web UI capture work, `analysis/README.md`
 
 Keep `docs/handover.md` concise. Move durable narrative and completed work history into `docs/features.md` or focused docs.
 See `docs/governance.md` before changing the documentation model.
@@ -48,6 +50,7 @@ From the devcontainer:
 esphome version
 python -m unittest discover -s tests -p 'test_*.py'
 ./scripts/test-native.sh
+python -m analysis.hwp_web_capture --help
 ./scripts/test-esphome.sh --local
 git diff --check
 git status --short
@@ -69,6 +72,10 @@ Expected local-only paths include:
 - `esphome_build/`
 - `.cache/`
 - PlatformIO cache/build output
+- `analysis/captures/`
+- `analysis/annotations/`
+- `analysis/screenshots/` except the curated README image `analysis/screenshots/hwp-web-tablet.png`
+- `analysis/hwp-web-annotations*.json`
 - `*-local.yaml`
 - `*-secrets.yaml`
 

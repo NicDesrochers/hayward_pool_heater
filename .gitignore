@@ -21,6 +21,10 @@ analysis/.vscode/launch.json
 analysis/piscine_esphome_logs.log
 analysis/captures/
 analysis/annotations/
+analysis/screenshots/*
+!analysis/screenshots/
+!analysis/screenshots/hwp-web-tablet.png
+analysis/hwp-web-annotations*.json
 components/hwp/.vscode/launch.json
 components/hwp/.vscode/tasks.json
 hayward-heater-test.yaml

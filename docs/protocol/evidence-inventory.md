@@ -30,8 +30,8 @@ Summary:
 
 | Source | Count | Tracked today | Remaining |
 |----|----:|----:|----:|
-| Annotated windows | 65 | 35 packet-window matches | 19 packet windows not yet covered |
-| Annotated windows with packets | 54 | 35 | 19 |
+| Annotated windows | 65 | 47 packet-window matches | 7 packet windows not yet covered |
+| Annotated windows with packets | 54 | 47 | 7 |
 | Arduino demo packets | 43 | 35 | 8 |
 
 The simulator packet corpus is broader than the first golden packet fixture
@@ -41,12 +41,10 @@ D01/D05/D06 and additional temperature/status packets.
 
 ## Notable Remaining Evidence
 
-Annotated windows not yet tracked as fixtures include:
+Annotated fan-control windows are now tracked for F01-F13, including the
+previously loose F02/F03/F08/F10/F12/F13 edge values. Annotated windows not yet
+tracked as fixtures are non-fan windows from 2024-10-31:
 
-- `F10 - 0` in `POOL_esphome_logs - Copy.log`
-- `F12 - 50` in both copied and 2024-11-01 logs
-- `F13 - 99` and `F13 - 100` in both copied and 2024-11-01 logs
-- Additional `F02 - 41`, `F03 - 15.5`, and `F08 - 1` windows
 - Several 2024-10-31 `test` windows for condition/clock packets
 
 Uncovered simulator packets include:
@@ -65,11 +63,9 @@ supports them.
 
 ## Suggested Import Order
 
-1. Expand fan-control annotation fixtures for the uncovered F02/F03/F08/F10/F12/F13
-   windows so duplicate/edge values are tracked.
-2. Add `CONFIG_2`/`CONFIG_5` defrost simulator examples for D01/D05/D06 as
+1. Add `CONFIG_2`/`CONFIG_5` defrost simulator examples for D01/D05/D06 as
    passive command-byte fixtures,
    keeping live active-TX claims limited to the already captured D06 echo
    fixture until more hardware echo logs exist.
-3. Mine the 2024-10-31 condition/clock `test` windows only if they add new
+2. Mine the 2024-10-31 condition/clock `test` windows only if they add new
    decode coverage beyond the current passive runtime contracts.

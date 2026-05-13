@@ -250,6 +250,8 @@ void test_fan_fixture_read_helpers() {
         0x84, 0xB1, 0x8F, 0x5A, 0x50, 0x50, 0x64, 0x78, 0x00, 0x00, 0x78, 0x12};
     const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> f03 = {
         0x84, 0xB1, 0x8C, 0x64, 0x50, 0x50, 0x64, 0x78, 0x00, 0x00, 0x78, 0x19};
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> f03_edge = {
+        0x84, 0xB1, 0x8C, 0x5B, 0x50, 0x50, 0x64, 0x78, 0x00, 0x00, 0x78, 0x10};
     const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> f04 = {
         0x84, 0xB1, 0x8C, 0x5A, 0x51, 0x50, 0x64, 0x78, 0x00, 0x00, 0x78, 0x10};
     const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> f05 = {
@@ -260,15 +262,19 @@ void test_fan_fixture_read_helpers() {
         0x84, 0xB1, 0x8C, 0x5A, 0x50, 0x50, 0x64, 0x7B, 0x00, 0x00, 0x78, 0x12};
     const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> f08 = {
         0x84, 0xB1, 0x8C, 0x5A, 0x50, 0x50, 0x64, 0x78, 0x17, 0x00, 0x78, 0x26};
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> f08_edge = {
+        0x84, 0xB1, 0x8C, 0x5A, 0x50, 0x50, 0x64, 0x78, 0x01, 0x00, 0x78, 0x10};
     const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> f09 = {
         0x84, 0xB1, 0x8C, 0x5A, 0x50, 0x50, 0x64, 0x78, 0x00, 0x10, 0x78, 0x1F};
     assert_float_eq(protocol::read_conf4_fan_parameter(f02.data(), f02.size(), 2).value(), 41.5f);
     assert_float_eq(protocol::read_conf4_fan_parameter(f03.data(), f03.size(), 3).value(), 20.0f);
+    assert_float_eq(protocol::read_conf4_fan_parameter(f03_edge.data(), f03_edge.size(), 3).value(), 15.5f);
     assert_float_eq(protocol::read_conf4_fan_parameter(f04.data(), f04.size(), 4).value(), 10.5f);
     assert_float_eq(protocol::read_conf4_fan_parameter(f05.data(), f05.size(), 5).value(), 10.5f);
     assert_float_eq(protocol::read_conf4_fan_parameter(f06.data(), f06.size(), 6).value(), 20.5f);
     assert_float_eq(protocol::read_conf4_fan_parameter(f07.data(), f07.size(), 7).value(), 31.5f);
     assert_float_eq(protocol::read_conf4_fan_parameter(f08.data(), f08.size(), 8).value(), 23.0f);
+    assert_float_eq(protocol::read_conf4_fan_parameter(f08_edge.data(), f08_edge.size(), 8).value(), 1.0f);
     assert_float_eq(protocol::read_conf4_fan_parameter(f09.data(), f09.size(), 9).value(), 16.0f);
 
     const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> f11 = {
@@ -289,6 +295,21 @@ void test_fan_fixture_read_helpers() {
         0x81, 0xB1, 0x1A, 0x72, 0x48, 0x72, 0x3D, 0x3D, 0x3D, 0x3D, 0x37, 0xA3};
     assert_float_eq(protocol::read_conf1_f12_min_fan_voltage_pct(f12.data(), f12.size()).value(),
                     55.0f);
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> f12_edge = {
+        0x81, 0xB1, 0x1A, 0x72, 0x48, 0x72, 0x3D, 0x3D, 0x3D, 0x3D, 0x32, 0x9E};
+    assert_float_eq(protocol::read_conf1_f12_min_fan_voltage_pct(
+                        f12_edge.data(), f12_edge.size()).value(), 50.0f);
+
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> f10_coil = {
+        0x82, 0xB1, 0x36, 0x2A, 0x56, 0x50, 0x10, 0x1E, 0x03, 0x01, 0x64, 0xCF};
+    assert(protocol::read_conf2_f10_fan_speed_control_temp(
+               f10_coil.data(), f10_coil.size()).value() == protocol::FAN_SPEED_CONTROL_COIL);
+    assert_float_eq(protocol::read_conf2_f13_max_fan_voltage_pct(
+                        f10_coil.data(), f10_coil.size()).value(), 100.0f);
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> f13_99 = {
+        0x82, 0xB1, 0x36, 0x2A, 0x56, 0x50, 0x10, 0x1E, 0x03, 0x01, 0x63, 0xCE};
+    assert_float_eq(protocol::read_conf2_f13_max_fan_voltage_pct(
+                        f13_99.data(), f13_99.size()).value(), 99.0f);
 
     assert(!protocol::read_conf1_f12_min_fan_voltage_pct(f11.data(), f11.size()).has_value());
     assert(!protocol::read_conf5_d06_defrost_eco_mode(f12.data(), f12.size()).has_value());
@@ -475,10 +496,14 @@ void test_fan_fixture_write_contracts() {
         0x81, 0xB1, 0x1A, 0x72, 0x48, 0x72, 0x3D, 0x3D, 0x3D, 0x3D, 0x32, 0x9E};
     const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> f12_expected = {
         0x81, 0xB1, 0x1A, 0x72, 0x48, 0x72, 0x3D, 0x3D, 0x3D, 0x3D, 0x37, 0xA3};
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> f12_50_expected = {
+        0x81, 0xB1, 0x1A, 0x72, 0x48, 0x72, 0x3D, 0x3D, 0x3D, 0x3D, 0x32, 0x9E};
     auto conf1 = conf1_base;
     assert(protocol::set_conf1_f12_min_fan_voltage_pct(conf1.data(), conf1.size(), 55.0f));
     assert_packet_eq(conf1, f12_expected);
     assert(protocol::is_packet_checksum_valid(conf1.data(), conf1.size()));
+    assert(protocol::set_conf1_f12_min_fan_voltage_pct(conf1.data(), conf1.size(), 50.0f));
+    assert_packet_eq(conf1, f12_50_expected);
 
     const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> conf2_base = {
         0x82, 0xB1, 0x36, 0x2A, 0x56, 0x50, 0x10, 0x1E, 0x03, 0x01, 0x64, 0xCF};
@@ -486,8 +511,14 @@ void test_fan_fixture_write_contracts() {
         0x82, 0xB1, 0x46, 0x2A, 0x56, 0x50, 0x10, 0x1E, 0x03, 0x01, 0x64, 0xDF};
     const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> f10_expected = {
         0x82, 0xB1, 0x3E, 0x2A, 0x56, 0x50, 0x10, 0x1E, 0x03, 0x01, 0x64, 0xD7};
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> f10_coil_expected = {
+        0x82, 0xB1, 0x36, 0x2A, 0x56, 0x50, 0x10, 0x1E, 0x03, 0x01, 0x64, 0xCF};
     const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> f13_expected = {
         0x82, 0xB1, 0x36, 0x2A, 0x56, 0x50, 0x10, 0x1E, 0x03, 0x01, 0x32, 0x9D};
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> f13_99_expected = {
+        0x82, 0xB1, 0x36, 0x2A, 0x56, 0x50, 0x10, 0x1E, 0x03, 0x01, 0x63, 0xCE};
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> f13_100_expected = {
+        0x82, 0xB1, 0x36, 0x2A, 0x56, 0x50, 0x10, 0x1E, 0x03, 0x01, 0x64, 0xCF};
     auto conf2 = conf2_base;
     assert(protocol::set_conf2_f01_fan_mode(
         conf2.data(), conf2.size(), protocol::FAN_MODE_AMBIENT_SCHEDULED));
@@ -496,9 +527,16 @@ void test_fan_fixture_write_contracts() {
     assert(protocol::set_conf2_f10_fan_speed_control_temp(
         conf2.data(), conf2.size(), protocol::FAN_SPEED_CONTROL_AMBIENT));
     assert_packet_eq(conf2, f10_expected);
+    assert(protocol::set_conf2_f10_fan_speed_control_temp(
+        conf2.data(), conf2.size(), protocol::FAN_SPEED_CONTROL_COIL));
+    assert_packet_eq(conf2, f10_coil_expected);
     conf2 = conf2_base;
     assert(protocol::set_conf2_f13_max_fan_voltage_pct(conf2.data(), conf2.size(), 50.0f));
     assert_packet_eq(conf2, f13_expected);
+    assert(protocol::set_conf2_f13_max_fan_voltage_pct(conf2.data(), conf2.size(), 99.0f));
+    assert_packet_eq(conf2, f13_99_expected);
+    assert(protocol::set_conf2_f13_max_fan_voltage_pct(conf2.data(), conf2.size(), 100.0f));
+    assert_packet_eq(conf2, f13_100_expected);
 
     const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> conf4_base = {
         0x84, 0xB1, 0x8C, 0x5A, 0x50, 0x50, 0x64, 0x78, 0x00, 0x00, 0x78, 0x0F};
@@ -519,6 +557,20 @@ void test_fan_fixture_write_contracts() {
             conf4.data(), conf4.size(), field, conf4_values[field - 2]));
         assert_packet_eq(conf4, conf4_expected[field - 2]);
         assert(protocol::is_packet_checksum_valid(conf4.data(), conf4.size()));
+    }
+
+    const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> conf4_edge_expected[] = {
+        {0x84, 0xB1, 0x8E, 0x5A, 0x50, 0x50, 0x64, 0x78, 0x00, 0x00, 0x78, 0x11},
+        {0x84, 0xB1, 0x8C, 0x5B, 0x50, 0x50, 0x64, 0x78, 0x00, 0x00, 0x78, 0x10},
+        {0x84, 0xB1, 0x8C, 0x5A, 0x50, 0x50, 0x64, 0x78, 0x01, 0x00, 0x78, 0x10},
+    };
+    const uint8_t conf4_edge_fields[] = {2, 3, 8};
+    const float conf4_edge_values[] = {41.0f, 15.5f, 1.0f};
+    for (size_t i = 0; i < 3; ++i) {
+        auto conf4 = conf4_base;
+        assert(protocol::set_conf4_fan_parameter(
+            conf4.data(), conf4.size(), conf4_edge_fields[i], conf4_edge_values[i]));
+        assert_packet_eq(conf4, conf4_edge_expected[i]);
     }
 
     const std::array<uint8_t, protocol::FRAME_DATA_LENGTH> conf5_base = {

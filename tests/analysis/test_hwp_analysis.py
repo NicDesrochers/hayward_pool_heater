@@ -42,6 +42,11 @@ from analysis.hwp_fixtures import (
     load_fixture_file,
     load_fixture_files,
 )
+from analysis.hwp_evidence_inventory import (
+    build_evidence_inventory,
+    inventory_field_counts,
+    summarize_demo_frames,
+)
 from analysis.hwp_log_parser import (
     parse_annotation_windows,
     parse_log_line,
@@ -158,6 +163,41 @@ class TestHwpAnalysis(unittest.TestCase):
         self.assertEqual(windows[0].packets[0].kind, "Chg")
         self.assertEqual(windows[0].packets[0].frame_type, "0x84")
         self.assertEqual(windows[0].packets[0].source, "controller")
+
+    def test_evidence_inventory_tracks_covered_annotation_windows(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            log_path = Path(temp_dir) / "annotated.log"
+            log_path.write_text("".join(ANNOTATED_WINDOW_LINES), encoding="utf-8")
+            inventory = build_evidence_inventory(
+                (log_path,),
+                Path(temp_dir) / "missing_DemoFrames.h",
+            )
+
+        self.assertEqual(len(inventory.windows), 1)
+        self.assertEqual(len(inventory.packet_windows), 1)
+        self.assertEqual(len(inventory.covered_windows), 1)
+        self.assertTrue(inventory.missing_demo_frames)
+        field_counts = inventory_field_counts(inventory.windows)
+        self.assertEqual(field_counts["F02"]["windows"], 1)
+        self.assertEqual(field_counts["F02"]["covered"], 1)
+
+    def test_demo_frame_inventory_cross_checks_tracked_packets(self):
+        demo_text = """
+const uint8_t data_0[12] = {0x84, 0xB1, 0x8F, 0x5A, 0x50, 0x50, 0x64, 0x78, 0x00, 0x00, 0x78, 0x12};
+const uint8_t data_1[12] = {0x85, 0xB1, 0x00, 0x06, 0x1E, 0x16, 0x00, 0x08, 0x00, 0x00, 0xCD, 0x45};
+static const packet_t p_0 = packet_t(true, 12, std::string("F02 41.5"), data_0, std::string(""));
+static const packet_t p_1 = packet_t(false, 12, std::string("base conf"), data_1, std::string(""));
+"""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            demo_path = Path(temp_dir) / "DemoFrames.h"
+            demo_path.write_text(demo_text, encoding="utf-8")
+            packets = summarize_demo_frames(demo_path)
+
+        self.assertEqual(len(packets), 2)
+        self.assertTrue(all(packet.checksum_valid for packet in packets))
+        self.assertTrue(all(packet.is_covered for packet in packets))
+        self.assertEqual(packets[0].frame_type, "0x84")
+        self.assertTrue(packets[0].controllable)
 
     def test_annotation_fixture_loads_reference_windows(self):
         fixture = load_annotation_fixture_file(

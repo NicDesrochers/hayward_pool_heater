@@ -49,6 +49,13 @@ from .hwp_fixtures import (
     load_fixture_files,
     validate_unique_packet_ids,
 )
+from .hwp_evidence_inventory import (
+    DEFAULT_DEMO_FRAMES,
+    DEFAULT_EVIDENCE_LOGS,
+    build_evidence_inventory,
+    inventory_field_counts,
+    inventory_frame_counts,
+)
 from .hwp_log_parser import packet_counts, parse_annotation_file, parse_log_file
 
 
@@ -123,6 +130,27 @@ def main(argv: list[str] | None = None) -> int:
         help="Active TX fixture JSON path.",
     )
 
+    evidence_parser = subparsers.add_parser(
+        "evidence",
+        help="Inventory tmp annotated logs and simulator packets against tracked fixtures.",
+    )
+    evidence_parser.add_argument(
+        "--input",
+        action="append",
+        help="Annotated log path. May be repeated. Defaults to known tmp logs.",
+    )
+    evidence_parser.add_argument(
+        "--demo-frames",
+        default=str(DEFAULT_DEMO_FRAMES),
+        help="Arduino simulator DemoFrames.h path.",
+    )
+    evidence_parser.add_argument(
+        "--limit",
+        type=int,
+        default=12,
+        help="Maximum uncovered examples to print.",
+    )
+
     args = parser.parse_args(argv)
     try:
         if args.command == "fixtures":
@@ -139,6 +167,13 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_active_tx(Path(args.fixture))
         if args.command == "prove-active-tx":
             return _cmd_prove_active_tx(Path(args.input), Path(args.fixture))
+        if args.command == "evidence":
+            inputs = (
+                tuple(Path(input_path) for input_path in args.input)
+                if args.input
+                else DEFAULT_EVIDENCE_LOGS
+            )
+            return _cmd_evidence(inputs, Path(args.demo_frames), args.limit)
     except (FixtureValidationError, OSError) as err:
         print(f"error: {err}", file=sys.stderr)
         return 2
@@ -302,6 +337,66 @@ def _cmd_prove_active_tx(input_path: Path, fixture_path: Path) -> int:
         f"Proved {len(fixture.transactions)} active TX transaction(s) from "
         f"{fixture.name} in {input_path}."
     )
+    return 0
+
+
+def _cmd_evidence(
+    input_paths: tuple[Path, ...],
+    demo_frames_path: Path,
+    limit: int,
+) -> int:
+    inventory = build_evidence_inventory(input_paths, demo_frames_path)
+    packet_windows = inventory.packet_windows
+    covered_windows = inventory.covered_windows
+    uncovered_windows = inventory.uncovered_windows
+    covered_demo = inventory.covered_demo_packets
+    uncovered_demo = inventory.uncovered_demo_packets
+
+    print(f"Evidence logs scanned: {len(input_paths) - len(inventory.missing_logs)}")
+    if inventory.missing_logs:
+        print(f"Missing logs: {len(inventory.missing_logs)}")
+        for path in inventory.missing_logs:
+            print(f"  {path}")
+    print(f"Annotation windows: {len(inventory.windows)}")
+    print(f"Windows with packets: {len(packet_windows)}")
+    print(f"Tracked window matches: {len(covered_windows)}")
+    print(f"Uncovered packet windows: {len(uncovered_windows)}")
+
+    print(f"Demo packets: {len(inventory.demo_packets)}")
+    print(f"Tracked demo matches: {len(covered_demo)}")
+    print(f"Uncovered demo packets: {len(uncovered_demo)}")
+    if inventory.missing_demo_frames:
+        print(f"Missing demo frames: {demo_frames_path}")
+
+    print("Field coverage:")
+    for field, counts in sorted(inventory_field_counts(inventory.windows).items()):
+        print(
+            f"  {field}: {counts['packet_windows']}/{counts['windows']} "
+            f"packet windows, {counts['covered']} tracked"
+        )
+
+    print("Frame coverage:")
+    for frame_type, count in sorted(
+        inventory_frame_counts(inventory.windows, inventory.demo_packets).items()
+    ):
+        print(f"  {frame_type}: {count}")
+
+    if limit > 0 and uncovered_windows:
+        print("Uncovered annotated examples:")
+        for window in uncovered_windows[:limit]:
+            frames = ",".join(window.frame_types) or "none"
+            print(
+                f"  {window.log_path}:{window.start_line}-{window.end_line} "
+                f"{window.label} [{frames}]"
+            )
+
+    if limit > 0 and uncovered_demo:
+        print("Uncovered demo examples:")
+        for packet in uncovered_demo[:limit]:
+            print(
+                f"  {packet.identifier} {packet.label} {packet.frame_type} "
+                f"checksum={'ok' if packet.checksum_valid else 'bad'}"
+            )
     return 0
 
 

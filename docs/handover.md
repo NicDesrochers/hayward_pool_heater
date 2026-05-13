@@ -21,6 +21,7 @@ This repo is now developed inside the ESPHome devcontainer. Read:
 - Curated packet fixtures from `tmp/hwp/analysis/simulator/DemoFrames.h` live under `tests/fixtures/packets/` and validate with stdlib Python tests. Those simulator packets are hardware-derived reference frames, not synthetic-only samples.
 - A curated subset from the recent ignored `tmp/hwp/POOL_esphome_logs.log` trace is tracked as `tests/fixtures/packets/hwp_hardware_log_2025_06_24.json`; it covers representative real RX/change frames for `0x81`, `0x82`, `0x83`, `0x84`, `0x85`, `0x86`, `0xD1`, `0xD2`, `0xDD`, plus clock/controller frames. The proof CLI found all 15 checksum-valid packets from that fixture in the full ignored log.
 - A curated annotation fixture from `tmp/hwp/POOL_esphome_logs.log.2024-11-01` lives under `tests/fixtures/annotations/`; it captures fan-control tagger windows for F01 and F02-F13 as read/write packet contracts.
+- The remaining ignored annotation logs and Arduino simulator packets are inventoried by `python -m analysis.hwp_analyze evidence --limit 25`. The current scan found 65 annotation windows, 54 packet-bearing windows, and 43 simulator packets; see `docs/protocol/evidence-inventory.md` before deciding the next fixture import.
 - Fan field candidates from the tmp tree are reviewed in `docs/protocol/fan-field-review.md` and covered by fixture-backed Python tests.
 - Runtime decode naming for F02-F09, F10, F11, and F13 is merged in the frame structs. F10/F11 dependency-light conversions are covered in `protocol_core`.
 - Runtime `FrameConf1/2/4/5` matching and parsing are covered by adapter-backed native tests against the F01-F13 packet contracts.
@@ -47,6 +48,7 @@ Inside the devcontainer:
 python -m unittest discover -s tests -p 'test_*.py'
 python -m analysis.hwp_analyze fixtures
 python -m analysis.hwp_analyze active-tx --fixture tests/fixtures/active_tx/hwp_active_tx_config5_defrost_2026_05_12.json
+python -m analysis.hwp_analyze evidence --limit 25
 python -m analysis.hwp_analyze prove --input tmp/hwp/POOL_esphome_logs.log --fixture tests/fixtures/packets/hwp_hardware_log_2025_06_24.json
 python -m analysis.hwp_analyze prove-annotations --input tmp/hwp/POOL_esphome_logs.log.2024-11-01 --fixture tests/fixtures/annotations/hwp_annotated_fan_control_2024_11_01.json
 ./scripts/test-esphome.sh --local
@@ -62,7 +64,9 @@ Choose the next slice from normal project priorities rather than tmp merge work.
 
 Good candidates:
 
-- run the next supervised active TX validation for `u02_pulses_per_liter` if `u01_flow_meter` remains disabled; capture command and echo packets before adding the next active-TX fixture
+- import the uncovered simulator command examples for `CONFIG_1` R01-R07 and `CONFIG_3` R09-R11 as fixture-backed passive command contracts
+- expand the fan annotation fixture with uncovered F02/F03/F08/F10/F12/F13 edge values from the evidence inventory
+- run the next supervised active TX validation for `u02_pulses_per_liter` only after the remaining fixture evidence has been triaged; capture command and echo packets before adding the next active-TX fixture
 - add the next low-level native seam for queue behavior
 - extract capture conversion as repo-native tooling
 - document simulator feasibility using fixture replay versus Arduino/PlatformIO versus ESPHome/QEMU

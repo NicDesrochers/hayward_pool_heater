@@ -45,7 +45,7 @@ def load_climate_module():
     return module
 
 
-def seed_esp32_idf_core():
+def seed_esp32_idf_core(full_config=None):
     CORE.reset()
 
     # Import after reset so ESP32 GPIO validators are registered on the fresh registry.
@@ -61,6 +61,7 @@ def seed_esp32_idf_core():
     CORE.name = "schema-test"
     CORE.friendly_name = "Schema Test"
     CORE.testing_mode = True
+    CORE.config = full_config or {}
     CORE.data[KEY_CORE] = {
         KEY_TARGET_PLATFORM: PLATFORM_ESP32,
         KEY_TARGET_FRAMEWORK: "esp-idf",
@@ -76,8 +77,8 @@ class ClimateSchemaTest(unittest.TestCase):
     def setUpClass(cls):
         cls.climate = load_climate_module()
 
-    def validate(self, config):
-        seed_esp32_idf_core()
+    def validate(self, config, full_config=None):
+        seed_esp32_idf_core(full_config)
         token = path_context.set(["climate", 0])
         try:
             return self.climate.CONFIG_SCHEMA(config)
@@ -91,6 +92,48 @@ class ClimateSchemaTest(unittest.TestCase):
         self.assertEqual(config["update_interval"].total_seconds, 30)
         self.assertEqual(config["pin_txrx"]["number"], 22)
         self.assertTrue(config["start_bus_on_setup"])
+        self.assertFalse(config["web_ui"]["enabled"])
+
+    def test_web_ui_defaults_to_enabled_when_web_server_is_present(self):
+        config = self.validate(
+            {"id": "pool_heater", "pin_txrx": "GPIO22"},
+            full_config={"web_server": {"id": "web_server_id"}},
+        )
+
+        self.assertTrue(config["web_ui"]["enabled"])
+        self.assertEqual(config["web_ui"]["path"], "/hwp")
+        self.assertEqual(config["web_ui"]["packet_buffer_size"], 80)
+        self.assertEqual(config["web_ui"]["graph_history_size"], 240)
+
+    def test_web_ui_explicit_config_validates(self):
+        config = self.validate(
+            {
+                "id": "pool_heater",
+                "pin_txrx": "GPIO22",
+                "web_ui": {
+                    "enabled": True,
+                    "path": "/heater/hwp",
+                    "packet_buffer_size": 16,
+                    "graph_history_size": 32,
+                },
+            },
+            full_config={"web_server": {"id": "web_server_id"}},
+        )
+
+        self.assertTrue(config["web_ui"]["enabled"])
+        self.assertEqual(config["web_ui"]["path"], "/heater/hwp")
+        self.assertEqual(config["web_ui"]["packet_buffer_size"], 16)
+        self.assertEqual(config["web_ui"]["graph_history_size"], 32)
+
+    def test_web_ui_requires_web_server_when_explicitly_enabled(self):
+        with self.assertRaisesRegex(cv.Invalid, "web_server"):
+            self.validate(
+                {
+                    "id": "pool_heater",
+                    "pin_txrx": "GPIO22",
+                    "web_ui": {"enabled": True},
+                }
+            )
 
     def test_start_bus_on_setup_can_be_disabled(self):
         config = self.validate(

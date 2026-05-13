@@ -35,6 +35,7 @@ run_native="1"
 fixtures=(
   "tests/components/hwp/test.esp32-idf.yaml"
   "tests/components/hwp/test.esp32-idf-pulse-debug.yaml"
+  "tests/components/hwp/test.esp32-idf-web-ui.yaml"
 )
 
 while [ "$#" -gt 0 ]; do
@@ -138,6 +139,7 @@ done
 
 for fixture in "${fixtures[@]}"; do
   echo "Compiling $fixture"
+  run_esphome clean "$fixture"
   run_esphome compile "$fixture"
 done
 

@@ -58,6 +58,14 @@ void PoolHeater::setup() {
     ESP_LOGI(POOL_HEATER_TAG, "Restoring state");
     restore_state_();
     this->driver_.set_data_model(hp_data_);
+    this->driver_.set_web_dashboard(&this->web_dashboard_);
+#ifndef HWP_NATIVE_TEST
+#ifdef USE_WEBSERVER
+    this->web_dashboard_.setup(this->web_server_);
+#else
+    this->web_dashboard_.setup(nullptr);
+#endif
+#endif
     ESP_LOGI(POOL_HEATER_TAG, "Setting up driver");
     if (this->start_bus_on_setup_) {
         this->driver_.setup();
@@ -76,6 +84,10 @@ void PoolHeater::setup() {
     set_actual_status("Ready");
     this->status_set_warning("Waiting for heater state");
     ESP_LOGI(POOL_HEATER_TAG, "Setup complete");
+}
+
+void PoolHeater::loop() {
+    this->web_dashboard_.loop();
 }
 
 
@@ -259,6 +271,8 @@ void PoolHeater::update() {
     // Publish the climate state if needed      //
     //////////////////////////////////////////////
     ESP_LOGD(POOL_HEATER_TAG, "Publishing climate state");
+    this->web_dashboard_.update_fields(
+        this->hp_data_, this->actual_status_, this->driver_.get_bus_mode());
     save_preferences_();
     climate::Climate::publish_state();
 }

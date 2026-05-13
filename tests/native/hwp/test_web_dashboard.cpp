@@ -1,0 +1,90 @@
+/**
+ *
+ * Copyright (c) 2024 S. Leclerc (sle118@hotmail.com)
+ *
+ * This file is part of the Pool Heater Controller component project.
+ *
+ * @project Pool Heater Controller Component
+ * @developer S. Leclerc (sle118@hotmail.com)
+ *
+ * @license MIT License
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies or substantial portions of the Software.
+ */
+
+#include "hwp_web_dashboard.h"
+#include "protocol_core.h"
+
+#include <array>
+#include <cassert>
+#include <cstring>
+#include <string>
+
+namespace hwp = esphome::hwp;
+namespace protocol = esphome::hwp::protocol;
+
+using Packet = std::array<uint8_t, protocol::FRAME_DATA_LENGTH>;
+
+hwp::BaseFrame make_frame(const Packet& packet, hwp::frame_source_t source) {
+    hwp::BaseFrame frame;
+    std::memcpy(frame.packet.data, packet.data(), packet.size());
+    frame.packet.data_len = packet.size();
+    frame.set_source(source);
+    assert(frame.packet.is_checksum_valid());
+    return frame;
+}
+
+void assert_contains(const std::string& value, const std::string& expected) {
+    assert(value.find(expected) != std::string::npos);
+}
+
+void test_packet_ring_buffer_and_changed_bytes() {
+    hwp::HWPWebDashboard dashboard;
+    dashboard.configure(hwp::HWPWebConfig{true, "/hwp", 1, 4});
+    auto first = make_frame(
+        Packet{0x82, 0xB1, 0x26, 0x13, 0x56, 0x50, 0x10, 0x1E, 0x03, 0x01, 0x64, 0xA8},
+        hwp::SOURCE_HEATER);
+    auto second = make_frame(
+        Packet{0x82, 0xB1, 0x26, 0x38, 0x56, 0x50, 0x10, 0x1E, 0x03, 0x01, 0x64, 0xCD},
+        hwp::SOURCE_HEATER);
+
+    dashboard.record_packet(first, "Same");
+    dashboard.record_packet(second, "Chg");
+
+    assert(dashboard.packet_count() == 1);
+    const auto json = dashboard.state_json();
+    assert_contains(json, "\"kind\":\"Chg\"");
+    assert_contains(json, "\"checksum_valid\":true");
+    assert_contains(json, "\"changed_bytes\":[false,false,false,true");
+}
+
+void test_field_snapshot_and_graph_trim() {
+    hwp::HWPWebDashboard dashboard;
+    dashboard.configure(hwp::HWPWebConfig{true, "/hwp", 4, 2});
+    hwp::heat_pump_data_t data;
+
+    data.t02_temperature_inlet = 12.5f;
+    data.t04_temperature_coil = 4.0f;
+    dashboard.update_fields(data, "Connected", hwp::BUSMODE_RX);
+    data.t02_temperature_inlet = 13.0f;
+    dashboard.update_fields(data, "Connected", hwp::BUSMODE_RX);
+    data.t02_temperature_inlet = 13.5f;
+    dashboard.update_fields(data, "Connected", hwp::BUSMODE_RX);
+
+    assert(dashboard.graph_point_count("t02_inlet") == 2);
+    const auto json = dashboard.state_json();
+    assert_contains(json, "\"label\":\"T02 Inlet\"");
+    assert_contains(json, "\"value\":\"13.5\"");
+    assert_contains(json, "\"changed\":true");
+    assert_contains(json, "\"bus_mode\":\"RX\"");
+}
+
+int main() {
+    test_packet_ring_buffer_and_changed_bytes();
+    test_field_snapshot_and_graph_trim();
+    return 0;
+}

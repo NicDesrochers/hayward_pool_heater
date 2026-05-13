@@ -39,12 +39,26 @@ from analysis.hwp_active_tx_fixtures import (
     command_echo_differences,
     load_active_tx_fixture_file,
 )
-from analysis.hwp_logs_annotator import build_parser, format_profiles, setup_profile_interactive
+from analysis.hwp_logs_annotator import (
+    build_parser,
+    _format_age,
+    _graph_checkbox_label,
+    format_profiles,
+    is_restart_button_entity,
+    setup_profile_interactive,
+)
 from analysis.hwp_annotation_fixtures import load_annotation_fixture_file
 from analysis.hwp_fixtures import (
     fixture_index_by_bytes,
     load_fixture_file,
     load_fixture_files,
+)
+from analysis.hwp_field_dashboard import (
+    DashboardState,
+    GraphState,
+    decode_packet_fields,
+    graph_group_for_field,
+    graph_groups,
 )
 from analysis.hwp_evidence_inventory import (
     build_evidence_inventory,
@@ -97,11 +111,57 @@ TX_QUEUE_LINE = (
     "TXQ   [85][B1 40 06 1E 16 00 08 00 00 CD][85] CONFIG_5  "
     "(HEAT) defrost eco command"
 )
+
+
+class ButtonInfo:
+    def __init__(
+        self,
+        *,
+        name: str = "",
+        object_id: str = "",
+        device_class: str = "",
+    ):
+        self.name = name
+        self.object_id = object_id
+        self.device_class = device_class
+
+
+class SwitchInfo:
+    def __init__(self):
+        self.name = "Restart"
+        self.object_id = "restart"
+        self.device_class = "restart"
+
+
 COND2_TEMPERATURE_LINE = (
     "[2026-05-13 06:40:34][D][hwp.pk:404][RX]: Chg   "
     "[D2][B1 11 5E 52 45 46 00 64 00 00][33] COND_2    "
     "(HEAT) ( 5.0s) 11.0C(0x52), t04 Coil  5.0C(0x46), "
     "t06 Exhaust  4.5C(0x45), 4?? 20.0C(0x64)"
+)
+CONFIG1_LINE = (
+    "[2026-05-13 16:00:20][V][hwp.pk:413][RX]: Same  "
+    "[81][B1 1A 72 51 72 3D 3D 3D 3D 32][A7] CONFIG_1  (HEAT)"
+)
+CONFIG3_LINE = (
+    "[2026-05-13 16:00:16][V][hwp.pk:413][RX]: Same  "
+    "[83][B1 46 23 0A 23 23 4C 82 46 8C][8D] CONFIG_3  (HEAT)"
+)
+CONFIG4_LINE = (
+    "[2026-05-13 16:00:22][V][hwp.pk:413][RX]: Same  "
+    "[84][B1 8C 5A 50 50 64 78 00 00 78][0F] CONFIG_4  (HEAT)"
+)
+CONFIG5_LINE = (
+    "[2026-05-13 16:00:23][V][hwp.pk:413][RX]: Same  "
+    "[85][B1 00 06 1E 16 00 08 00 00 CD][45] CONFIG_5  (HEAT)"
+)
+COND1_LINE = (
+    "[2026-05-13 16:00:18][V][hwp.pk:413][RX]: Same  "
+    "[D1][B1 05 00 00 00 00 78 5E 56 1B][CE] COND_1    (HEAT)"
+)
+COND1B_LINE = (
+    "[2026-05-13 16:00:20][V][hwp.pk:413][RX]: Same  "
+    "[D1][B1 00 00 0F 00 00 78 5E 56 1B][D8] COND_1B   (HEAT)"
 )
 ANNOTATED_WINDOW_LINES = [
     "2024-11-01 11:46:33,685 - F02 - 41.5 -- BEGIN\n",
@@ -204,6 +264,19 @@ class TestHwpAnalysis(unittest.TestCase):
             with contextlib.redirect_stdout(io.StringIO()):
                 parser.parse_args(["--help"])
         self.assertEqual(context.exception.code, 0)
+
+    def test_restart_button_detection_uses_button_entities_only(self):
+        self.assertTrue(is_restart_button_entity(ButtonInfo(device_class="restart")))
+        self.assertTrue(is_restart_button_entity(ButtonInfo(name="Device Reboot")))
+        self.assertTrue(is_restart_button_entity(ButtonInfo(object_id="heater_restart")))
+        self.assertFalse(is_restart_button_entity(ButtonInfo(name="Refresh Logs")))
+        self.assertFalse(is_restart_button_entity(SwitchInfo()))
+
+    def test_dashboard_age_formatting(self):
+        self.assertEqual(_format_age(None), "")
+        self.assertEqual(_format_age(4.9), "4s")
+        self.assertEqual(_format_age(65), "1m 05s")
+        self.assertEqual(_format_age(3661), "1h 01m")
 
     def test_annotator_setup_creates_profile_without_echoing_secret(self):
         answers = iter(
@@ -401,6 +474,97 @@ class TestHwpAnalysis(unittest.TestCase):
         self.assertIn("known-field", view.cells[4].tags)
         self.assertNotEqual(view.summary, "no known packet fields")
 
+    def test_field_dashboard_decodes_known_packet_values(self):
+        packets = [
+            parse_log_line(line)
+            for line in (
+                CONFIG1_LINE,
+                LONG_CONFIG_LINE,
+                CONFIG3_LINE,
+                CONFIG4_LINE,
+                CONFIG5_LINE,
+                COND1_LINE,
+                COND1B_LINE,
+                COND2_TEMPERATURE_LINE,
+            )
+        ]
+        observations = {
+            observation.field_id: observation
+            for packet in packets
+            for observation in decode_packet_fields(packet)
+        }
+
+        self.assertEqual(observations["r01_setpoint_cooling"].decoded_value, 27.0)
+        self.assertEqual(observations["r02_setpoint_heating"].decoded_value, 10.5)
+        self.assertEqual(observations["f01_fan_mode"].decoded_value, "High Speed")
+        self.assertEqual(
+            observations["f10_fan_speed_control_temp"].decoded_value,
+            "Coil Temperature",
+        )
+        self.assertEqual(observations["r09_max_cooling_setpoint"].decoded_value, 35.0)
+        self.assertEqual(observations["f02_fan_high_speed_cool_setpoint"].decoded_value, 40.0)
+        self.assertEqual(observations["f08_fan_low_speed_running_time"].decoded_value, 0)
+        self.assertEqual(observations["f11_speed_control_module"].decoded_value, "Enabled")
+        self.assertEqual(observations["d06_defrost_eco_mode"].decoded_value, "Normal")
+        self.assertEqual(observations["t02_inlet"].decoded_value, 13.0)
+        self.assertTrue(observations["s02_water_flow"].decoded_value)
+        self.assertEqual(observations["t03_outlet"].decoded_value, 11.0)
+        self.assertEqual(observations["t04_coil"].display_value, "5.0")
+        self.assertEqual(observations["t06_exhaust"].unit, "C")
+
+    def test_dashboard_state_ignores_invalid_checksum_and_marks_changes(self):
+        state = DashboardState()
+        first = parse_log_line(COND2_TEMPERATURE_LINE)
+        changed = parse_log_line(COND2_TEMPERATURE_LINE.replace("52 45 46", "53 45 46").replace("[33]", "[34]"))
+        invalid = parse_log_line(COND2_TEMPERATURE_LINE.replace("[33]", "[34]"))
+
+        first_observations = state.update(first)
+        invalid_observations = state.update(invalid)
+        changed_observations = state.update(changed)
+
+        self.assertGreater(len(first_observations), 0)
+        self.assertEqual(invalid_observations, ())
+        changed_fields = {
+            observation.field_id
+            for observation in changed_observations
+            if observation.changed
+        }
+        self.assertIn("t03_outlet", changed_fields)
+
+    def test_graph_state_records_numeric_values_and_trims_history(self):
+        graph = GraphState(max_points=2)
+        packet = parse_log_line(COND2_TEMPERATURE_LINE)
+        observations = decode_packet_fields(packet)
+        graph.update(observations)
+        graph.update(observations)
+        graph.update(observations)
+
+        self.assertIn("t03_outlet", graph.history)
+        self.assertEqual(len(graph.history["t03_outlet"]), 2)
+        self.assertNotIn(
+            "f10_fan_speed_control_temp",
+            graph.history,
+        )
+
+    def test_graph_groups_split_ranges_and_use_human_labels(self):
+        groups = {group.group_id: group for group in graph_groups()}
+
+        self.assertIn("temperatures", groups)
+        self.assertIn("setpoints", groups)
+        self.assertIn("low_range", groups)
+        self.assertEqual(graph_group_for_field("t04_coil"), "temperatures")
+        self.assertEqual(graph_group_for_field("r09_max_cooling_setpoint"), "setpoints")
+        self.assertEqual(graph_group_for_field("r04_return_diff_cooling"), "low_range")
+        self.assertEqual(_graph_checkbox_label("t04_coil"), "Coil")
+        self.assertEqual(
+            _graph_checkbox_label("r09_max_cooling_setpoint"),
+            "R09 Max cool",
+        )
+        self.assertEqual(
+            _graph_checkbox_label("f12_min_fan_voltage_pct"),
+            "F12 Min fan voltage",
+        )
+
     def test_defrost_demo_fixture_pins_menu_expectations_and_pairs(self):
         fixture = load_fixture_file(
             "tests/fixtures/packets/hwp_defrost_demo_command_contracts.json"
@@ -478,7 +642,7 @@ static const packet_t p_1 = packet_t(false, 12, std::string("base conf"), data_1
             "D06": ("d06_defrost_eco_mode", "0x85", 2, 6),
             "U02": ("u02_pulses_per_liter", "0x85", 10, None),
             "R09": ("r09_max_cooling_setpoint", "0x83", 8, None),
-            "S02": ("s02_water_flow", "0xD1", 3, 2),
+            "S02": ("s02_water_flow", "0xD1", 4, 1),
         }
         for menu, expected in expectations.items():
             with self.subTest(menu=menu):

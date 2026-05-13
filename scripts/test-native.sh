@@ -33,6 +33,7 @@ build_dir="${TMPDIR:-/tmp}/hayward-native-tests"
 protocol_binary="$build_dir/test_protocol_core"
 frame_binary="$build_dir/test_frame_contracts"
 decoder_binary="$build_dir/test_decoder_pulses"
+web_dashboard_binary="$build_dir/test_web_dashboard"
 
 mkdir -p "$build_dir"
 
@@ -98,5 +99,25 @@ mkdir -p "$build_dir"
   -o "$decoder_binary"
 
 "$decoder_binary"
+
+/usr/bin/g++ \
+  -std=c++17 \
+  -DHWP_NATIVE_TEST \
+  -Wall \
+  -Wextra \
+  -Werror \
+  -Wno-unused-parameter \
+  -Wno-unused-variable \
+  -Wno-unused-but-set-variable \
+  -Wno-sign-compare \
+  -I"$repo_root/components/hwp" \
+  "$repo_root/tests/native/hwp/test_web_dashboard.cpp" \
+  "$repo_root/components/hwp/protocol_core.cpp" \
+  "$repo_root/components/hwp/Schema.cpp" \
+  "$repo_root/components/hwp/base_frame.cpp" \
+  "$repo_root/components/hwp/hwp_web_dashboard.cpp" \
+  -o "$web_dashboard_binary"
+
+"$web_dashboard_binary"
 
 echo "Native tests passed."

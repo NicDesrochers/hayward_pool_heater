@@ -48,6 +48,7 @@ Community examples are collected under [docs/success-stories](docs/success-stori
 - **Receive Current Parameters:** Get real-time data from your pool heater, including temperatures and operating modes.
 - **Send Commands:** Control your pool heater by sending commands such as setting the mode, adjusting temperatures, and turning the heater on or off.
 - **Seamless Integration with Home Assistant:** Utilize the powerful capabilities of Home Assistant to automate and monitor your pool heater.
+- **Optional Device-Served Field Dashboard:** When ESPHome `web_server:` is enabled, the component can serve a read-only HWP dashboard directly from the ESP32 at `/hwp`. This tablet-friendly view shows parsed values, recent packets, and simple trends without needing to carry a laptop running the Python annotator.
 
 ## Hardware Requirements
 
@@ -111,12 +112,48 @@ external_components:
   - source: github://sle118/hayward_pool_heater
     components: hwp
 
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
 climate:
   - platform: hwp
     id: pool_heater
     name: "Pool Heater"
     pin_txrx: GPIO22 
 ```
+
+#### Optional Web Dashboard
+
+For field troubleshooting around the pool, enable ESPHome's web server and the HWP web UI. The HWP dashboard is read-only: it does not add heater-control buttons. It is meant to make decoded values and packet activity visible from a phone or tablet.
+
+```yaml
+web_server:
+  auth:
+    username: !secret web_user
+    password: !secret web_password
+
+climate:
+  - platform: hwp
+    id: pool_heater
+    name: "Pool Heater"
+    pin_txrx: GPIO22
+    web_ui:
+      enabled: true
+      path: /hwp
+```
+
+After flashing, open `http://<device-address>/hwp`. The page has **Values**, **Packets**, and **Graphs** tabs. It uses `/hwp/state.json` for initial load and `/hwp/events` for live updates, and it follows the ESPHome web server authentication settings when auth is configured.
+
+`web_ui` options:
+
+| Option | Default | Notes |
+|--------|---------|-------|
+| `enabled` | `true` when `web_server:` is present, otherwise `false` | Set to `false` to keep `web_server:` enabled but skip the HWP dashboard. |
+| `path` | `/hwp` | Dashboard base path. |
+| `packet_buffer_size` | `80` | Number of recent packets kept in memory for the Packets tab. |
+| `graph_history_size` | `240` | Number of numeric samples kept per graphed field. |
 
 During hardware testing from a branch, make ESPHome refresh the external component source so it does not silently reuse a cached copy:
 

@@ -98,6 +98,40 @@ Use **Start** before changing a writable heat-pump menu value, then **Submit** a
 
 Observed events and searches use duration windows. The GUI supports number, integer, normal temperature, and extended-temperature searches. The extended-temperature search is for menu/setpoint bytes that use the linear `raw / 2 - 30` encoding; the normal temperature search keeps the existing signed and low-range decoders.
 
+## Dashboard, Packet Viewer, And Graphs
+
+The right side of the GUI uses tabs:
+
+- **Dashboard** lists the latest checksum-valid value for each known field. Values come from
+  `analysis.hwp_field_dashboard`, using the shared log parser plus
+  `analysis/hwp_menu_map.py` and `analysis/hwp_packet_fields.py` metadata.
+- **Packets** keeps the parser-backed packet-shape viewer for byte-level discovery.
+- **Graphs** shows a lightweight rolling in-memory trend for selected numeric fields, starting
+  with temperatures and passive setpoint/limit values.
+
+The dashboard is an analysis view, not a Home Assistant entity surface and not a decoder
+authority. Unknown bytes stay out of the dashboard until they are named in tracked metadata;
+use the packet tab when inspecting unknown or uncertain bytes.
+
+## Live Device Controls
+
+The GUI can change the API log subscription level while it is connected. Use **Apply Log Level**
+to move between quiet levels and `VERBOSE`/`VERY_VERBOSE` during field discovery. Use
+**Dump Config / Refresh** to resubscribe at the selected level and ask ESPHome for a fresh
+dump-config stream.
+
+The **Restart Device** button uses the ESPHome native API button command. It is available when
+the device exposes a restart button entity, for example:
+
+```yaml
+button:
+  - platform: restart
+    name: "Hayward Heater Restart"
+```
+
+If no restart button entity is discovered, the annotator logs a warning and does not attempt a
+generic reboot command.
+
 ## Packet Shape Viewer
 
 The packet viewer is parser-backed. It uses `analysis.hwp_log_parser.parse_log_line()` and `analysis.hwp_packet_view`, then renders the resulting cells in Tk. The widget does not carry a separate packet regex.

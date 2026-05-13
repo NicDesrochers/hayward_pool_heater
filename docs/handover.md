@@ -19,7 +19,23 @@ This repo is now developed inside the ESPHome devcontainer. Read:
 - ESPHome compile fixtures, Python schema tests, packet fixture validation, native protocol tests, runners, and CI are in place.
 - Headless analysis tooling is packaged under `analysis/`. Use `python -m analysis.hwp_analyze fixtures`, `log`, `prove`, `active-tx`, and `prove-active-tx` to validate fixtures, summarize hardware logs, and prove fixture packets appear in traces.
 - The field annotator GUI is available through `python -m analysis.hwp_logs_annotator`. Workstation use outside the devcontainer needs `python -m pip install -r requirements-annotator.txt`; this intentionally installs `aioesphomeapi` plus lightweight PyYAML, not the full ESPHome package. `--help`, `--setup` without `--yaml`, and `--show-profiles` avoid live API imports. First-time setup can use `python -m analysis.hwp_logs_annotator --setup`, which writes `.esphome-config/hwp-tools.json`; `--show-profiles` lists saved profiles without API keys. It also resolves CLI args, environment variables, or legacy YAML fallback. See `docs/analysis-field-annotator.md`.
-- The annotator packet viewer uses the shared log parser and `analysis.hwp_packet_view` instead of GUI-only regex. It highlights checksum failures, fixture matches, known menu-map byte locations, and bytes changed versus the previous packet with the same frame/source/length.
+- The annotator right pane has Dashboard, Packets, and Graphs tabs. The dashboard and graph views use `analysis.hwp_field_dashboard` to decode known fields from the shared parser plus menu/packet metadata; the packet viewer still uses `analysis.hwp_packet_view` and highlights checksum failures, fixture matches, known byte locations, and changed bytes.
+- The annotator can change the live ESPHome API log subscription level, request dump-config refresh, and invoke restart through a discovered ESPHome restart button entity. Devices need a `button: - platform: restart` entity for restart; there is no generic native API reboot method used by the tool.
+- The component can also serve a lightweight read-only HWP dashboard from the firmware when ESPHome `web_server:` is configured. The optional climate config block is:
+
+```yaml
+web_server:
+  auth:
+    username: !secret web_user
+    password: !secret web_password
+
+climate:
+  - platform: hwp
+    web_ui:
+      enabled: true
+```
+
+  The default path is `/hwp`; `/hwp/state.json` returns the latest decoded fields, packet buffer, graph samples, revision, bus mode, and status; `/hwp/events` streams SSE updates. It is a tablet-friendly field-analysis view only, not a heater-control or annotation surface.
 - Manual annotation windows are parsed by the same CLI. Use `python -m analysis.hwp_analyze annotations --input tmp/hwp/POOL_esphome_logs.log.2024-11-01` and `prove-annotations` for curated tagger windows.
 - The first native C++ seam lives in `components/hwp/protocol_core.*` and covers dependency-light packet helpers plus fan mode, defrost, flow-meter, and heat-pump restriction conversions.
 - Component-local adapter headers keep climate/logger/time/RMT coupling out of core frame tests where practical. `HWP_NATIVE_TEST` uses those adapters to compile runtime frame contracts without full ESPHome or hardware RMT dependencies.
@@ -72,7 +88,7 @@ git diff --check
 bash -n scripts/test-esphome.sh scripts/test-native.sh
 ```
 
-The local runner validated and compiled both ESPHome fixtures after Python and native tests. Generated output stayed outside the repo.
+The local runner validated and compiled the normal, pulse-debug, and web-dashboard ESPHome fixtures after Python and native tests. Generated output stayed outside the repo.
 
 ## Suggested Next Steps
 

@@ -36,6 +36,7 @@
 #include "HPUtils.h"
 #include "base_frame.h"
 #include "hwp_logger_adapter.h"
+#include "hwp_web_dashboard.h"
 #ifndef HWP_NATIVE_TEST
 #include "esphome/core/hal.h"
 #endif
@@ -452,6 +453,9 @@ void Bus::process_send_queue() {
         this->current_frame.reset("TX Start");
         this->reset_pulse_log();
         packet->print("SEND", TAG_BUS, ESPHOME_LOG_LEVEL_INFO, __LINE__);
+        if (this->web_dashboard_ != nullptr) {
+            this->web_dashboard_->record_packet(*packet, "SEND");
+        }
         if (!this->transmit_frame(*packet)) {
             this->mode = BUSMODE_ERROR;
             return;
@@ -472,6 +476,9 @@ void IRAM_ATTR Bus::finalize_frame(bool timeout) {
     auto finalized_frame = this->current_frame.finalize(*this->hp_data_);
     if (finalized_frame) {
         ESP_LOGVV(TAG_BUS, "New Frame finalized %s", timeout ? "after timeout" : "");
+        if (this->web_dashboard_ != nullptr) {
+            this->web_dashboard_->record_packet(*finalized_frame, finalized_frame->is_changed() ? "Chg" : "Same");
+        }
         if (finalized_frame->get_source() == SOURCE_CONTROLLER) {
             this->controler_packets_received_ = true;
             this->previous_controller_packet_time_ = millis();

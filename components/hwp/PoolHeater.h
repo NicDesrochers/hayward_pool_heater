@@ -44,6 +44,7 @@
 #include "esphome/core/component.h"
 #include "esphome/core/helpers.h"
 #include "esphome/core/macros.h"
+#include "hwp_web_dashboard.h"
 
 /**
  * @brief Describes the structure and timing of packets on the NET port.
@@ -256,6 +257,32 @@ class PoolHeater : public climate::Climate, public PollingComponent {
     void set_start_bus_on_setup(bool start_bus_on_setup) {
         this->start_bus_on_setup_ = start_bus_on_setup;
     }
+    void configure_web_dashboard(const HWPWebConfig& config) { this->web_dashboard_.configure(config); }
+    void set_web_dashboard_enabled(bool enabled) {
+        auto config = this->web_dashboard_.config();
+        config.enabled = enabled;
+        this->web_dashboard_.configure(config);
+    }
+    void set_web_dashboard_path(const std::string& path) {
+        auto config = this->web_dashboard_.config();
+        config.path = path;
+        this->web_dashboard_.configure(config);
+    }
+    void set_web_dashboard_packet_buffer_size(size_t size) {
+        auto config = this->web_dashboard_.config();
+        config.packet_buffer_size = size;
+        this->web_dashboard_.configure(config);
+    }
+    void set_web_dashboard_graph_history_size(size_t size) {
+        auto config = this->web_dashboard_.config();
+        config.graph_history_size = size;
+        this->web_dashboard_.configure(config);
+    }
+#ifndef HWP_NATIVE_TEST
+#ifdef USE_WEBSERVER
+    void set_web_server(web_server::WebServer* web_server) { this->web_server_ = web_server; }
+#endif
+#endif
     bool get_passive_mode();
     bool is_update_active();
     heat_pump_data_t& data() { return hp_data_; }
@@ -265,6 +292,12 @@ class PoolHeater : public climate::Climate, public PollingComponent {
   protected:
     heat_pump_data_t hp_data_;
     Bus driver_; ///< The bus driver for communication.
+    HWPWebDashboard web_dashboard_;
+#ifndef HWP_NATIVE_TEST
+#ifdef USE_WEBSERVER
+    web_server::WebServer* web_server_{nullptr};
+#endif
+#endif
     HeaterStatus heater_status_;
     std::string actual_status_;
     bool passive_mode_ = true;
@@ -353,6 +386,7 @@ class PoolHeater : public climate::Climate, public PollingComponent {
         bool dummy;
     };
     void setup() override;
+    void loop() override;
     void dump_config() override;
     void restore_preferences_() {
         // PoolHeaterPreferences prefs;

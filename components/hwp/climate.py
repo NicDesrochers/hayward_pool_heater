@@ -35,7 +35,9 @@
 import esphome.codegen as cg
 import logging
 import json
+import re
 import esphome.config_validation as cv
+import esphome.final_validate as fv
 from esphome.components import (
     climate,
     esp32,
@@ -46,6 +48,7 @@ from esphome.components import (
     number,
     select,
     button,
+    web_server,
 )
 
 from esphome import pins, core
@@ -65,6 +68,7 @@ from esphome.const import (
     CONF_FILTERS,
     ENTITY_CATEGORY_DIAGNOSTIC,
     CONF_NUMBER,
+    CONF_WEB_SERVER,
 )
 from esphome.const import CONF_UPDATE_INTERVAL
 
@@ -72,7 +76,7 @@ logger = logging.getLogger(__name__)
 
 
 CODEOWNERS = ["@sle118"]
-COMPONENT_VERSION = "2026.05.13.1"
+COMPONENT_VERSION = "2026.05.13.2"
 
 AUTO_LOAD = [
     "climate",
@@ -95,6 +99,21 @@ CONF_UPDATE_SENSORS_SWITCH = "update_sensors_switch"
 CONF_OPTIMIZED = "optimized"
 CONF_GENERATE_CODE_BUTTON = "generate_code"
 CONF_START_BUS_ON_SETUP = "start_bus_on_setup"
+CONF_WEB_UI = "web_ui"
+CONF_ENABLED = "enabled"
+CONF_PATH = "path"
+CONF_PACKET_BUFFER_SIZE = "packet_buffer_size"
+CONF_GRAPH_HISTORY_SIZE = "graph_history_size"
+
+WEB_UI_PATH_RE = re.compile(r"^/[A-Za-z0-9_./-]*$")
+
+
+def validate_web_ui_path(value):
+    if not WEB_UI_PATH_RE.match(value):
+        raise cv.Invalid(
+            "web_ui.path must start with '/' and contain only URL-safe path characters"
+        )
+    return value
 
 CONF_GPIO_NETPIN = "pin_txrx"
 CONF_TEMPERATURE_SUCTION = "suction_temperature_T01"
@@ -246,12 +265,57 @@ BASE_SCHEMA = climate.climate_schema(PoolHeater).extend(
             icon="mdi:code-tags",
         ),
         cv.Optional(CONF_START_BUS_ON_SETUP, default=True): cv.boolean,
+        cv.Optional(CONF_WEB_UI, default={}): cv.Schema(
+            {
+                cv.Optional(CONF_ENABLED): cv.boolean,
+                cv.Optional(CONF_PATH, default="/hwp"): cv.All(
+                    cv.string_strict,
+                    cv.Length(min=1),
+                    validate_web_ui_path,
+                ),
+                cv.Optional(CONF_PACKET_BUFFER_SIZE, default=80): cv.All(
+                    cv.int_, cv.Range(min=1, max=240)
+                ),
+                cv.Optional(CONF_GRAPH_HISTORY_SIZE, default=240): cv.All(
+                    cv.int_, cv.Range(min=1, max=480)
+                ),
+            }
+        ),
         cv.Optional(CONF_UPDATE_INTERVAL, default="30s"): cv.All(
             cv.positive_time_period_milliseconds,
             cv.Range(min=core.TimePeriod(seconds=10), max=core.TimePeriod(seconds=1800)),
         ),
     }
 )
+
+
+def validate_web_ui(config):
+    web_ui = dict(config.get(CONF_WEB_UI, {}))
+    full_config = core.CORE.config
+    has_web_server = full_config is not None and CONF_WEB_SERVER in full_config
+    enabled = web_ui.get(CONF_ENABLED)
+    if enabled is None and full_config is not None:
+        web_ui[CONF_ENABLED] = has_web_server
+    elif enabled and not has_web_server and getattr(core.CORE, "testing_mode", False):
+        raise cv.Invalid("web_ui.enabled requires an ESPHome web_server: component")
+    config[CONF_WEB_UI] = web_ui
+    return config
+
+
+def final_validate_web_ui(config):
+    web_ui = dict(config.get(CONF_WEB_UI, {}))
+    full_config = fv.full_config.get()
+    has_web_server = CONF_WEB_SERVER in full_config
+    enabled = web_ui.get(CONF_ENABLED)
+    if enabled is None:
+        web_ui[CONF_ENABLED] = has_web_server
+    elif enabled and not has_web_server:
+        raise cv.Invalid("web_ui.enabled requires an ESPHome web_server: component")
+    config[CONF_WEB_UI] = web_ui
+    return config
+
+
+FINAL_VALIDATE_SCHEMA = final_validate_web_ui
 INPUT_TYPES_TEMPLATE = dict[str, dict](
     {
         CONF_NUMBER: {
@@ -762,11 +826,14 @@ INPUTS_SCHEMA = cv.All(
 )
 
 # extend the base schema with the overall input schema and the sensor schema
-CONFIG_SCHEMA = BASE_SCHEMA.extend(
+CONFIG_SCHEMA = cv.All(
+    BASE_SCHEMA.extend(
     {
         cv.Optional(CONF_SENSORS, default={}): SENSORS_SCHEMA,
         cv.Optional(CONF_INPUT, default={}): INPUTS_SCHEMA,
     }
+    ),
+    validate_web_ui,
 )
 
 
@@ -787,6 +854,25 @@ async def to_code(config):
     # max_buffer_count = config[CONF_MAX_BUFFER_COUNT]
     heater_component = cg.new_Pvariable(config[CONF_ID], pin_component)
     cg.add(heater_component.set_start_bus_on_setup(config[CONF_START_BUS_ON_SETUP]))
+    web_ui = config[CONF_WEB_UI]
+    web_ui_enabled = web_ui.get(CONF_ENABLED, False)
+    cg.add(heater_component.set_web_dashboard_enabled(web_ui_enabled))
+    cg.add(heater_component.set_web_dashboard_path(web_ui[CONF_PATH]))
+    cg.add(
+        heater_component.set_web_dashboard_packet_buffer_size(
+            web_ui[CONF_PACKET_BUFFER_SIZE]
+        )
+    )
+    cg.add(
+        heater_component.set_web_dashboard_graph_history_size(
+            web_ui[CONF_GRAPH_HISTORY_SIZE]
+        )
+    )
+    if web_ui_enabled:
+        web_server_component = await cg.get_variable(
+            core.CORE.config[CONF_WEB_SERVER][CONF_ID]
+        )
+        cg.add(heater_component.set_web_server(web_server_component))
 
     await cg.register_component(heater_component, config)
     await climate.register_climate(heater_component, config)

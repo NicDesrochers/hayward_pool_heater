@@ -45,6 +45,7 @@
 // #include <iomanip>
 #include "Schema.h"
 #include "base_frame.h"
+#include "hwp_bus_types.h"
 #include "hwp_climate_adapter.h"
 #include "hwp_logger_adapter.h"
 #include "hwp_rmt_adapter.h"
@@ -62,6 +63,7 @@
 
 namespace esphome {
 namespace hwp {
+class HWPWebDashboard;
 #ifdef HWP_PULSE_DEBUG
 static constexpr char TAG_PULSES[] = "hwp.pulses";
 #endif
@@ -69,12 +71,6 @@ static constexpr char TAG_BUS[] = "hwp";
 
 extern const uint32_t single_frame_max_duration_ms;
 extern const uint8_t default_frame_transmit_count;
-
-/**
- * @enum bus_mode_t
- * @brief Represents the bus mode (transmit or receive).
- */
-typedef enum { BUSMODE_TX, BUSMODE_RX, BUSMODE_ERROR } bus_mode_t;
 
 /**
  * @class Bus
@@ -205,6 +201,7 @@ class Bus {
      * @param[in] hp_data The heat pump data model.
      */
     void set_data_model(heat_pump_data_t& hp_data) { this->hp_data_ = &hp_data; }
+    void set_web_dashboard(HWPWebDashboard* dashboard) { this->web_dashboard_ = dashboard; }
     std::vector<std::shared_ptr<BaseFrame>> control(const HWPCall& call);
     void traits(climate::ClimateTraits& traits, heat_pump_data_t& hp_data);
     static void dump_known_packets(const char* CALLER_TAG);
@@ -212,6 +209,7 @@ class Bus {
   protected:
     
     heat_pump_data_t* hp_data_{nullptr};
+    HWPWebDashboard* web_dashboard_{nullptr};
     optional<bool> controler_packets_received_;
     optional<uint32_t> previous_controller_packet_time_;
     optional<uint32_t> previous_sent_packet_;

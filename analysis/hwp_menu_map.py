@@ -85,7 +85,7 @@ MENU_PACKET_MAP: tuple[MenuPacketMapping, ...] = (
     MenuPacketMapping("D06", "d06_defrost_eco_mode", "Defrost economy mode", "0x85", "CONFIG_5", 2, 6, "boolean enum", "active TX echo fixture / demo command fixture", "implemented", "live-echo-validated", "Live ECO/NORMAL write echoes are captured under active_tx fixtures; simulator examples add passive byte contracts."),
     MenuPacketMapping("D05", "d05_min_economy_defrost_time_minutes", "Minimum economy defrost time", "0x85", "CONFIG_5", 3, None, "decimal minutes", "demo command fixture", "implemented", "byte-tested", "Demo command fixture pins D05 minute byte changes."),
     MenuPacketMapping("U02", "u02_pulses_per_liter", "Flow-meter pulses per liter", "0x85", "CONFIG_5", 10, None, "large integer", "implemented config frame", "implemented", "needs fixture import", "Candidate for next supervised active TX only after fixture triage."),
-    MenuPacketMapping("S02", "s02_water_flow", "Water flow status", "0xD1", "COND_1B", 3, 2, "status bit", "runtime fixture", "read-only", "read-only", "Status bit, not a writable menu option."),
+    MenuPacketMapping("S02", "s02_water_flow", "Water flow status", "0xD1", "COND_1B", 4, 1, "status bit", "runtime fixture", "read-only", "read-only", "Status bit, not a writable menu option."),
 )
 
 

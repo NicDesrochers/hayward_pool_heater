@@ -30,7 +30,8 @@ param(
     [string] $Image = "ghcr.io/esphome/esphome:latest",
     [string[]] $Fixtures = @(
         "tests/components/hwp/test.esp32-idf.yaml",
-        "tests/components/hwp/test.esp32-idf-pulse-debug.yaml"
+        "tests/components/hwp/test.esp32-idf-pulse-debug.yaml",
+        "tests/components/hwp/test.esp32-idf-web-ui.yaml"
     )
 )
 
@@ -113,6 +114,7 @@ foreach ($fixture in $Fixtures) {
 
 foreach ($fixture in $Fixtures) {
     Write-Host "Compiling $fixture"
+    Invoke-ESPHome clean $fixture
     Invoke-ESPHome compile $fixture
 }
 

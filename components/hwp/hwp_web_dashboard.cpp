@@ -1,0 +1,407 @@
+/**
+ * @file hwp_web_dashboard.cpp
+ * @brief Firmware-served HWP diagnostic dashboard support.
+ *
+ * Copyright (c) 2024 S. Leclerc (sle118@hotmail.com)
+ *
+ * This file is part of the Pool Heater Controller component project.
+ *
+ * @project Pool Heater Controller Component
+ * @developer S. Leclerc (sle118@hotmail.com)
+ *
+ * @license MIT License
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies or substantial portions of the Software.
+ */
+
+#include "hwp_web_dashboard.h"
+
+#include "hwp_time_adapter.h"
+#include "hwp_version.h"
+
+#include <algorithm>
+#include <cstdio>
+#include <utility>
+
+#ifndef HWP_NATIVE_TEST
+#include "esphome/core/hal.h"
+#endif
+
+namespace esphome {
+namespace hwp {
+
+namespace {
+
+const char HWP_WEB_INDEX[] =
+    "<!doctype html><html><head><meta charset=utf-8><meta name=viewport "
+    "content='width=device-width,initial-scale=1'><title>HWP</title><style>"
+    "body{margin:0;font:14px system-ui;background:#f5f7fa;color:#17202a}"
+    "header{padding:12px 16px;background:#17324d;color:white;display:flex;gap:12px;align-items:center}"
+    "button{border:0;background:#dce6f1;padding:8px 10px;margin:0 4px 0 0;border-radius:4px}"
+    "button.active{background:#1d6fb8;color:white}.view{display:none;padding:10px}.view.active{display:block}"
+    "table{border-collapse:collapse;width:100%;background:white}th,td{padding:6px 8px;border-bottom:1px solid #e1e5ea;text-align:left}"
+    "tr.changed,span.changed{background:#fff2a8}.bad{color:#a40000;font-weight:700}.packet{font-family:ui-monospace,monospace;margin:6px 0;padding:8px;background:white;border-left:4px solid #8aa4bd;overflow:auto}"
+    ".meta{font-size:12px;color:#52616f}canvas{background:white;width:100%;height:220px;border:1px solid #d8dee6;margin:8px 0}"
+    "</style></head><body><header><strong>HWP</strong><span id=meta></span></header>"
+    "<nav style='padding:8px;background:#e9eef4'><button data-tab=values class=active>Values</button><button data-tab=packets>Packets</button><button data-tab=graphs>Graphs</button></nav>"
+    "<section id=values class='view active'><table><thead><tr><th>Field</th><th>Value</th><th>Age</th><th>Source</th><th>Frame</th><th>Raw</th></tr></thead><tbody id=valueRows></tbody></table></section>"
+    "<section id=packets class=view><div id=packetRows></div></section>"
+    "<section id=graphs class=view><canvas id=g1 width=900 height=220></canvas><canvas id=g2 width=900 height=220></canvas><canvas id=g3 width=900 height=220></canvas></section>"
+    "<script>"
+    "let state={fields:[],packets:[],graphs:{},meta:{}};let changed={};"
+    "document.querySelectorAll('button[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('button').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.getElementById(b.dataset.tab).classList.add('active');render()});"
+    "function age(ms){if(!ms)return'';let base=state.meta.uptime_ms||0;let s=Math.max(0,Math.floor((base-ms)/1000));return s<60?s+'s':Math.floor(s/60)+'m '+String(s%60).padStart(2,'0')+'s'}"
+    "function render(){document.getElementById('meta').textContent=`${state.meta.status||''} ${state.meta.bus_mode||''} ${state.meta.revision||''}`;let now=Date.now();valueRows.innerHTML=state.fields.map(f=>`<tr class='${changed[f.id]>now?'changed':''}'><td>${f.label}</td><td>${f.value} ${f.unit||''}</td><td>${age(f.seen_ms)}</td><td>${f.source}</td><td>${f.frame}</td><td>${f.raw}</td></tr>`).join('');packetRows.innerHTML=state.packets.slice().reverse().map(p=>`<div class=packet><div class=meta>${p.kind} ${p.frame} ${p.label} ${p.source} ${p.checksum_valid?'ok':'<span class=bad>bad checksum</span>'}</div>[${p.bytes.map((b,i)=>`<span class='${p.changed_bytes[i]?'changed':''}'>${b.toString(16).padStart(2,'0').toUpperCase()}</span>`).join(' ')}]</div>`).join('');drawGraphs()}"
+    "function drawOne(id,names){let c=document.getElementById(id),x=c.getContext('2d');x.clearRect(0,0,c.width,c.height);let series=names.map(n=>({n,p:state.graphs[n]||[]})).filter(s=>s.p.length);if(!series.length)return;let vals=series.flatMap(s=>s.p.map(p=>p.value));let lo=Math.min(...vals),hi=Math.max(...vals);if(lo===hi){lo-=1;hi+=1}let colors=['#1d6fb8','#c45f1a','#2e7d32','#7b1fa2','#a00030','#00838f','#6d4c41'];series.forEach((s,si)=>{x.strokeStyle=colors[si%colors.length];x.beginPath();s.p.forEach((p,i)=>{let px=40+i*Math.max(1,(c.width-260)/Math.max(1,s.p.length-1));let py=190-(p.value-lo)*(160/(hi-lo));if(i)x.lineTo(px,py);else x.moveTo(px,py)});x.stroke();x.fillStyle=x.strokeStyle;x.fillText(s.n, c.width-200, 24+si*18)});x.fillStyle='#555';x.fillText(lo.toFixed(1),4,194);x.fillText(hi.toFixed(1),4,36)}"
+    "function drawGraphs(){drawOne('g1',['t02_inlet','t03_outlet','t04_coil','t06_exhaust','t_aux_cond2']);drawOne('g2',['r01_setpoint_cooling','r02_setpoint_heating','r03_setpoint_auto','r08_min_cool_setpoint','r09_max_cooling_setpoint','r10_min_heating_setpoint','r11_max_heating_setpoint']);drawOne('g3',['r04_return_diff_cooling','r05_shutdown_temp_diff_when_cooling','r06_return_diff_heating','r07_shutdown_diff_heating','d03_defrosting_cycle_time_minutes','d04_max_defrost_time_minutes','d05_min_economy_defrost_time_minutes','f08_fan_low_speed_running_time','f09_fan_stop_low_speed_running_time','f12_min_fan_voltage_pct','f13_max_fan_voltage_pct'])}"
+    "let base=location.pathname.replace(/\\/$/,'');"
+    "async function load(){state=await fetch(base+'/state.json').then(r=>r.json());render()}"
+    "load();setInterval(render,1000);let es=new EventSource(base+'/events');es.addEventListener('state',e=>{state=JSON.parse(e.data);state.fields.forEach(f=>{if(f.changed)changed[f.id]=Date.now()+4000});render()});"
+    "</script></body></html>";
+
+void append_json_pair(std::ostringstream& out, const char* key, const std::string& value, bool comma = true) {
+    out << "\"" << key << "\":\"" << HWPWebDashboard::escape_json(value) << "\"";
+    if (comma) out << ",";
+}
+
+} // namespace
+
+#ifndef HWP_NATIVE_TEST
+#ifdef USE_WEBSERVER
+class HWPWebHandler : public AsyncWebHandler {
+  public:
+    HWPWebHandler(HWPWebDashboard* dashboard, std::string path)
+        : dashboard_(dashboard), path_(std::move(path)) {}
+    bool canHandle(AsyncWebServerRequest* request) const override {
+        if (request->method() != HTTP_GET) return false;
+        char url_buf[AsyncWebServerRequest::URL_BUF_SIZE];
+        auto url = request->url_to(url_buf);
+        return url == path_ || url == path_ + "/" || url == path_ + "/state.json";
+    }
+    void handleRequest(AsyncWebServerRequest* request) override {
+        char url_buf[AsyncWebServerRequest::URL_BUF_SIZE];
+        auto url = request->url_to(url_buf);
+        if (url == path_ + "/state.json") {
+            auto payload = dashboard_->state_json();
+            request->send(200, "application/json", payload.c_str());
+            return;
+        }
+        request->send(200, "text/html", HWP_WEB_INDEX);
+    }
+
+  private:
+    HWPWebDashboard* dashboard_;
+    std::string path_;
+};
+
+void HWPWebDashboard::setup(web_server::WebServer* web_server) {
+    if (!this->config_.enabled || this->handlers_registered_) return;
+    auto* base = web_server_base::global_web_server_base;
+    if (base == nullptr || web_server == nullptr) return;
+    this->web_server_ = web_server;
+    base->add_handler(new HWPWebHandler(this, this->config_.path));
+    this->events_ = new web_server_idf::AsyncEventSource(this->config_.path + "/events", web_server);
+    base->add_handler(this->events_);
+    this->handlers_registered_ = true;
+}
+
+void HWPWebDashboard::loop() {
+    if (this->events_ != nullptr) {
+        this->events_->loop();
+    }
+    if (this->events_ != nullptr && this->dirty_ && millis() - this->last_event_ms_ >= 250) {
+        auto payload = this->state_json();
+        this->events_->try_send_nodefer(payload.c_str(), "state");
+        this->dirty_ = false;
+        this->last_event_ms_ = millis();
+    }
+}
+#endif
+#ifndef USE_WEBSERVER
+void HWPWebDashboard::loop() {}
+#endif
+#endif
+
+void HWPWebDashboard::record_packet(const BaseFrame& frame, const std::string& kind) {
+    if (!this->config_.enabled) return;
+    PacketRecord record;
+    record.sequence = ++this->packet_sequence_;
+    record.seen_ms = millis();
+    record.kind = kind;
+    record.label = frame.type_string();
+    record.source = frame_source_to_string(frame.get_source());
+    record.frame = "0x" + std::string(BaseFrame::format_hex(frame.packet.data[0]));
+    record.length = frame.packet.data_len;
+    record.checksum_valid = frame.packet.is_checksum_valid();
+    record.changed = frame.is_changed();
+    record.formatted = frame.header_format(kind, false) + frame.format();
+    record.bytes.reserve(frame.packet.data_len);
+    for (size_t i = 0; i < frame.packet.data_len; i++) {
+        record.bytes.push_back(frame.packet.data[i]);
+    }
+    auto key = bytes_to_key(frame);
+    auto previous = this->previous_packet_bytes_.find(key);
+    for (size_t i = 0; i < record.bytes.size(); i++) {
+        record.changed_bytes.push_back(previous != this->previous_packet_bytes_.end() &&
+                                       (i >= previous->second.size() || previous->second[i] != record.bytes[i]));
+    }
+    this->previous_packet_bytes_[key] = record.bytes;
+    this->packets_.push_back(record);
+    this->trim_packets();
+    this->dirty_ = true;
+}
+
+void HWPWebDashboard::update_fields(
+    const heat_pump_data_t& data, const std::string& status, bus_mode_t bus_mode) {
+    if (!this->config_.enabled) return;
+    this->last_status_ = status;
+    this->last_bus_mode_ = bus_mode;
+    std::vector<HWPWebField> fields;
+    append_field(fields, make_string_field("actual_status", "Actual Status", status, "status", "", "", "local"));
+    append_field(fields, make_string_field("bus_mode", "Bus Mode", bus_mode_to_string(bus_mode), "status", "", "", "local"));
+    append_field(fields, make_float_field("t02_inlet", "T02 Inlet", data.t02_temperature_inlet, "C", "temperatures", "COND_1B", "D1[9]", "heater"));
+    append_field(fields, make_float_field("t03_outlet", "T03 Outlet", data.t03_temperature_outlet, "C", "temperatures", "COND_2", "D2[3]", "heater"));
+    append_field(fields, make_float_field("t04_coil", "T04 Coil", data.t04_temperature_coil, "C", "temperatures", "COND_2", "D2[5]", "heater"));
+    append_field(fields, make_float_field("t06_exhaust", "T06 Exhaust", data.t06_temperature_exhaust, "C", "temperatures", "COND_2", "D2[4]", "heater"));
+    append_field(fields, make_float_field("r01_setpoint_cooling", "R01 Cooling Setpoint", data.r01_setpoint_cooling, "C", "setpoints", "CONFIG_1", "81[3]", "heater"));
+    append_field(fields, make_float_field("r02_setpoint_heating", "R02 Heating Setpoint", data.r02_setpoint_heating, "C", "setpoints", "CONFIG_1", "81[4]", "heater"));
+    append_field(fields, make_float_field("r03_setpoint_auto", "R03 Auto Setpoint", data.r03_setpoint_auto, "C", "setpoints", "CONFIG_1", "81[5]", "heater"));
+    append_field(fields, make_float_field("r04_return_diff_cooling", "R04 Return Diff Cooling", data.r04_return_diff_cooling, "C", "low_range", "CONFIG_1", "81[6]", "heater"));
+    append_field(fields, make_float_field("r05_shutdown_temp_diff_when_cooling", "R05 Shutdown Diff Cooling", data.r05_shutdown_temp_diff_when_cooling, "C", "low_range", "CONFIG_1", "81[7]", "heater"));
+    append_field(fields, make_float_field("r06_return_diff_heating", "R06 Return Diff Heating", data.r06_return_diff_heating, "C", "low_range", "CONFIG_1", "81[8]", "heater"));
+    append_field(fields, make_float_field("r07_shutdown_diff_heating", "R07 Shutdown Diff Heating", data.r07_shutdown_diff_heating, "C", "low_range", "CONFIG_1", "81[9]", "heater"));
+    append_field(fields, make_float_field("r08_min_cool_setpoint", "R08 Min Cool Setpoint", data.r08_min_cool_setpoint, "C", "setpoints", "CONFIG_3", "83[7]", "heater"));
+    append_field(fields, make_float_field("r09_max_cooling_setpoint", "R09 Max Cool Setpoint", data.r09_max_cooling_setpoint, "C", "setpoints", "CONFIG_3", "83[8]", "heater"));
+    append_field(fields, make_float_field("r10_min_heating_setpoint", "R10 Min Heat Setpoint", data.r10_min_heating_setpoint, "C", "setpoints", "CONFIG_3", "83[9]", "heater"));
+    append_field(fields, make_float_field("r11_max_heating_setpoint", "R11 Max Heat Setpoint", data.r11_max_heating_setpoint, "C", "setpoints", "CONFIG_3", "83[10]", "heater"));
+    append_field(fields, make_float_field("d01_defrost_start", "D01 Defrost Start", data.d01_defrost_start, "C", "low_range", "CONFIG_2", "82[3]", "heater"));
+    append_field(fields, make_float_field("d02_defrost_end", "D02 Defrost End", data.d02_defrost_end, "C", "low_range", "CONFIG_2", "82[4]", "heater"));
+    append_field(fields, make_float_field("d03_defrosting_cycle_time_minutes", "D03 Defrost Cycle", data.d03_defrosting_cycle_time_minutes, "min", "low_range", "CONFIG_2", "82[5]", "heater"));
+    append_field(fields, make_float_field("d04_max_defrost_time_minutes", "D04 Max Defrost", data.d04_max_defrost_time_minutes, "min", "low_range", "CONFIG_2", "82[6]", "heater"));
+    append_field(fields, make_float_field("d05_min_economy_defrost_time_minutes", "D05 Min Eco Defrost", data.d05_min_economy_defrost_time_minutes, "min", "low_range", "CONFIG_5", "85[3]", "heater"));
+    if (data.d06_defrost_eco_mode.has_value()) append_field(fields, make_string_field("d06_defrost_eco_mode", "D06 Defrost Eco Mode", data.d06_defrost_eco_mode->to_string(), "low_range", "CONFIG_5", "85[2].6", "heater"));
+    if (data.S02_water_flow.has_value()) append_field(fields, make_string_field("s02_water_flow", "S02 Water Flow", data.S02_water_flow.value() ? "FLOWING" : "NO FLOW", "status", "COND_1B", "D1[4].1", "heater"));
+    if (data.U01_flow_meter.has_value()) append_field(fields, make_string_field("u01_flow_meter", "U01 Flow Meter", data.U01_flow_meter->to_string(), "status", "CONFIG_5", "85[2].5", "heater"));
+    append_field(fields, make_float_field("u02_pulses_per_liter", "U02 Pulses/L", data.U02_pulses_per_liter, "", "low_range", "CONFIG_5", "85[10]", "heater"));
+    if (data.fan_mode.has_value()) append_field(fields, make_string_field("f01_fan_mode", "F01 Fan Mode", data.fan_mode->to_string(), "fan", "CONFIG_2", "82[2].4-7", "heater"));
+    append_field(fields, make_float_field("f02_fan_high_speed_cool_setpoint", "F02 High Cool", data.f02_fan_high_speed_cool_setpoint, "C", "fan", "CONFIG_4", "84[2]", "heater"));
+    append_field(fields, make_float_field("f03_fan_low_speed_temp_in_cooling_set_point", "F03 Low Cool", data.f03_fan_low_speed_temp_in_cooling_set_point, "C", "fan", "CONFIG_4", "84[3]", "heater"));
+    append_field(fields, make_float_field("f04_fan_stop_temp_in_cooling_set_point", "F04 Stop Cool", data.f04_fan_stop_temp_in_cooling_set_point, "C", "fan", "CONFIG_4", "84[4]", "heater"));
+    append_field(fields, make_float_field("f05_fan_high_speed_temp_in_heating_set_point", "F05 High Heat", data.f05_fan_high_speed_temp_in_heating_set_point, "C", "fan", "CONFIG_4", "84[5]", "heater"));
+    append_field(fields, make_float_field("f06_fan_low_speed_temp_in_heating_set_point", "F06 Low Heat", data.f06_fan_low_speed_temp_in_heating_set_point, "C", "fan", "CONFIG_4", "84[6]", "heater"));
+    append_field(fields, make_float_field("f07_fan_stop_temp_in_heating_set_point", "F07 Stop Heat", data.f07_fan_stop_temp_in_heating_set_point, "C", "fan", "CONFIG_4", "84[7]", "heater"));
+    append_field(fields, make_float_field("f08_fan_low_speed_running_time", "F08 Low Run", data.f08_fan_low_speed_running_time, "min", "low_range", "CONFIG_4", "84[8]", "heater"));
+    append_field(fields, make_float_field("f09_fan_stop_low_speed_running_time", "F09 Stop Low Run", data.f09_fan_stop_low_speed_running_time, "min", "low_range", "CONFIG_4", "84[9]", "heater"));
+    if (data.f10_fan_speed_control_temp.has_value()) append_field(fields, make_string_field("f10_fan_speed_control_temp", "F10 Fan Speed Source", data.f10_fan_speed_control_temp->to_string(), "fan", "CONFIG_2", "82[2].3", "heater"));
+    if (data.f11_speed_control_module.has_value()) append_field(fields, make_string_field("f11_speed_control_module", "F11 Speed Control", data.f11_speed_control_module->to_string(), "fan", "CONFIG_5", "85[2].4", "heater"));
+    append_field(fields, make_float_field("f12_min_fan_voltage_pct", "F12 Min Fan Voltage", data.f12_min_fan_voltage_pct, "%", "low_range", "CONFIG_1", "81[10]", "heater"));
+    append_field(fields, make_float_field("f13_max_fan_voltage_pct", "F13 Max Fan Voltage", data.f13_max_fan_voltage_pct, "%", "low_range", "CONFIG_2", "82[10]", "heater"));
+    this->fields_ = fields;
+    this->dirty_ = true;
+}
+
+void HWPWebDashboard::append_field(std::vector<HWPWebField>& fields, HWPWebField field) {
+    if (field.id.empty()) return;
+    auto previous = this->previous_field_values_.find(field.id);
+    field.changed = previous != this->previous_field_values_.end() && previous->second != field.value;
+    field.seen_ms = millis();
+    this->previous_field_values_[field.id] = field.value;
+    fields.push_back(field);
+    this->append_graph_point(field);
+}
+
+std::string HWPWebDashboard::state_json() const {
+    std::ostringstream out;
+    out << "{";
+    out << "\"meta\":" << meta_json(this->last_status_, this->last_bus_mode_) << ",";
+    out << "\"fields\":" << fields_json() << ",";
+    out << "\"packets\":" << packets_json() << ",";
+    out << "\"graphs\":" << graph_json();
+    out << "}";
+    return out.str();
+}
+
+std::string HWPWebDashboard::fields_json() const {
+    std::ostringstream out;
+    out << "[";
+    for (size_t i = 0; i < this->fields_.size(); i++) {
+        const auto& field = this->fields_[i];
+        if (i) out << ",";
+        out << "{";
+        append_json_pair(out, "id", field.id);
+        append_json_pair(out, "label", field.label);
+        append_json_pair(out, "value", field.value);
+        append_json_pair(out, "unit", field.unit);
+        append_json_pair(out, "group", field.group);
+        append_json_pair(out, "frame", field.frame);
+        append_json_pair(out, "raw", field.raw_location);
+        append_json_pair(out, "source", field.source);
+        out << "\"numeric\":" << bool_json(field.numeric) << ",";
+        out << "\"numeric_value\":" << field.numeric_value << ",";
+        out << "\"changed\":" << bool_json(field.changed) << ",";
+        out << "\"seen_ms\":" << field.seen_ms;
+        out << "}";
+    }
+    out << "]";
+    return out.str();
+}
+
+std::string HWPWebDashboard::packets_json() const {
+    std::ostringstream out;
+    out << "[";
+    for (size_t i = 0; i < this->packets_.size(); i++) {
+        const auto& packet = this->packets_[i];
+        if (i) out << ",";
+        out << "{";
+        out << "\"sequence\":" << packet.sequence << ",";
+        out << "\"seen_ms\":" << packet.seen_ms << ",";
+        append_json_pair(out, "kind", packet.kind);
+        append_json_pair(out, "label", packet.label);
+        append_json_pair(out, "source", packet.source);
+        append_json_pair(out, "frame", packet.frame);
+        out << "\"length\":" << packet.length << ",";
+        out << "\"checksum_valid\":" << bool_json(packet.checksum_valid) << ",";
+        out << "\"changed\":" << bool_json(packet.changed) << ",";
+        out << "\"bytes\":" << bytes_to_json(packet.bytes) << ",";
+        out << "\"changed_bytes\":[";
+        for (size_t j = 0; j < packet.changed_bytes.size(); j++) {
+            if (j) out << ",";
+            out << bool_json(packet.changed_bytes[j]);
+        }
+        out << "]";
+        out << "}";
+    }
+    out << "]";
+    return out.str();
+}
+
+std::string HWPWebDashboard::graph_json() const {
+    std::ostringstream out;
+    out << "{";
+    size_t field_index = 0;
+    for (const auto& entry : this->graph_history_) {
+        if (field_index++) out << ",";
+        out << "\"" << escape_json(entry.first) << "\":[";
+        for (size_t i = 0; i < entry.second.size(); i++) {
+            if (i) out << ",";
+            out << "{\"sequence\":" << entry.second[i].sequence << ",\"value\":" << entry.second[i].value << "}";
+        }
+        out << "]";
+    }
+    out << "}";
+    return out.str();
+}
+
+std::string HWPWebDashboard::meta_json(const std::string& status, bus_mode_t bus_mode) const {
+    std::ostringstream out;
+    out << "{";
+    append_json_pair(out, "revision", HWP_COMPONENT_VERSION);
+    append_json_pair(out, "status", status);
+    append_json_pair(out, "bus_mode", bus_mode_to_string(bus_mode));
+    out << "\"uptime_ms\":" << millis();
+    out << "}";
+    return out.str();
+}
+
+void HWPWebDashboard::append_graph_point(const HWPWebField& field) {
+    if (!field.numeric) return;
+    auto& points = this->graph_history_[field.id];
+    points.push_back(GraphPoint{++this->field_sequence_, field.numeric_value});
+    trim_graph(field.id);
+}
+
+void HWPWebDashboard::trim_packets() {
+    if (this->packets_.size() > this->config_.packet_buffer_size) {
+        this->packets_.erase(this->packets_.begin(),
+            this->packets_.begin() + (this->packets_.size() - this->config_.packet_buffer_size));
+    }
+}
+
+void HWPWebDashboard::trim_graph(const std::string& field_id) {
+    auto& points = this->graph_history_[field_id];
+    if (points.size() > this->config_.graph_history_size) {
+        points.erase(points.begin(), points.begin() + (points.size() - this->config_.graph_history_size));
+    }
+}
+
+size_t HWPWebDashboard::graph_point_count(const std::string& field_id) const {
+    auto found = this->graph_history_.find(field_id);
+    return found == this->graph_history_.end() ? 0 : found->second.size();
+}
+
+HWPWebField HWPWebDashboard::make_float_field(const char* id, const char* label,
+    optional<float> value, const char* unit, const char* group, const char* frame,
+    const char* raw_location, const char* source) {
+    if (!value.has_value()) return {};
+    char formatted[24];
+    snprintf(formatted, sizeof(formatted), "%.1f", value.value());
+    return HWPWebField{id, label, formatted, unit, group, frame, raw_location, source, true,
+        value.value(), false, 0};
+}
+
+HWPWebField HWPWebDashboard::make_string_field(const char* id, const char* label,
+    const std::string& value, const char* group, const char* frame, const char* raw_location,
+    const char* source) {
+    return HWPWebField{id, label, value, "", group, frame, raw_location, source, false, 0.0f,
+        false, 0};
+}
+
+std::string HWPWebDashboard::escape_json(const std::string& value) {
+    std::string escaped;
+    for (char ch : value) {
+        switch (ch) {
+        case '"': escaped += "\\\""; break;
+        case '\\': escaped += "\\\\"; break;
+        case '\n': escaped += "\\n"; break;
+        case '\r': escaped += "\\r"; break;
+        case '\t': escaped += "\\t"; break;
+        default:
+            if (static_cast<unsigned char>(ch) >= 0x20) escaped += ch;
+        }
+    }
+    return escaped;
+}
+
+std::string HWPWebDashboard::bus_mode_to_string(bus_mode_t mode) {
+    switch (mode) {
+    case BUSMODE_TX: return "TX";
+    case BUSMODE_RX: return "RX";
+    case BUSMODE_ERROR: return "ERROR";
+    }
+    return "UNKNOWN";
+}
+
+std::string HWPWebDashboard::frame_source_to_string(frame_source_t source) {
+    switch (source) {
+    case SOURCE_HEATER: return "heater";
+    case SOURCE_CONTROLLER: return "controller";
+    case SOURCE_LOCAL: return "local";
+    case SOURCE_UNKNOWN: return "unknown";
+    }
+    return "unknown";
+}
+
+std::string HWPWebDashboard::bytes_to_key(const BaseFrame& frame) {
+    std::ostringstream out;
+    out << static_cast<int>(frame.packet.data[0]) << ":" << frame_source_to_string(frame.get_source())
+        << ":" << frame.packet.data_len;
+    return out.str();
+}
+
+std::string HWPWebDashboard::bytes_to_json(const std::vector<uint8_t>& bytes) {
+    std::ostringstream out;
+    out << "[";
+    for (size_t i = 0; i < bytes.size(); i++) {
+        if (i) out << ",";
+        out << static_cast<int>(bytes[i]);
+    }
+    out << "]";
+    return out.str();
+}
+
+} // namespace hwp
+} // namespace esphome

@@ -1,0 +1,36 @@
+esphome:
+  name: hayward-heater-test-web-ui
+  friendly_name: Hayward Heater Test Web UI
+
+logger:
+
+wifi:
+  ssid: test
+  password: testpassword
+
+external_components:
+  - source:
+      type: local
+      path: ../../../components
+    components: [hwp]
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+web_server:
+  auth:
+    username: test
+    password: test
+
+climate:
+  - platform: hwp
+    id: pool_heater
+    name: "Pool Heater"
+    pin_txrx: GPIO22
+    web_ui:
+      enabled: true
+      path: /hwp
+      packet_buffer_size: 16
+      graph_history_size: 32

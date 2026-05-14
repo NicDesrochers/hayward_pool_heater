@@ -103,7 +103,7 @@ The simulator exposes a control surface through ESPHome native API entities:
 | `HWP Simulator Command` text | Send advanced commands. |
 | `HWP Simulator Start` button | Start scheduled playback. |
 | `HWP Simulator Pause` button | Pause scheduled playback. |
-| `HWP Simulator Step` button | Emit one playbook step. |
+| `HWP Simulator Step Once` button | Emit one playbook step. |
 | `HWP Simulator Reset` button | Reset scheduler state and counters. |
 | `HWP Simulator Inject` button | Emit the next event manually. |
 | `HWP Simulator Current Playbook` text sensor | Current playbook name. |

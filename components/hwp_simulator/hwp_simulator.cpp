@@ -284,15 +284,23 @@ bool HWPSimulator::arm_receive_() {
 #ifdef HWP_NATIVE_TEST
     return false;
 #else
-    if (rmt_rx_channel_ == nullptr) {
+    if (rmt_rx_channel_ == nullptr || !rmt_rx_enabled_) {
+        return false;
+    }
+    if (rmt_rx_armed_) {
         return false;
     }
     esp_err_t err = rmt_receive(rmt_rx_channel_, rmt_rx_symbols_.data(),
         rmt_rx_symbols_.size() * sizeof(rmt_symbol_word_t), &rmt_receive_config_);
     if (err != ESP_OK) {
+        if (err == ESP_ERR_INVALID_STATE) {
+            rmt_rx_armed_ = true;
+            return true;
+        }
         ESP_LOGW(TAG, "Failed to arm simulator RMT RX: %d", err);
         return false;
     }
+    rmt_rx_armed_ = true;
     return true;
 #endif
 }
@@ -302,6 +310,7 @@ void HWPSimulator::stop_receive_() {
     if (rmt_rx_channel_ != nullptr && rmt_rx_enabled_) {
         rmt_disable(rmt_rx_channel_);
         rmt_rx_enabled_ = false;
+        rmt_rx_armed_ = false;
     }
 #endif
 }
@@ -333,6 +342,7 @@ bool HWPSimulator::rmt_rx_done_callback(
         instance->rb_ == nullptr) {
         return false;
     }
+    instance->rmt_rx_armed_ = false;
     const size_t symbols_size = event_data->num_symbols * sizeof(rmt_symbol_word_t);
     if (symbols_size == 0) {
         return false;
@@ -403,7 +413,7 @@ void HWPSimulator::process_rx_() {
         vRingbufferReturnItem(rb_, item);
         process_rx_symbols_(symbols.data(), symbols.size());
     }
-    if (rmt_rx_enabled_) {
+    if (rmt_rx_enabled_ && !rmt_rx_armed_) {
         arm_receive_();
     }
 #endif

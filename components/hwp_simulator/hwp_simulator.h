@@ -121,6 +121,7 @@ class HWPSimulator : public Component {
     std::array<rmt_symbol_word_t, 128> rmt_rx_symbols_{};
     RingbufHandle_t rb_{nullptr};
     bool rmt_rx_enabled_{false};
+    bool rmt_rx_armed_{false};
     bool arm_receive_();
     void stop_receive_();
     void resume_receive_();

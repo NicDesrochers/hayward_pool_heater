@@ -146,7 +146,7 @@ CONFIG_SCHEMA = cv.Schema(
             entity_category=ENTITY_CATEGORY_CONFIG,
             icon="mdi:pause",
         ),
-        cv.Optional(CONF_STEP_BUTTON, default={"name": "HWP Simulator Step"}): button.button_schema(
+        cv.Optional(CONF_STEP_BUTTON, default={"name": "HWP Simulator Step Once"}): button.button_schema(
             HWPSimulatorStepButton,
             entity_category=ENTITY_CATEGORY_CONFIG,
             icon="mdi:debug-step-over",

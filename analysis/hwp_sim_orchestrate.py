@@ -113,7 +113,13 @@ async def connect_client(args):
             "Install with `python -m pip install -r requirements-annotator.txt`."
         ) from err
 
-    client = APIClient(args.device, args.port, args.api_key)
+    client = APIClient(
+        address=args.device,
+        port=args.port,
+        password="",
+        noise_psk=args.api_key,
+        client_info="hwp_sim_orchestrate 1.0",
+    )
     await client.connect(login=True)
     return client
 

@@ -63,11 +63,14 @@ static uint32_t hwp_sim_us_to_rmt_ticks(uint32_t duration_us) {
     return static_cast<uint32_t>(ticks);
 }
 
-static uint32_t hwp_sim_rmt_ticks_to_us(uint32_t ticks) {
+static constexpr uint32_t hwp_sim_rmt_ticks_to_us(uint32_t ticks) {
     return static_cast<uint32_t>(
         (static_cast<uint64_t>(ticks) * 1000000ULL + HWP_SIM_RMT_RESOLUTION_HZ / 2) /
         HWP_SIM_RMT_RESOLUTION_HZ);
 }
+
+static constexpr uint32_t HWP_SIM_RMT_MAX_SYMBOL_US =
+    hwp_sim_rmt_ticks_to_us(HWP_SIM_RMT_MAX_SYMBOL_TICKS);
 
 void HWPSimulator::setup() {
     if (pin_ != nullptr) {
@@ -211,7 +214,7 @@ bool HWPSimulator::setup_rmt_() {
 
     rmt_receive_config_ = {};
     rmt_receive_config_.signal_range_min_ns = 1000;
-    rmt_receive_config_.signal_range_max_ns = esphome::hwp::wire::HEATER_GROUP_SPACING_US * 1000;
+    rmt_receive_config_.signal_range_max_ns = HWP_SIM_RMT_MAX_SYMBOL_US * 1000;
     rmt_transmit_config_ = {};
     rmt_transmit_config_.loop_count = 0;
     rmt_transmit_config_.flags.eot_level = 1;

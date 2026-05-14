@@ -26,7 +26,15 @@ The simulator exposes:
 - `text`: command input for agent commands such as `playbook normal_idle`, `step`, and `inject frame=config5_normal`
 - diagnostics: current playbook, status, step, last frame, last RX frame, last echo, packet count, and error count
 
-The simulator emits playbook packets through ESP-IDF 5 RMT TX and listens for controller-originated packets through ESP-IDF 5 RMT RX on the same half-duplex GPIO. RX is initialized before TX. The implemented wire reaction is deliberately narrow: checksum-valid controller `CONFIG_5` D06 defrost ECO/NORMAL commands produce the fixture-backed heater echo packets. Unknown valid controller packets update diagnostics only; invalid packets increment error counters and do not emit an echo.
+The simulator emits playbook packets with software-timed open-drain GPIO pulses
+and listens for controller-originated packets through ESP-IDF 5 RMT RX on the
+same half-duplex GPIO. Software TX is used because bench testing showed ESP-IDF
+RMT TX could report completion on the simulator node without moving the shared
+GPIO pad, while software GPIO pulses were visible and reliable. The implemented
+wire reaction is deliberately narrow: checksum-valid controller `CONFIG_5` D06
+defrost ECO/NORMAL commands produce the fixture-backed heater echo packets.
+Unknown valid controller packets update diagnostics only; invalid packets
+increment error counters and do not emit an echo.
 
 ## Wiring
 

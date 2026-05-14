@@ -165,9 +165,11 @@ Fixture packet ids currently include:
 
 ## RX And Echo Boundary
 
-The simulator emits playbook packets through ESP-IDF 5 RMT TX and listens for
-controller-originated packets through ESP-IDF 5 RMT RX on the same configured
-GPIO.
+The simulator emits playbook packets with software-timed open-drain GPIO pulses
+and listens for controller-originated packets through ESP-IDF 5 RMT RX on the
+same configured GPIO. Software TX is used because bench testing showed ESP-IDF
+RMT TX could report completion on the simulator node without moving the shared
+GPIO pad, while software GPIO pulses were visible and reliable.
 
 In the current implementation, simulator RX behavior is intentionally narrow:
 

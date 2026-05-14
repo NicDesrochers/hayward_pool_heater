@@ -55,6 +55,7 @@
 
 #include <array>
 #include <string>
+#include <vector>
 
 namespace esphome {
 namespace hwp_simulator {
@@ -102,6 +103,7 @@ class HWPSimulator : public Component {
     void process_rx_();
     bool process_rx_symbols_(const esphome::hwp::wire::PulseSymbol* symbols, size_t symbol_count);
     bool emit_packet_(const SimulatorStep& step);
+    bool software_transmit_(const std::vector<esphome::hwp::wire::PulseSymbol>& symbols);
     void wiggle_pin_();
     std::string format_packet_(const SimulatorStep& step) const;
     std::string format_packet_(const Packet& packet, const char* event, const char* packet_id) const;

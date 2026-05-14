@@ -71,6 +71,21 @@ static constexpr uint32_t hwp_sim_rmt_ticks_to_us(uint32_t ticks) {
 
 static constexpr uint32_t HWP_SIM_RMT_MAX_SYMBOL_US =
     hwp_sim_rmt_ticks_to_us(HWP_SIM_RMT_MAX_SYMBOL_TICKS);
+static constexpr uint32_t HWP_SIM_SOFTWARE_IDLE_HIGH_US = 120000;
+
+#ifndef HWP_NATIVE_TEST
+static void hwp_sim_delay_us(uint32_t duration_us) {
+    if (duration_us >= 20000) {
+        delay(duration_us / 1000);
+        const uint32_t remainder_us = duration_us % 1000;
+        if (remainder_us > 0) {
+            delayMicroseconds(remainder_us);
+        }
+        return;
+    }
+    delayMicroseconds(duration_us);
+}
+#endif
 
 void HWPSimulator::setup() {
     if (pin_ != nullptr) {
@@ -480,6 +495,11 @@ bool HWPSimulator::emit_packet_(const SimulatorStep& step) {
     if (!setup_rmt_()) {
         return false;
     }
+    if (software_transmit_(pulse_symbols)) {
+        ESP_LOGI(TAG, "Simulator software transmit complete: %u symbols",
+            static_cast<unsigned>(pulse_symbols.size()));
+        return true;
+    }
 
     std::vector<rmt_symbol_word_t> symbols;
     symbols.reserve(pulse_symbols.size());
@@ -505,6 +525,36 @@ bool HWPSimulator::emit_packet_(const SimulatorStep& step) {
     }
     ESP_LOGI(TAG, "Simulator RMT transmit complete: %u symbols",
         static_cast<unsigned>(symbols.size()));
+    return true;
+#endif
+}
+
+bool HWPSimulator::software_transmit_(
+    const std::vector<esphome::hwp::wire::PulseSymbol>& symbols) {
+#ifdef HWP_NATIVE_TEST
+    return !symbols.empty();
+#else
+    if (pin_ == nullptr || symbols.empty()) {
+        return false;
+    }
+
+    stop_receive_();
+    pin_->pin_mode(gpio::FLAG_INPUT | gpio::FLAG_OUTPUT | gpio::FLAG_OPEN_DRAIN |
+                   gpio::FLAG_PULLUP);
+    for (size_t index = 0; index < symbols.size(); ++index) {
+        const auto& symbol = symbols[index];
+        pin_->digital_write(symbol.level0 != 0);
+        hwp_sim_delay_us(symbol.duration0);
+
+        pin_->digital_write(symbol.level1 != 0);
+        uint32_t duration1 = symbol.duration1;
+        if (index + 1 == symbols.size() && duration1 > HWP_SIM_SOFTWARE_IDLE_HIGH_US) {
+            duration1 = HWP_SIM_SOFTWARE_IDLE_HIGH_US;
+        }
+        hwp_sim_delay_us(duration1);
+    }
+    pin_->digital_write(true);
+    resume_receive_();
     return true;
 #endif
 }

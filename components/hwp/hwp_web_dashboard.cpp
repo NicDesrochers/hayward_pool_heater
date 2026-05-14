@@ -25,6 +25,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <map>
 #include <utility>
 
 #ifndef HWP_NATIVE_TEST
@@ -181,7 +182,9 @@ const char* HWPWebDashboard::index_html() {
 void HWPWebDashboard::update_fields(
     const heat_pump_data_t& data, const std::string& status, bus_mode_t bus_mode) {
     if (!this->config_.enabled) return;
-    this->last_status_ = status;
+    if (!status.empty()) {
+        this->last_status_ = status;
+    }
     this->last_bus_mode_ = bus_mode;
     std::vector<HWPWebField> fields;
     append_field(fields, make_string_field("actual_status", "Actual Status", status, "status", "", "", "local"));
@@ -223,6 +226,18 @@ void HWPWebDashboard::update_fields(
     if (data.f11_speed_control_module.has_value()) append_field(fields, make_string_field("f11_speed_control_module", "F11 Speed Control", data.f11_speed_control_module->to_string(), "fan", "CONFIG_5", "85[2].4", "heater"));
     append_field(fields, make_float_field("f12_min_fan_voltage_pct", "F12 Min Fan Voltage", data.f12_min_fan_voltage_pct, "%", "low_range", "CONFIG_1", "81[10]", "heater"));
     append_field(fields, make_float_field("f13_max_fan_voltage_pct", "F13 Max Fan Voltage", data.f13_max_fan_voltage_pct, "%", "low_range", "CONFIG_2", "82[10]", "heater"));
+
+    std::map<std::string, bool> seen_fields;
+    for (const auto& field : fields) {
+        seen_fields[field.id] = true;
+    }
+    for (const auto& previous : this->fields_) {
+        if (!previous.id.empty() && seen_fields.find(previous.id) == seen_fields.end()) {
+            auto retained = previous;
+            retained.changed = false;
+            fields.push_back(retained);
+        }
+    }
     this->fields_ = fields;
     this->dirty_ = true;
 }

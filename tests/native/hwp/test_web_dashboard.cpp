@@ -86,6 +86,29 @@ void test_field_snapshot_and_graph_trim() {
     assert_contains(json, "\"t\":");
 }
 
+void test_field_snapshot_retains_previous_fields_on_partial_update() {
+    hwp::HWPWebDashboard dashboard;
+    dashboard.configure(hwp::HWPWebConfig{true, "/hwp", 4, 4});
+    hwp::heat_pump_data_t data;
+
+    data.t02_temperature_inlet = 12.5f;
+    data.t04_temperature_coil = 4.0f;
+    dashboard.update_fields(data, "Connected", hwp::BUSMODE_RX);
+
+    hwp::heat_pump_data_t partial;
+    partial.t02_temperature_inlet = 13.0f;
+    dashboard.update_fields(partial, "", hwp::BUSMODE_RX);
+
+    const auto json = dashboard.state_json();
+    assert_contains(json, "\"status\":\"Connected\"");
+    assert_contains(json, "\"id\":\"t02_inlet\"");
+    assert_contains(json, "\"value\":\"13.0\"");
+    assert_contains(json, "\"id\":\"t04_coil\"");
+    assert_contains(json, "\"value\":\"4.0\"");
+    assert(dashboard.graph_point_count("t02_inlet") == 2);
+    assert(dashboard.graph_point_count("t04_coil") == 1);
+}
+
 void test_index_html_contains_annotation_helper() {
     const std::string html = hwp::HWPWebDashboard::index_html();
     assert_contains(html, "Values");
@@ -111,6 +134,7 @@ void test_index_html_contains_annotation_helper() {
 int main() {
     test_packet_ring_buffer_and_changed_bytes();
     test_field_snapshot_and_graph_trim();
+    test_field_snapshot_retains_previous_fields_on_partial_update();
     test_index_html_contains_annotation_helper();
     return 0;
 }

@@ -478,6 +478,7 @@ void IRAM_ATTR Bus::finalize_frame(bool timeout) {
         ESP_LOGVV(TAG_BUS, "New Frame finalized %s", timeout ? "after timeout" : "");
         if (this->web_dashboard_ != nullptr) {
             this->web_dashboard_->record_packet(*finalized_frame, finalized_frame->is_changed() ? "Chg" : "Same");
+            this->web_dashboard_->update_fields(*this->hp_data_, "", this->mode);
         }
         if (finalized_frame->get_source() == SOURCE_CONTROLLER) {
             this->controler_packets_received_ = true;

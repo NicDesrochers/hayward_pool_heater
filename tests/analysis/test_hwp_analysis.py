@@ -55,6 +55,8 @@ from analysis.hwp_sim_orchestrate import (
     build_parser as build_sim_orchestrator_parser,
     entity_matches,
     find_entity,
+    load_env_file,
+    prepare_args,
     transcript_event_json,
 )
 from analysis.hwp_annotation_fixtures import load_annotation_fixture_file
@@ -191,6 +193,79 @@ class HwpSimulatorOrchestratorTest(unittest.TestCase):
         self.assertEqual(args.action, "transcript")
         self.assertEqual(args.duration, 1.5)
         self.assertEqual(args.firmware_device, "heater.local")
+
+    def test_connection_defaults_can_load_repo_env_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            env_file = Path(tmp) / ".env"
+            env_file.write_text(
+                "\n".join(
+                    [
+                        "SIMULATOR_NET_NAME=simulator.local",
+                        "SIMULATOR_API_KEY='sim-secret'",
+                        "TEST_DEVICE_NET_NAME=test.local",
+                        "TEST_DEVICE_API_KEY=test-secret",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            args = build_sim_orchestrator_parser().parse_args(
+                ["--env-file", str(env_file), "transcript", "--duration", "1", "--out", "-"]
+            )
+            prepare_args(args)
+
+            self.assertEqual(args.device, "simulator.local")
+            self.assertEqual(args.api_key, "sim-secret")
+            self.assertIsNone(args.firmware_device)
+
+    def test_connection_defaults_fill_firmware_key_when_requested(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            env_file = Path(tmp) / ".env"
+            env_file.write_text(
+                "SIMULATOR_NET_NAME=simulator.local\n"
+                "TEST_DEVICE_NET_NAME=test.local\n"
+                "TEST_DEVICE_API_KEY=test-secret\n",
+                encoding="utf-8",
+            )
+
+            args = build_sim_orchestrator_parser().parse_args(
+                [
+                    "--env-file",
+                    str(env_file),
+                    "transcript",
+                    "--duration",
+                    "1",
+                    "--out",
+                    "-",
+                    "--firmware-device",
+                    "",
+                ]
+            )
+            prepare_args(args)
+
+            self.assertEqual(args.firmware_device, "test.local")
+            self.assertEqual(args.firmware_api_key, "test-secret")
+
+    def test_empty_device_fails_before_zeroconf(self):
+        args = build_sim_orchestrator_parser().parse_args(
+            ["--env-file", "/does/not/exist", "--device", "", "command", "step"]
+        )
+
+        with self.assertRaisesRegex(SystemExit, "Missing simulator device address"):
+            prepare_args(args)
+
+    def test_load_env_file_strips_quotes_and_ignores_comments(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            env_file = Path(tmp) / ".env"
+            env_file.write_text(
+                "# local secrets\nSIMULATOR_NET_NAME=\"sim.local\"\nSIMULATOR_API_KEY='secret'\n",
+                encoding="utf-8",
+            )
+
+            self.assertEqual(
+                load_env_file(env_file),
+                {"SIMULATOR_NET_NAME": "sim.local", "SIMULATOR_API_KEY": "secret"},
+            )
 
     def test_transcript_event_json_includes_entity_metadata(self):
         entity = EntitySummary(

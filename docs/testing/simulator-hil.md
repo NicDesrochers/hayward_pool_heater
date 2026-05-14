@@ -56,6 +56,15 @@ python -m analysis.hwp_sim_orchestrate --device <sim-node> command step
 python -m analysis.hwp_sim_orchestrate --device <sim-node> transcript --duration 60 --out sim-session.jsonl --firmware-device <firmware-node>
 ```
 
+From the repo root, the CLI reads `.env` by default. If `SIMULATOR_NET_NAME`
+and `SIMULATOR_API_KEY` are present, the simulator connection arguments can be
+omitted:
+
+```sh
+python -m analysis.hwp_sim_orchestrate list
+python -m analysis.hwp_sim_orchestrate command step
+```
+
 Run production firmware logs separately from Home Assistant, ESPHome dashboard, or the firmware web dashboard at `/hwp`.
 
 The transcript command subscribes to ESPHome native API state updates from the simulator node and, optionally, the production firmware node. It records JSONL entries with device, entity key/name/object id, entity kind, state value, and UTC timestamp. This is meant to help agents correlate simulator playbook steps, controller commands, simulator echoes, and firmware diagnostics without exposing raw UART passthrough.

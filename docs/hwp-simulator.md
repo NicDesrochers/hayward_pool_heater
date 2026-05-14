@@ -195,6 +195,15 @@ python -m analysis.hwp_sim_orchestrate --device hwp-simulator.local set-playbook
 python -m analysis.hwp_sim_orchestrate --device hwp-simulator.local command step
 ```
 
+When running from the repo root, the CLI also reads `.env` by default. If that
+file contains `SIMULATOR_NET_NAME` and `SIMULATOR_API_KEY`, the simulator
+address and API key can be omitted:
+
+```sh
+python -m analysis.hwp_sim_orchestrate list
+python -m analysis.hwp_sim_orchestrate command step
+```
+
 Capture a two-node API transcript:
 
 ```sh
@@ -205,6 +214,9 @@ python -m analysis.hwp_sim_orchestrate \
   --out sim-session.jsonl \
   --firmware-device hayward-heater-test.local
 ```
+
+If you pass `--firmware-device ""` and `.env` contains `TEST_DEVICE_NET_NAME`,
+the CLI fills the firmware address and `TEST_DEVICE_API_KEY` from `.env`.
 
 The transcript is JSONL. Each line records a simulator or firmware entity state
 change with device, entity key/name/object id, entity kind, state, and UTC

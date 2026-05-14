@@ -31,9 +31,11 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Iterable
 
 
@@ -102,6 +104,43 @@ def transcript_event_json(device: str, state, entity_map: dict[int, EntitySummar
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
     return json.dumps(payload, sort_keys=True)
+
+
+def load_env_file(path: str | Path) -> dict[str, str]:
+    env_path = Path(path)
+    if not env_path.exists():
+        return {}
+    values: dict[str, str] = {}
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip("'\"")
+        if key:
+            values[key] = value
+    return values
+
+
+def value_or_env(value: str | None, env: dict[str, str], name: str) -> str:
+    if value is not None and value.strip():
+        return value.strip()
+    return env.get(name, os.environ.get(name, "")).strip()
+
+
+def prepare_args(args) -> None:
+    env = load_env_file(args.env_file)
+    args.device = value_or_env(args.device, env, "SIMULATOR_NET_NAME")
+    args.api_key = value_or_env(args.api_key, env, "SIMULATOR_API_KEY")
+    if hasattr(args, "firmware_device") and args.firmware_device is not None:
+        args.firmware_device = value_or_env(args.firmware_device, env, "TEST_DEVICE_NET_NAME")
+        args.firmware_api_key = value_or_env(args.firmware_api_key, env, "TEST_DEVICE_API_KEY")
+    if not args.device:
+        raise SystemExit(
+            "Missing simulator device address. Pass `--device <host>` or set "
+            "SIMULATOR_NET_NAME in the environment or .env file."
+        )
 
 
 async def connect_client(args):
@@ -219,7 +258,12 @@ async def run(args) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--device", required=True, help="Simulator ESPHome node address")
+    parser.add_argument(
+        "--env-file",
+        default=".env",
+        help="Optional env file for SIMULATOR_* and TEST_DEVICE_* connection values",
+    )
+    parser.add_argument("--device", help="Simulator ESPHome node address")
     parser.add_argument("--api-key", default="", help="ESPHome native API encryption key")
     parser.add_argument("--port", type=int, default=6053, help="ESPHome native API port")
 
@@ -242,6 +286,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    prepare_args(args)
     return asyncio.run(run(args))
 
 

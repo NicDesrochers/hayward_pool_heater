@@ -18,7 +18,7 @@ The useful protocol and fan-control work has been folded into this repo through 
 | F02-F13 fan command surface | Merged | Helper controls feed `HWPCall`; frame control paths restore tmp parity; representative byte mutations are covered by native tests |
 | `convert_capture.py` capture conversion | Deferred | Rebuild as a repo-native tool with stdlib tests if capture import becomes a priority |
 | Log tagger/annotator workflow | Deferred | Keep as workflow reference; do not import Tk/UI tooling without a manual-analysis feature slice |
-| Arduino simulator shell and scheduling model | Deferred | Useful concepts for future automation, but not default CI and not imported wholesale |
+| Arduino simulator shell and scheduling model | Replaced | Old architecture remains reference-only; packet corpus and timing/playbook concepts now feed the first-class ESPHome `hwp_simulator` component |
 | Generic `SensorCtrl`/`BoundaryCtrl` helper model | Deferred | Could reduce boilerplate later, but current explicit helpers are easier to audit around active heater control |
 | Wholesale `climate.py` rewrite | Rejected | Too broad and mixed with unrelated design changes; useful schema ideas were imported in smaller slices |
 | `global_hp_data_members` / `HWPCall` inheritance model | Rejected | Current explicit `HWPCall` fields are simpler to review and avoid a broad core-design shift |

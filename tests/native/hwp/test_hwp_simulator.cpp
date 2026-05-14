@@ -1,0 +1,255 @@
+/**
+ *
+ * Copyright (c) 2024 S. Leclerc (sle118@hotmail.com)
+ *
+ * This file is part of the Pool Heater Controller component project.
+ *
+ * @project Pool Heater Controller Component
+ * @developer S. Leclerc (sle118@hotmail.com)
+ *
+ * @license MIT License
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ *
+ * @disclaimer Use at your own risk. The developer assumes no responsibility
+ * for any damage or loss caused by the use of this software.
+ */
+#include "hwp_simulator_engine.h"
+
+#include <cassert>
+#include <string>
+
+using esphome::hwp::wire::Packet;
+using esphome::hwp::wire::PacketSource;
+using esphome::hwp::wire::checksum_valid;
+using esphome::hwp::wire::decode_packet_symbols;
+using esphome::hwp::wire::encode_packet_symbols;
+using esphome::hwp::wire::refresh_checksum;
+using esphome::hwp_simulator::Playbook;
+using esphome::hwp_simulator::SimulatorEngine;
+using esphome::hwp_simulator::find_catalog_packet;
+using esphome::hwp_simulator::playbook_from_string;
+using esphome::hwp_simulator::playbook_to_string;
+
+void test_wire_codec_round_trip_heater_long_packet() {
+    const auto* packet = find_catalog_packet("base-config-5-normal");
+    assert(packet != nullptr);
+    auto symbols = encode_packet_symbols(
+        packet->packet.data.data(), packet->packet.length, PacketSource::HEATER, true);
+    assert(symbols.size() == 1 + packet->packet.length * 8 + 1);
+
+    Packet decoded;
+    assert(decode_packet_symbols(symbols.data(), symbols.size(), PacketSource::HEATER, decoded));
+    assert(decoded.length == packet->packet.length);
+    assert(decoded.data[0] == 0x85);
+    assert(decoded.data[11] == 0x45);
+}
+
+void test_wire_codec_round_trip_short_packet() {
+    const auto* packet = find_catalog_packet("base-cond-d");
+    assert(packet != nullptr);
+    auto symbols = encode_packet_symbols(
+        packet->packet.data.data(), packet->packet.length, PacketSource::HEATER, true);
+    Packet decoded;
+    assert(decode_packet_symbols(symbols.data(), symbols.size(), PacketSource::HEATER, decoded));
+    assert(decoded.length == 9);
+    assert(decoded.data[0] == 0xDD);
+    assert(decoded.data[8] == 0x48);
+}
+
+void test_wire_codec_round_trip_controller_command() {
+    const auto* packet = find_catalog_packet("base-config-5-normal");
+    assert(packet != nullptr);
+    Packet command = packet->packet;
+    command.source = PacketSource::CONTROLLER;
+    command.data[2] = 0x40;
+    command.data[4] = 0x1E;
+    refresh_checksum(command.data.data(), command.length);
+    assert(command.data[11] == 0x85);
+
+    auto symbols =
+        encode_packet_symbols(command.data.data(), command.length, PacketSource::CONTROLLER, true);
+    Packet decoded;
+    assert(decode_packet_symbols(symbols.data(), symbols.size(), PacketSource::CONTROLLER, decoded));
+    assert(decoded.source == PacketSource::CONTROLLER);
+    assert(decoded.length == 12);
+    assert(decoded.data[0] == 0x85);
+    assert(decoded.data[2] == 0x40);
+    assert(decoded.data[11] == 0x85);
+}
+
+void test_playbook_mapping() {
+    assert(playbook_from_string("normal_idle").value() == Playbook::NORMAL_IDLE);
+    assert(std::string(playbook_to_string(Playbook::RX_STRESS)) == "rx_stress");
+    assert(!playbook_from_string("surprise").has_value());
+}
+
+void test_normal_idle_steps() {
+    SimulatorEngine engine;
+    engine.set_playbook(Playbook::NORMAL_IDLE);
+    engine.set_active(true);
+
+    auto step = engine.step_once();
+    assert(step.has_packet);
+    assert(std::string(step.event) == "normal_idle");
+    assert(checksum_valid(step.packet.data.data(), step.packet.length));
+    assert(engine.stats().step == 1);
+    assert(engine.stats().packet_count == 1);
+}
+
+void test_interval_scale_and_pause() {
+    SimulatorEngine engine;
+    engine.set_playbook(Playbook::CONFIG_REFRESH);
+    engine.set_interval_scale(0.5f);
+    engine.set_active(true);
+    auto step = engine.step_once();
+    assert(step.delay_ms > 0);
+    assert(step.delay_ms < 11000);
+
+    engine.set_active(false);
+    auto paused = engine.step_once();
+    assert(!paused.has_packet);
+    assert(std::string(paused.event) == "paused");
+}
+
+void test_config5_command_echo() {
+    const auto* command = find_catalog_packet("base-config-5-normal");
+    assert(command != nullptr);
+    Packet controller_packet = command->packet;
+    controller_packet.source = PacketSource::CONTROLLER;
+    controller_packet.data[2] = 0x40;
+    controller_packet.data[4] = 0x1E;
+    controller_packet.data[11] = 0x85;
+
+    SimulatorEngine engine;
+    auto echo = engine.handle_controller_packet(controller_packet);
+    assert(echo.has_value());
+    assert(echo->has_packet);
+    assert(std::string(echo->packet_id) == "base-config-5-eco-echo");
+    assert(echo->packet.data[2] == 0x40);
+    assert(echo->packet.data[4] == 0x4A);
+    assert(echo->packet.data[11] == 0xB1);
+}
+
+void test_receive_controller_config5_eco_echo() {
+    const auto* command_base = find_catalog_packet("base-config-5-normal");
+    assert(command_base != nullptr);
+    Packet command = command_base->packet;
+    command.source = PacketSource::CONTROLLER;
+    command.data[2] = 0x40;
+    command.data[4] = 0x1E;
+    refresh_checksum(command.data.data(), command.length);
+
+    SimulatorEngine engine;
+    auto result = engine.receive_controller_packet(command);
+
+    assert(result.accepted);
+    assert(result.has_echo);
+    assert(std::string(result.status) == "echoed controller packet");
+    assert(std::string(result.echo.packet_id) == "base-config-5-eco-echo");
+    assert(result.echo.packet.data[2] == 0x40);
+    assert(result.echo.packet.data[4] == 0x4A);
+    assert(result.echo.packet.data[11] == 0xB1);
+    assert(engine.stats().rx_packet_count == 1);
+    assert(engine.stats().echo_count == 1);
+}
+
+void test_receive_controller_config5_normal_echo() {
+    const auto* eco_echo = find_catalog_packet("base-config-5-eco-echo");
+    assert(eco_echo != nullptr);
+    Packet command = eco_echo->packet;
+    command.source = PacketSource::CONTROLLER;
+    command.data[2] = 0x00;
+    command.data[4] = 0x4A;
+    refresh_checksum(command.data.data(), command.length);
+    assert(command.data[11] == 0x71);
+
+    SimulatorEngine engine;
+    auto result = engine.receive_controller_packet(command);
+
+    assert(result.accepted);
+    assert(result.has_echo);
+    assert(std::string(result.echo.packet_id) == "base-config-5-normal");
+    assert(result.echo.packet.data[2] == 0x00);
+    assert(result.echo.packet.data[4] == 0x1E);
+    assert(result.echo.packet.data[11] == 0x45);
+}
+
+void test_receive_controller_unknown_valid_packet_records_without_echo() {
+    const auto* config_1 = find_catalog_packet("base-config-1");
+    assert(config_1 != nullptr);
+    Packet command = config_1->packet;
+    command.source = PacketSource::CONTROLLER;
+
+    SimulatorEngine engine;
+    auto result = engine.receive_controller_packet(command);
+
+    assert(result.accepted);
+    assert(!result.has_echo);
+    assert(std::string(result.status) == "accepted controller packet");
+    assert(engine.stats().rx_packet_count == 1);
+    assert(engine.stats().echo_count == 0);
+    assert(engine.stats().error_count == 0);
+}
+
+void test_receive_controller_rejects_invalid_packets_without_echo() {
+    const auto* config_5 = find_catalog_packet("base-config-5-normal");
+    assert(config_5 != nullptr);
+
+    Packet bad_checksum = config_5->packet;
+    bad_checksum.source = PacketSource::CONTROLLER;
+    bad_checksum.data[11] ^= 0x01;
+
+    SimulatorEngine engine;
+    auto checksum_result = engine.receive_controller_packet(bad_checksum);
+    assert(!checksum_result.accepted);
+    assert(!checksum_result.has_echo);
+    assert(engine.stats().error_count == 1);
+
+    Packet wrong_source = config_5->packet;
+    auto source_result = engine.receive_controller_packet(wrong_source);
+    assert(!source_result.accepted);
+    assert(!source_result.has_echo);
+    assert(engine.stats().error_count == 2);
+}
+
+void test_stress_playbook_counts_invalid_checksum() {
+    SimulatorEngine engine;
+    engine.set_playbook(Playbook::RX_STRESS);
+    engine.set_active(true);
+    engine.step_once();
+    engine.step_once();
+    assert(engine.stats().error_count == 1);
+}
+
+int main() {
+    test_wire_codec_round_trip_heater_long_packet();
+    test_wire_codec_round_trip_short_packet();
+    test_wire_codec_round_trip_controller_command();
+    test_playbook_mapping();
+    test_normal_idle_steps();
+    test_interval_scale_and_pause();
+    test_config5_command_echo();
+    test_receive_controller_config5_eco_echo();
+    test_receive_controller_config5_normal_echo();
+    test_receive_controller_unknown_valid_packet_records_without_echo();
+    test_receive_controller_rejects_invalid_packets_without_echo();
+    test_stress_playbook_counts_invalid_checksum();
+    return 0;
+}

@@ -31,7 +31,8 @@ param(
     [string[]] $Fixtures = @(
         "tests/components/hwp/test.esp32-idf.yaml",
         "tests/components/hwp/test.esp32-idf-pulse-debug.yaml",
-        "tests/components/hwp/test.esp32-idf-web-ui.yaml"
+        "tests/components/hwp/test.esp32-idf-web-ui.yaml",
+        "examples/hwp-simulator.yaml"
     )
 )
 

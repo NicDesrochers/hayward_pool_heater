@@ -49,6 +49,7 @@ Community examples are collected under [docs/success-stories](docs/success-stori
 - **Send Commands:** Control your pool heater by sending commands such as setting the mode, adjusting temperatures, and turning the heater on or off.
 - **Seamless Integration with Home Assistant:** Utilize the powerful capabilities of Home Assistant to automate and monitor your pool heater.
 - **Optional Device-Served Field Dashboard:** When ESPHome `web_server:` is enabled, the component can serve a read-only HWP dashboard directly from the ESP32 at `/hwp`. This tablet-friendly view shows parsed values, recent packets, and simple trends without needing to carry a laptop running the Python annotator.
+- **Optional Bench Simulator:** A separate ESPHome `hwp_simulator` component can run on a second ESP32 and replay fixture-derived heater traffic for bench testing. See [docs/hwp-simulator.md](docs/hwp-simulator.md) for setup, supported playbooks, API entities, and the current CONFIG_5-only echo boundary.
 
 ## Hardware Requirements
 
@@ -165,6 +166,31 @@ external_components:
 ```
 
 For reproducible testing, pin `source` to a commit SHA instead of a moving branch. The component logs its build revision at startup as `HWP component revision: ...` and includes the same `component_revision` in `dump_config`, which is the quickest way to confirm the firmware actually contains the expected component code.
+
+#### Optional HWP Simulator
+
+For bench testing without a live heater, flash a second ESP32 with the `hwp_simulator` component. The simulator exposes ESPHome API entities for playbooks, start/pause/step/reset controls, command injection, and diagnostics. It can replay known heater packets and currently responds to fixture-backed `CONFIG_5` D06 defrost ECO/NORMAL controller commands.
+
+```yaml
+external_components:
+  - source: github://sle118/hayward_pool_heater
+    components: [hwp_simulator]
+    refresh: 0s
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+hwp_simulator:
+  id: hwp_sim
+  pin_txrx: GPIO16
+  startup_playbook: normal_idle
+  packet_buffer_size: 120
+  active_on_boot: false
+```
+
+The simulator is documented in [docs/hwp-simulator.md](docs/hwp-simulator.md), with the bench HIL workflow in [docs/testing/simulator-hil.md](docs/testing/simulator-hil.md). It is a repeatable regression/stability tool, not a substitute for supervised validation on real heater hardware.
 
 ### Future Goals
 This project aims to eventually be merged into the official ESPHome repository, making it easier for users to integrate and use the Hayward pool heater component. Before it can get there, more protocol analysis will be needed, especially to understand how states are communicated back (compressor running/standby, etc). For example, these error conditions should be decoded:

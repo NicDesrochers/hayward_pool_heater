@@ -10,7 +10,8 @@ This repo is now developed inside the ESPHome devcontainer. Read:
 4. `docs/protocol/menu-packet-map.md` before protocol, helper, or active-control changes.
 5. `docs/protocol/research-backlog.md` for uncertain fields that need human analysis.
 6. `analysis/README.md` for field annotator, firmware web dashboard, annotation export, and screenshot capture workflow.
-7. `docs/tmp-hwp-salvage.md` only if a task explicitly needs archival tmp reference material.
+7. `docs/hwp-simulator.md` for user-facing simulator setup, entities, playbooks, commands, and current echo boundary.
+8. `docs/tmp-hwp-salvage.md` only if a task explicitly needs archival tmp reference material.
 
 ## Current State
 
@@ -39,6 +40,11 @@ climate:
   The default path is `/hwp`; `/hwp/state.json` returns the latest decoded fields, latest frame snapshots, packet buffer, retained graph samples, revision, bus mode, and status; `/hwp/events` streams SSE updates. It is a tablet-friendly field-analysis view only, not a heater-control or annotation surface.
 - The firmware web dashboard has **Values**, **Frames**, **Packets**, and **Graphs** tabs. `Frames` is a browser-independent latest-frame snapshot for each frame/source/length, including unknown packets. `Graphs` uses a firmware-retained sliding sample window so a newly opened browser starts with recent data; the browser draws this with the embedded canvas renderer, not an external chart CDN. The browser-local **Annotate** helper is fixed to the bottom of the viewport; it stores `Start`, `End`, and `Mark Event` entries in `localStorage`, exports JSON from the browser, and does not persist data on the ESP32. Keep raw exports local unless a field session produces evidence worth curating into fixtures or notes.
 - Web UI screenshots can be regenerated from a live device with `python -m analysis.hwp_web_capture --base-url http://<device-address>/hwp --out-dir analysis/screenshots --readme-size tablet`. `analysis/screenshots/*` is generated and ignored by default except for the curated README tablet image. The analysis workflow and safety notes live in `analysis/README.md`.
+- A first-class simulator component now lives in `components/hwp_simulator/`. It is a separate ESPHome component for a separate ESP32 bridge node, with an entity-first API surface for playbook, active state, interval scale, command input, start/pause/step/reset/inject buttons, and diagnostic sensors. `examples/hwp-simulator.yaml` compiles as the simulator fixture.
+- User-facing simulator setup is documented in `docs/hwp-simulator.md`; keep that file aligned with `examples/hwp-simulator.yaml` and the component schema when changing simulator options or entities.
+- The simulator engine is fixture-derived and native-tested. Playbooks cover `normal_idle`, `config_refresh`, `active_defrost_echo`, `rx_stress`, and `paused`; the CONFIG_5 D06 defrost command/echo behavior is pinned to the active-TX fixture evidence. The firmware component emits playbook packets through ESP-IDF 5 RMT TX and listens for controller-originated packets through ESP-IDF 5 RMT RX on the configured half-duplex pin.
+- Simulator RX/listen support is intentionally narrow: checksum-valid controller `CONFIG_5` D06 ECO/NORMAL commands emit the fixture-backed heater echo packets. Unknown valid controller packets update diagnostics only; invalid checksum/length packets increment simulator errors and do not produce synthetic heater behavior.
+- Simulator orchestration should use ESPHome native API entities instead of raw UART whenever possible. Start with `python -m analysis.hwp_sim_orchestrate --device <sim-node> list`, then use `set-playbook` or `command` against the simulator text entity. Use `python -m analysis.hwp_sim_orchestrate --device <sim-node> transcript --duration 60 --out sim-session.jsonl --firmware-device <firmware-node>` to capture a two-node API transcript. Workstation use needs `aioesphomeapi`, the same optional dependency used by the GUI annotator.
 - Manual annotation windows are parsed by the same CLI. Use `python -m analysis.hwp_analyze annotations --input tmp/hwp/POOL_esphome_logs.log.2024-11-01` and `prove-annotations` for curated tagger windows.
 - The first native C++ seam lives in `components/hwp/protocol_core.*` and covers dependency-light packet helpers plus fan mode, defrost, flow-meter, and heat-pump restriction conversions.
 - Component-local adapter headers keep climate/logger/time/RMT coupling out of core frame tests where practical. `HWP_NATIVE_TEST` uses those adapters to compile runtime frame contracts without full ESPHome or hardware RMT dependencies.
@@ -85,6 +91,7 @@ python -m analysis.hwp_analyze active-tx --fixture tests/fixtures/active_tx/hwp_
 python -m analysis.hwp_analyze evidence --menu --limit 25
 python -m analysis.hwp_logs_annotator --help
 python -m analysis.hwp_web_capture --help
+python -m analysis.hwp_sim_orchestrate --help
 python -m analysis.hwp_analyze prove --input tmp/hwp/POOL_esphome_logs.log --fixture tests/fixtures/packets/hwp_hardware_log_2025_06_24.json
 python -m analysis.hwp_analyze prove-annotations --input tmp/hwp/POOL_esphome_logs.log.2024-11-01 --fixture tests/fixtures/annotations/hwp_annotated_fan_control_2024_11_01.json
 ./scripts/test-esphome.sh --local
@@ -92,7 +99,7 @@ git diff --check
 bash -n scripts/test-esphome.sh scripts/test-native.sh
 ```
 
-The local runner validated and compiled the normal, pulse-debug, and web-dashboard ESPHome fixtures after Python and native tests. Generated output stayed outside the repo.
+The local runner validated and compiled the normal, pulse-debug, web-dashboard, and simulator ESPHome fixtures after Python and native tests. Generated output stayed outside the repo.
 
 ## Suggested Next Steps
 
@@ -108,6 +115,7 @@ Good candidates:
 - add the next low-level native seam for queue behavior
 - extract capture conversion as repo-native tooling
 - document simulator feasibility using fixture replay versus Arduino/PlatformIO versus ESPHome/QEMU
+- run the first two-node simulator HIL session with `hwp_sim_orchestrate transcript`, then decide whether to add more fixture-backed command/echo rules or improve timing/fault playbooks
 - probe QEMU or ESPHome `host:` only as feasibility work
 
 QEMU and ESPHome `host:` remain later feasibility slices, not the default runner.

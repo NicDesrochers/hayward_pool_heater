@@ -34,6 +34,7 @@ protocol_binary="$build_dir/test_protocol_core"
 frame_binary="$build_dir/test_frame_contracts"
 decoder_binary="$build_dir/test_decoder_pulses"
 web_dashboard_binary="$build_dir/test_web_dashboard"
+hwp_simulator_binary="$build_dir/test_hwp_simulator"
 
 mkdir -p "$build_dir"
 
@@ -119,5 +120,20 @@ mkdir -p "$build_dir"
   -o "$web_dashboard_binary"
 
 "$web_dashboard_binary"
+
+/usr/bin/g++ \
+  -std=c++17 \
+  -DHWP_NATIVE_TEST \
+  -Wall \
+  -Wextra \
+  -Werror \
+  -Wno-unused-parameter \
+  -I"$repo_root/components/hwp" \
+  -I"$repo_root/components/hwp_simulator" \
+  "$repo_root/tests/native/hwp/test_hwp_simulator.cpp" \
+  "$repo_root/components/hwp_simulator/hwp_simulator_engine.cpp" \
+  -o "$hwp_simulator_binary"
+
+"$hwp_simulator_binary"
 
 echo "Native tests passed."

@@ -2,7 +2,7 @@
 
 ## Current Focus
 
-The tmp merge track is closed. The current hardware-test focus has moved from reboot isolation to supervised field validation: ESP-IDF 5 RMT passive RX is stable on hardware, and CONFIG_5 defrost eco/normal active TX is now captured as reusable fixture evidence. Analysis tooling is now the active support track for finding the remaining unknown frame content during field sessions.
+The tmp merge track is closed. The current hardware-test focus has moved from reboot isolation to supervised field validation and repeatable simulator-backed testing: ESP-IDF 5 RMT passive RX is stable on hardware, CONFIG_5 defrost eco/normal active TX is captured as reusable fixture evidence, and a first-class ESPHome simulator node can now replay fixture-derived playbooks through API-controlled entities. Analysis tooling remains the active support track for finding the remaining unknown frame content during field sessions.
 
 ## Testing Track
 
@@ -35,6 +35,8 @@ The tmp merge track is closed. The current hardware-test focus has moved from re
 | TEST-085 | GUI live log controls | Done | Field tool can change API log level, request dump-config refresh, and invoke restart when a restart button exists | Uses native API log resubscription and button command; no generic reboot is attempted without a restart button entity |
 | TEST-086 | Firmware-served HWP web dashboard | Done | ESPHome devices with `web_server:` can serve a tablet-friendly HWP dashboard directly from `/hwp` | Optional `web_ui` config registers authenticated `/hwp`, `/hwp/state.json`, and `/hwp/events`; Values, Frames, Packets, and retained Graphs are read-only field-analysis views |
 | TEST-087 | Firmware web annotation and capture tooling | Done | Tablet field sessions can mark browser-local annotations and regenerate web UI screenshots | `/hwp` annotations export JSON from localStorage; `python -m analysis.hwp_web_capture` captures phone/tablet/desktop screenshots; `analysis/README.md` documents regeneration and generated screenshot policy |
+| TEST-088 | First-class ESPHome HWP simulator | Done | A separate ESP32 simulator node exposes API entities, fixture-derived playbooks, native engine tests, and an ESPHome compile fixture | `components/hwp_simulator/` drives playbook packets through ESP-IDF 5 RMT TX and is controlled through select/switch/number/button/text entities; user setup lives in `docs/hwp-simulator.md` |
+| TEST-089 | Simulator RX/listen hardening | Done | Simulator listens for controller-originated packets and emits fixture-backed CONFIG_5 D06 echoes | ESP-IDF 5 RMT RX is initialized before TX on the shared GPIO; diagnostics expose last RX/echo and `hwp_sim_orchestrate transcript` records API entity updates as JSONL |
 | TEST-070 | QEMU target test feasibility | Planned | Document install needs and prove one minimal ESP-IDF/ESP32 QEMU test app can run | Devcontainer has Debian `qemu-system-xtensa`, but not ESP-IDF or an ESP32 QEMU machine yet |
 | TEST-080 | ESPHome host-platform feasibility | Blocked | Host compile/run path exists or blocker is documented | Current component is ESP32/RMT-bound |
 | TEST-090 | Manual hardware-in-the-loop procedures | Done | Passive and active-control validation procedures are documented | See `docs/testing/manual-hil.md`; not default CI |
@@ -51,6 +53,7 @@ The tmp merge track is closed. The current hardware-test focus has moved from re
 | ENV-060 | Reference tree hygiene | Done | Copied research trees stay ignored and documented as reference-only | `tmp/` is ignored; see `docs/tmp-hwp-salvage.md` |
 | ENV-070 | Tk field-tool support | Done | Devcontainer declares Tk runtime support for the GUI annotator | Automated tests remain display-free; rebuild the devcontainer before first GUI use |
 | ENV-080 | External-component revision visibility | Done | Firmware logs expose a component revision marker so hardware rebuilds can be verified | Bump `components/hwp/hwp_version.h`; use `external_components.refresh: 0s` or commit-pin during branch testing |
+| ENV-090 | Simulator orchestration CLI | Done | Agents can discover and command a simulator ESPHome node without raw UART passthrough | `python -m analysis.hwp_sim_orchestrate --device <host> list`; commands use `aioesphomeapi` and the simulator text entity |
 
 ## Component Stabilization
 

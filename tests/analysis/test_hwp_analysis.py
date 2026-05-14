@@ -27,6 +27,7 @@
 import contextlib
 import io
 import argparse
+import json
 import struct
 import tempfile
 import time
@@ -48,6 +49,13 @@ from analysis.hwp_logs_annotator import (
     format_profiles,
     is_restart_button_entity,
     setup_profile_interactive,
+)
+from analysis.hwp_sim_orchestrate import (
+    EntitySummary,
+    build_parser as build_sim_orchestrator_parser,
+    entity_matches,
+    find_entity,
+    transcript_event_json,
 )
 from analysis.hwp_annotation_fixtures import load_annotation_fixture_file
 from analysis.hwp_fixtures import (
@@ -133,6 +141,72 @@ class SwitchInfo:
         self.name = "Restart"
         self.object_id = "restart"
         self.device_class = "restart"
+
+
+class DummyEntityState:
+    def __init__(self, key, state):
+        self.key = key
+        self.state = state
+
+
+class HwpSimulatorOrchestratorTest(unittest.TestCase):
+    def test_entity_matching_uses_name_or_object_id(self):
+        entity = EntitySummary(
+            key=12,
+            name="HWP Simulator Command",
+            object_id="hwp_sim_command",
+            kind="TextInfo",
+        )
+
+        self.assertTrue(entity_matches(entity, "command"))
+        self.assertTrue(entity_matches(entity, "sim_command"))
+        self.assertFalse(entity_matches(entity, "playbook"))
+
+    def test_find_entity_returns_first_matching_entity(self):
+        entities = [
+            EntitySummary(1, "Other", "other", "SensorInfo"),
+            EntitySummary(2, "HWP Simulator Playbook", "hwp_sim_playbook", "SelectInfo"),
+        ]
+
+        found = find_entity(entities, "playbook")
+
+        self.assertIsNotNone(found)
+        self.assertEqual(found.key, 2)
+
+    def test_transcript_parser_accepts_firmware_node(self):
+        args = build_sim_orchestrator_parser().parse_args(
+            [
+                "--device",
+                "sim.local",
+                "transcript",
+                "--duration",
+                "1.5",
+                "--out",
+                "capture.jsonl",
+                "--firmware-device",
+                "heater.local",
+            ]
+        )
+
+        self.assertEqual(args.action, "transcript")
+        self.assertEqual(args.duration, 1.5)
+        self.assertEqual(args.firmware_device, "heater.local")
+
+    def test_transcript_event_json_includes_entity_metadata(self):
+        entity = EntitySummary(
+            key=42,
+            name="HWP Simulator Last RX Frame",
+            object_id="hwp_sim_last_rx_frame",
+            kind="TextSensorInfo",
+        )
+
+        line = transcript_event_json("sim.local", DummyEntityState(42, "rx 0x85"), {42: entity})
+        payload = json.loads(line)
+
+        self.assertEqual(payload["event"], "entity.state")
+        self.assertEqual(payload["device"], "sim.local")
+        self.assertEqual(payload["name"], "HWP Simulator Last RX Frame")
+        self.assertEqual(payload["state"], "rx 0x85")
 
 
 COND2_TEMPERATURE_LINE = (

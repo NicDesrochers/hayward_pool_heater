@@ -1,0 +1,29 @@
+esphome:
+  name: hwp-simulator
+  friendly_name: HWP Simulator
+
+logger:
+
+api:
+
+wifi:
+  ssid: test
+  password: testpassword
+
+external_components:
+  - source:
+      type: local
+      path: ../components
+    components: [hwp_simulator]
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+hwp_simulator:
+  id: hwp_sim
+  pin_txrx: GPIO16
+  startup_playbook: normal_idle
+  packet_buffer_size: 120
+  active_on_boot: false

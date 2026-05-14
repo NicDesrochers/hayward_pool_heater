@@ -75,11 +75,13 @@ static constexpr uint32_t HWP_SIM_RMT_MAX_SYMBOL_US =
 void HWPSimulator::setup() {
     if (pin_ != nullptr) {
         pin_->setup();
-        pin_->pin_mode(gpio::FLAG_OUTPUT | gpio::FLAG_OPEN_DRAIN);
+        pin_->pin_mode(gpio::FLAG_INPUT | gpio::FLAG_OUTPUT | gpio::FLAG_OPEN_DRAIN |
+                       gpio::FLAG_PULLUP);
         pin_->digital_write(true);
     }
     setup_rmt_();
     set_playbook(startup_playbook_);
+    set_interval_scale(engine_.interval_scale());
     set_active(active_on_boot_);
     publish_status_();
 }

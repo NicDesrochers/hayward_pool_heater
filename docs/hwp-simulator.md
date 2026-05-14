@@ -33,6 +33,12 @@ heater while running simulator HIL unless a specific manual procedure says so.
 Keep the devices powered from USB or a known-safe bench supply. Share ground
 only as required by the interface circuit.
 
+The simulator biases its `pin_txrx` line high with the ESP32 internal pull-up
+while driving the line open-drain. This helps direct two-node bench wiring,
+where the real heater bus pull-up is absent. For longer wiring or noisy bench
+setups, use the same external pull-up/interface circuit intended for the HWP
+bus instead of relying only on the internal pull-up.
+
 ## Minimal YAML
 
 Start from [examples/hwp-simulator.yaml](../examples/hwp-simulator.yaml).

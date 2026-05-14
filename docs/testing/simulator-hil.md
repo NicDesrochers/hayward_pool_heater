@@ -39,6 +39,12 @@ Connect the configured HWP bus GPIOs through the same low-voltage bus interface 
 
 Power both devices from a known-safe bench supply or USB. Keep grounds common only where the interface circuit requires it.
 
+The simulator configures its HWP GPIO as open-drain with the ESP32 internal
+pull-up enabled so a short direct two-node bench connection has a defined
+idle-high line. Treat that as a convenience for close bench testing only; for
+real wiring lengths or noisy setups, prefer the same external pull-up/interface
+circuit used for HWP bus validation.
+
 ## Agent Workflow
 
 Prefer ESPHome native API over raw UART:

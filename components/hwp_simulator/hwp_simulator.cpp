@@ -174,6 +174,8 @@ void HWPSimulator::handle_command(const std::string& command) {
         pause();
     } else if (command == "step") {
         step_once();
+    } else if (command == "wiggle") {
+        wiggle_pin_();
     } else if (command == "reset") {
         reset_state();
     } else if (command.rfind("inject frame=", 0) == 0) {
@@ -382,13 +384,17 @@ void HWPSimulator::publish_status_() {
 }
 
 void HWPSimulator::publish_step_(const SimulatorStep& step) {
+    bool transmitted = true;
     if (step.has_packet) {
-        emit_packet_(step);
-        if (last_frame_sensor_ != nullptr) {
+        transmitted = emit_packet_(step);
+        if (last_frame_sensor_ != nullptr && transmitted) {
             last_frame_sensor_->publish_state(format_packet_(step));
         }
     }
     publish_status_();
+    if (!transmitted && status_sensor_ != nullptr) {
+        status_sensor_->publish_state("tx failed");
+    }
 }
 
 void HWPSimulator::publish_rx_packet_(const Packet& packet, const char* status) {
@@ -497,7 +503,34 @@ bool HWPSimulator::emit_packet_(const SimulatorStep& step) {
         ESP_LOGE(TAG, "Simulator RMT transmit failed: %d", err);
         return false;
     }
+    ESP_LOGI(TAG, "Simulator RMT transmit complete: %u symbols",
+        static_cast<unsigned>(symbols.size()));
     return true;
+#endif
+}
+
+void HWPSimulator::wiggle_pin_() {
+#ifdef HWP_NATIVE_TEST
+    return;
+#else
+    if (pin_ == nullptr) {
+        ESP_LOGE(TAG, "Cannot wiggle simulator pin: no GPIO configured");
+        return;
+    }
+    ESP_LOGI(TAG, "Wiggling simulator GPIO%d for scope probe", pin_->get_pin());
+    stop_receive_();
+    pin_->pin_mode(gpio::FLAG_INPUT | gpio::FLAG_OUTPUT | gpio::FLAG_OPEN_DRAIN |
+                   gpio::FLAG_PULLUP);
+    for (uint8_t index = 0; index < 5; ++index) {
+        pin_->digital_write(false);
+        delay(250);
+        pin_->digital_write(true);
+        delay(250);
+    }
+    resume_receive_();
+    if (status_sensor_ != nullptr) {
+        status_sensor_->publish_state("wiggle complete");
+    }
 #endif
 }
 

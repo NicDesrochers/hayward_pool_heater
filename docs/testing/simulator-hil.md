@@ -65,6 +65,17 @@ python -m analysis.hwp_sim_orchestrate list
 python -m analysis.hwp_sim_orchestrate command step
 ```
 
+For oscilloscope bring-up, use the software GPIO diagnostic before chasing RMT
+timing:
+
+```sh
+python -m analysis.hwp_sim_orchestrate command wiggle
+```
+
+`wiggle` drives the configured simulator GPIO low/high slowly five times. If it
+is not visible at the probe point, verify the simulator YAML pin, wiring,
+ground/reference, and pull-up/interface circuit before debugging packet timing.
+
 Run production firmware logs separately from Home Assistant, ESPHome dashboard, or the firmware web dashboard at `/hwp`.
 
 The transcript command subscribes to ESPHome native API state updates from the simulator node and, optionally, the production firmware node. It records JSONL entries with device, entity key/name/object id, entity kind, state value, and UTC timestamp. This is meant to help agents correlate simulator playbook steps, controller commands, simulator echoes, and firmware diagnostics without exposing raw UART passthrough.

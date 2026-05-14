@@ -133,12 +133,19 @@ playbook rx_stress
 start
 pause
 step
+wiggle
 reset
 inject frame=base-config-1
 inject frame=base-config-5-normal
 inject frame=base-config-5-eco-echo
 inject frame=base-cond-2
 ```
+
+Use `wiggle` as a bench wiring/scope diagnostic. It drives the configured
+simulator GPIO low/high slowly five times using software GPIO, outside the RMT
+packet encoder. If `wiggle` is visible on the scope but `step` is not, the fault
+is in the RMT TX path. If neither is visible, check the configured pin, wiring,
+ground/reference, and pull-up/interface circuit first.
 
 Fixture packet ids currently include:
 

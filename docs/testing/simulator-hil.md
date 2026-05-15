@@ -38,6 +38,9 @@ four with about 152 ms idle-high spacing, controller packets are decoded using
 controller polarity and 100 ms repeat spacing, and simulator RX is disabled
 while simulator TX owns the shared half-duplex line. Known command echoes are
 scheduled after the controller burst instead of being emitted immediately.
+The default `normal_idle` playbook also follows the observed real-device packet
+cadence: `CONFIG_6`, `CONFIG_4`, and `CONFIG_5` are interleaved with repeated
+condition/config clusters, then `CONFIG_3`, `COND_2_B`, and `COND_D`.
 
 The implemented wire reaction is deliberately narrow: checksum-valid controller
 `CONFIG_5` D06 defrost ECO/NORMAL commands produce the fixture-backed heater

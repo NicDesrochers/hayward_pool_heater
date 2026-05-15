@@ -131,16 +131,37 @@ void test_normal_idle_steps() {
     assert(engine.stats().packet_count == 1);
 }
 
+void test_normal_idle_realistic_frame_order() {
+    SimulatorEngine engine;
+    engine.set_playbook(Playbook::NORMAL_IDLE);
+    engine.set_active(true);
+
+    const uint8_t expected_frames[] = {
+        0x86, 0x84, 0x85, 0xD1, 0xD2, 0x82, 0x81, 0xD1,
+        0x83, 0xD2, 0xDD, 0xD1, 0xD2, 0x82, 0x81, 0xD1,
+    };
+    const uint8_t expected_lengths[] = {
+        12, 12, 12, 12, 12, 12, 12, 12,
+        12, 9, 9, 12, 12, 12, 12, 12,
+    };
+    for (size_t index = 0; index < sizeof(expected_frames); ++index) {
+        auto step = engine.step_once();
+        assert(step.has_packet);
+        assert(step.packet.data[0] == expected_frames[index]);
+        assert(step.packet.length == expected_lengths[index]);
+        assert(checksum_valid(step.packet.data.data(), step.packet.length));
+    }
+}
+
 void test_normal_idle_temperature_drift() {
     SimulatorEngine engine;
     engine.set_playbook(Playbook::NORMAL_IDLE);
     engine.set_active(true);
 
     Packet first{};
-    Packet second{};
     bool found_first = false;
-    bool found_second = false;
-    for (int index = 0; index < 20; ++index) {
+    bool found_drift = false;
+    for (int index = 0; index < 40; ++index) {
         auto step = engine.step_once();
         assert(step.has_packet);
         assert(checksum_valid(step.packet.data.data(), step.packet.length));
@@ -148,20 +169,18 @@ void test_normal_idle_temperature_drift() {
             if (!found_first) {
                 first = step.packet;
                 found_first = true;
-            } else {
-                second = step.packet;
-                found_second = true;
+            } else if (first.data[4] != step.packet.data[4]) {
+                assert(first.data[5] != step.packet.data[5]);
+                assert(first.data[6] != step.packet.data[6]);
+                assert(first.data[11] != step.packet.data[11]);
+                found_drift = true;
                 break;
             }
         }
     }
 
     assert(found_first);
-    assert(found_second);
-    assert(first.data[4] != second.data[4]);
-    assert(first.data[5] != second.data[5]);
-    assert(first.data[6] != second.data[6]);
-    assert(first.data[11] != second.data[11]);
+    assert(found_drift);
 }
 
 void test_interval_scale_and_pause() {
@@ -333,6 +352,7 @@ int main() {
     test_wire_codec_round_trip_controller_command();
     test_playbook_mapping();
     test_normal_idle_steps();
+    test_normal_idle_realistic_frame_order();
     test_normal_idle_temperature_drift();
     test_interval_scale_and_pause();
     test_config5_command_echo();

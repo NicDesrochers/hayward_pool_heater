@@ -92,7 +92,7 @@ Available playbooks:
 | Playbook | Purpose |
 |----------|---------|
 | `paused` | No scheduled packet output. |
-| `normal_idle` | Replays representative normal heater traffic. |
+| `normal_idle` | Replays the observed heater cadence: `CONFIG_6`, `CONFIG_4`, `CONFIG_5`, fast condition/config frames, then `CONFIG_3`, `COND_2_B`, `COND_D`, and another fast condition/config cluster. |
 | `config_refresh` | Favors configuration packets. |
 | `active_defrost_echo` | Alternates CONFIG_5 normal/ECO echo examples. |
 | `rx_stress` | Emits repeated fixture traffic for stability testing. |
@@ -114,6 +114,9 @@ production component:
 - Known command echoes are delayed before transmit so the simulator does not
   talk over the controller burst. CONFIG_5 D06 echo uses the documented
   post-controller delay boundary instead of responding immediately.
+- The default `normal_idle` playbook models the higher-level packet order seen
+  in real heater logs: slower config/status groups are interleaved with repeated
+  `COND_1`, `COND_2`, `CONFIG_2`, `CONFIG_1`, and `COND_1B` clusters.
 
 This is still a bench approximation. It intentionally models the bus ownership,
 repeat grouping, bit polarity, and idle-high spacing, but it is not a substitute

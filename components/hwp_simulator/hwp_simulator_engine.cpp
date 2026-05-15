@@ -188,10 +188,32 @@ SimulatorStep SimulatorEngine::step_once() {
 }
 
 SimulatorStep SimulatorEngine::normal_idle_step() {
-    static const size_t ORDER[] = {7, 9, 1, 0, 8, 2, 10, 11};
+    struct ScheduledPacket {
+        size_t catalog_index;
+        uint32_t delay_ms;
+    };
+    static const ScheduledPacket ORDER[] = {
+        {6, 500},   // CONFIG_6
+        {3, 500},   // CONFIG_4
+        {4, 500},   // CONFIG_5
+        {7, 1350},  // COND_1
+        {9, 500},   // COND_2
+        {1, 450},   // CONFIG_2
+        {0, 500},   // CONFIG_1
+        {8, 1350},  // COND_1B
+        {2, 400},   // CONFIG_3
+        {10, 400},  // COND_2_B
+        {11, 500},  // COND_D
+        {7, 1350},  // COND_1
+        {9, 500},   // COND_2
+        {1, 450},   // CONFIG_2
+        {0, 500},   // CONFIG_1
+        {8, 1350},  // COND_1B
+    };
     static constexpr size_t ORDER_LENGTH = sizeof(ORDER) / sizeof(ORDER[0]);
     const size_t order_index = cursor_++ % ORDER_LENGTH;
-    const auto& packet = catalog_by_index(ORDER[order_index]);
+    const auto& scheduled = ORDER[order_index];
+    const auto& packet = catalog_by_index(scheduled.catalog_index);
     if (packet.packet.length == 12 && packet.packet.data[0] == 0xD2) {
         CatalogPacket drifting_packet = packet;
         const uint8_t phase = static_cast<uint8_t>((cursor_ / ORDER_LENGTH) % 6);
@@ -200,9 +222,9 @@ SimulatorStep SimulatorEngine::normal_idle_step() {
         drifting_packet.packet.data[6] = static_cast<uint8_t>(0x5C + phase);
         esphome::hwp::wire::refresh_checksum(
             drifting_packet.packet.data.data(), drifting_packet.packet.length);
-        return packet_step(drifting_packet, "normal_idle", cursor_ % 4 == 0 ? 5000 : 450);
+        return packet_step(drifting_packet, "normal_idle", scheduled.delay_ms);
     }
-    return packet_step(packet, "normal_idle", cursor_ % 4 == 0 ? 5000 : 450);
+    return packet_step(packet, "normal_idle", scheduled.delay_ms);
 }
 
 SimulatorStep SimulatorEngine::config_refresh_step() {

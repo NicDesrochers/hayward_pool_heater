@@ -33,6 +33,7 @@
 #include "hwp_simulator_engine.h"
 
 #include <algorithm>
+#include <cstring>
 
 namespace esphome {
 namespace hwp_simulator {
@@ -146,6 +147,8 @@ void SimulatorEngine::set_interval_scale(float value) {
 void SimulatorEngine::reset() {
     cursor_ = 0;
     stats_ = {};
+    config_1_state_ = {};
+    config_1_state_valid_ = false;
 }
 
 SimulatorStep SimulatorEngine::packet_step(
@@ -153,6 +156,9 @@ SimulatorStep SimulatorEngine::packet_step(
     SimulatorStep step;
     step.has_packet = true;
     step.packet = packet.packet;
+    if (config_1_state_valid_ && std::strcmp(packet.id, "base-config-1") == 0) {
+        step.packet = config_1_state_;
+    }
     step.packet_id = packet.id;
     step.label = packet.label;
     step.event = event;
@@ -231,6 +237,16 @@ std::optional<SimulatorStep> SimulatorEngine::handle_controller_packet(const Pac
     return packet_step(*echo, "command_echo", 2000);
 }
 
+bool SimulatorEngine::update_config_state_(const Packet& packet) {
+    if (packet.length == 12 && packet.data[0] == 0x81) {
+        config_1_state_ = packet;
+        config_1_state_.source = PacketSource::HEATER;
+        config_1_state_valid_ = true;
+        return true;
+    }
+    return false;
+}
+
 ControllerPacketResult SimulatorEngine::receive_controller_packet(const Packet& packet) {
     if (packet.source != PacketSource::CONTROLLER) {
         stats_.error_count++;
@@ -243,6 +259,10 @@ ControllerPacketResult SimulatorEngine::receive_controller_packet(const Packet& 
     }
 
     stats_.rx_packet_count++;
+    if (update_config_state_(packet)) {
+        return ControllerPacketResult{true, false, {}, "updated simulator state"};
+    }
+
     auto echo = handle_controller_packet(packet);
     if (!echo.has_value()) {
         return ControllerPacketResult{true, false, {}, "accepted controller packet"};

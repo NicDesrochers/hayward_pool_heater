@@ -225,9 +225,9 @@ void test_receive_controller_config5_normal_echo() {
 }
 
 void test_receive_controller_unknown_valid_packet_records_without_echo() {
-    const auto* config_1 = find_catalog_packet("base-config-1");
-    assert(config_1 != nullptr);
-    Packet command = config_1->packet;
+    const auto* config_3 = find_catalog_packet("base-config-3");
+    assert(config_3 != nullptr);
+    Packet command = config_3->packet;
     command.source = PacketSource::CONTROLLER;
 
     SimulatorEngine engine;
@@ -239,6 +239,43 @@ void test_receive_controller_unknown_valid_packet_records_without_echo() {
     assert(engine.stats().rx_packet_count == 1);
     assert(engine.stats().echo_count == 0);
     assert(engine.stats().error_count == 0);
+}
+
+void test_receive_controller_config1_updates_replayed_state() {
+    const auto* config_1 = find_catalog_packet("base-config-1");
+    assert(config_1 != nullptr);
+    Packet command = config_1->packet;
+    command.source = PacketSource::CONTROLLER;
+    command.data[10] = 0x2D;
+    refresh_checksum(command.data.data(), command.length);
+    assert(command.data[11] == 0xA2);
+
+    SimulatorEngine engine;
+    auto result = engine.receive_controller_packet(command);
+
+    assert(result.accepted);
+    assert(!result.has_echo);
+    assert(std::string(result.status) == "updated simulator state");
+    assert(engine.stats().rx_packet_count == 1);
+    assert(engine.stats().echo_count == 0);
+    assert(engine.stats().error_count == 0);
+
+    engine.set_playbook(Playbook::NORMAL_IDLE);
+    engine.set_active(true);
+    bool saw_config_1 = false;
+    for (int index = 0; index < 12; ++index) {
+        auto step = engine.step_once();
+        assert(step.has_packet);
+        if (step.packet.length == 12 && step.packet.data[0] == 0x81) {
+            saw_config_1 = true;
+            assert(step.packet.source == PacketSource::HEATER);
+            assert(step.packet.data[10] == 0x2D);
+            assert(step.packet.data[11] == 0xA2);
+            assert(checksum_valid(step.packet.data.data(), step.packet.length));
+            break;
+        }
+    }
+    assert(saw_config_1);
 }
 
 void test_receive_controller_rejects_invalid_packets_without_echo() {
@@ -283,6 +320,7 @@ int main() {
     test_receive_controller_config5_eco_echo();
     test_receive_controller_config5_normal_echo();
     test_receive_controller_unknown_valid_packet_records_without_echo();
+    test_receive_controller_config1_updates_replayed_state();
     test_receive_controller_rejects_invalid_packets_without_echo();
     test_stress_playbook_counts_invalid_checksum();
     return 0;

@@ -38,7 +38,7 @@
 namespace esphome {
 namespace hwp {
 
-static constexpr const char* HWP_COMPONENT_VERSION = "2026.05.15.7";
+static constexpr const char* HWP_COMPONENT_VERSION = "2026.05.15.8";
 
 } // namespace hwp
 } // namespace esphome

@@ -64,6 +64,24 @@ void test_packet_ring_buffer_and_changed_bytes() {
     assert_contains(json, "\"changed_bytes\":[false,false,false,true");
 }
 
+void test_immediate_packet_repeats_are_collapsed() {
+    hwp::HWPWebDashboard dashboard;
+    dashboard.configure(hwp::HWPWebConfig{true, "/hwp", 4, 4});
+    auto frame = make_frame(
+        Packet{0x86, 0xB1, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x37},
+        hwp::SOURCE_HEATER);
+
+    dashboard.record_packet(frame, "Same");
+    dashboard.record_packet(frame, "Same");
+    dashboard.record_packet(frame, "Same");
+
+    assert(dashboard.packet_count() == 1);
+    const auto json = dashboard.state_json();
+    assert_contains(json, "\"frame\":\"0x86\"");
+    assert(json.find("\"packets\":[{") != std::string::npos);
+    assert(json.find("},{", json.find("\"packets\":[")) == std::string::npos);
+}
+
 void test_field_snapshot_and_graph_trim() {
     hwp::HWPWebDashboard dashboard;
     dashboard.configure(hwp::HWPWebConfig{true, "/hwp", 4, 2});
@@ -155,6 +173,7 @@ void test_index_html_contains_annotation_helper() {
 
 int main() {
     test_packet_ring_buffer_and_changed_bytes();
+    test_immediate_packet_repeats_are_collapsed();
     test_field_snapshot_and_graph_trim();
     test_field_snapshot_retains_previous_fields_on_partial_update();
     test_index_html_contains_annotation_helper();

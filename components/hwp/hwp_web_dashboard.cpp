@@ -38,7 +38,8 @@ namespace hwp {
 
 namespace {
 
-static constexpr size_t HWP_WEB_STATE_PACKET_LIMIT = 24;
+static constexpr size_t HWP_WEB_STATE_PACKET_LIMIT = 12;
+static constexpr uint32_t HWP_WEB_REPEAT_COLLAPSE_MS = 1500;
 
 const char HWP_WEB_INDEX[] =
     "<!doctype html><html><head><meta charset=utf-8><meta name=viewport "
@@ -245,6 +246,22 @@ void HWPWebDashboard::record_packet(const BaseFrame& frame, const std::string& k
                                        (i >= previous->second.size() || previous->second[i] != record.bytes[i]));
     }
     this->previous_packet_bytes_[key] = record.bytes;
+    if (!this->packets_.empty()) {
+        auto& last = this->packets_.back();
+        if (last.source == record.source && last.frame == record.frame &&
+            last.length == record.length && last.bytes == record.bytes &&
+            record.seen_ms >= last.seen_ms &&
+            record.seen_ms - last.seen_ms <= HWP_WEB_REPEAT_COLLAPSE_MS) {
+            last.sequence = record.sequence;
+            last.seen_ms = record.seen_ms;
+            last.kind = record.kind;
+            last.changed = false;
+            std::fill(last.changed_bytes.begin(), last.changed_bytes.end(), false);
+            this->latest_frames_[key] = last;
+            this->dirty_ = true;
+            return;
+        }
+    }
     this->packets_.push_back(record);
     this->latest_frames_[key] = record;
     this->trim_packets();

@@ -103,10 +103,17 @@ void HWPSimulator::setup() {
 
 void HWPSimulator::loop() {
     process_rx_();
+    const uint32_t now = millis();
+    if (pending_step_.has_value() && (next_step_ms_ == 0 || now >= next_step_ms_)) {
+        const auto step = pending_step_.value();
+        pending_step_.reset();
+        publish_step_(step);
+        next_step_ms_ = now + step.delay_ms;
+        return;
+    }
     if (!engine_.active()) {
         return;
     }
-    const uint32_t now = millis();
     if (next_step_ms_ != 0 && now < next_step_ms_) {
         return;
     }
@@ -175,6 +182,7 @@ void HWPSimulator::step_once() {
 void HWPSimulator::reset_state() {
     engine_.reset();
     next_step_ms_ = 0;
+    pending_step_.reset();
     publish_status_();
 }
 
@@ -466,12 +474,10 @@ bool HWPSimulator::process_rx_symbols_(
         status_sensor_->publish_state(result.status);
     }
     if (result.has_echo) {
-        emit_packet_(result.echo);
+        pending_step_ = result.echo;
+        next_step_ms_ = millis() + result.echo.delay_ms;
         if (last_echo_sensor_ != nullptr) {
-            last_echo_sensor_->publish_state(format_packet_(result.echo));
-        }
-        if (last_frame_sensor_ != nullptr) {
-            last_frame_sensor_->publish_state(format_packet_(result.echo));
+            last_echo_sensor_->publish_state(format_packet_(result.echo) + " pending");
         }
     }
     publish_status_();
@@ -482,8 +488,16 @@ bool HWPSimulator::emit_packet_(const SimulatorStep& step) {
     if (!step.has_packet) {
         return false;
     }
-    auto pulse_symbols = esphome::hwp::wire::encode_packet_symbols(
-        step.packet.data.data(), step.packet.length, step.packet.source, true);
+    std::vector<esphome::hwp::wire::PulseSymbol> pulse_symbols;
+    const uint8_t repeat_count = step.packet.source == esphome::hwp::wire::PacketSource::HEATER
+                                     ? esphome::hwp::wire::HEATER_REPEAT_COUNT
+                                     : esphome::hwp::wire::CONTROLLER_REPEAT_COUNT;
+    for (uint8_t repeat = 0; repeat < repeat_count; ++repeat) {
+        auto frame_symbols = esphome::hwp::wire::encode_packet_symbols(
+            step.packet.data.data(), step.packet.length, step.packet.source,
+            repeat + 1 == repeat_count);
+        pulse_symbols.insert(pulse_symbols.end(), frame_symbols.begin(), frame_symbols.end());
+    }
     ESP_LOGI(TAG, "SIM %s %s len=%u symbols=%u", step.event, step.packet_id,
         static_cast<unsigned>(step.packet.length), static_cast<unsigned>(pulse_symbols.size()));
 #ifdef HWP_NATIVE_TEST

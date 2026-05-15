@@ -61,6 +61,24 @@ void test_wire_codec_round_trip_heater_long_packet() {
     assert(decoded.data[11] == 0x45);
 }
 
+void test_wire_codec_source_spacing() {
+    const auto* packet = find_catalog_packet("base-config-1");
+    assert(packet != nullptr);
+    auto heater_symbols = encode_packet_symbols(
+        packet->packet.data.data(), packet->packet.length, PacketSource::HEATER, false);
+    auto controller_symbols = encode_packet_symbols(
+        packet->packet.data.data(), packet->packet.length, PacketSource::CONTROLLER, false);
+    assert(heater_symbols.back().duration1 == esphome::hwp::wire::HEATER_FRAME_SPACING_US);
+    assert(controller_symbols.back().duration1 == esphome::hwp::wire::CONTROLLER_FRAME_SPACING_US);
+
+    heater_symbols = encode_packet_symbols(
+        packet->packet.data.data(), packet->packet.length, PacketSource::HEATER, true);
+    controller_symbols = encode_packet_symbols(
+        packet->packet.data.data(), packet->packet.length, PacketSource::CONTROLLER, true);
+    assert(heater_symbols.back().duration1 == esphome::hwp::wire::HEATER_GROUP_SPACING_US);
+    assert(controller_symbols.back().duration1 == esphome::hwp::wire::CONTROLLER_GROUP_SPACING_US);
+}
+
 void test_wire_codec_round_trip_short_packet() {
     const auto* packet = find_catalog_packet("base-cond-d");
     assert(packet != nullptr);
@@ -310,6 +328,7 @@ void test_stress_playbook_counts_invalid_checksum() {
 
 int main() {
     test_wire_codec_round_trip_heater_long_packet();
+    test_wire_codec_source_spacing();
     test_wire_codec_round_trip_short_packet();
     test_wire_codec_round_trip_controller_command();
     test_playbook_mapping();

@@ -54,6 +54,7 @@
 #endif
 
 #include <array>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -114,6 +115,7 @@ class HWPSimulator : public Component {
     size_t packet_buffer_size_{120};
     bool active_on_boot_{false};
     uint32_t next_step_ms_{0};
+    std::optional<SimulatorStep> pending_step_{};
 
 #ifndef HWP_NATIVE_TEST
     rmt_channel_handle_t rmt_rx_channel_{nullptr};

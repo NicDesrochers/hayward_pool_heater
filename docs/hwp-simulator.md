@@ -97,6 +97,28 @@ Available playbooks:
 | `active_defrost_echo` | Alternates CONFIG_5 normal/ECO echo examples. |
 | `rx_stress` | Emits repeated fixture traffic for stability testing. |
 
+## Bus Sharing And Timing
+
+The simulator follows the documented HWP half-duplex sharing rules used by the
+production component:
+
+- Heater-originated simulator packets are repeated in groups of four.
+- Heater repeat spacing is about 152 ms with the line idle high.
+- The line remains idle high between heater groups; playbook delays provide the
+  longer group cadence.
+- Controller-originated packets are decoded as controller source, with the
+  controller bit polarity and 100 ms repeat spacing. The production component
+  sends controller packets in groups of eight.
+- The simulator disables RX while it is transmitting, then re-enables RX on the
+  same shared GPIO after the transmit burst.
+- Known command echoes are delayed before transmit so the simulator does not
+  talk over the controller burst. CONFIG_5 D06 echo uses the documented
+  post-controller delay boundary instead of responding immediately.
+
+This is still a bench approximation. It intentionally models the bus ownership,
+repeat grouping, bit polarity, and idle-high spacing, but it is not a substitute
+for supervised validation against a real heater.
+
 ## ESPHome Entities
 
 The simulator exposes a control surface through ESPHome native API entities:
@@ -174,8 +196,10 @@ GPIO pad, while software GPIO pulses were visible and reliable.
 In the current implementation, simulator RX behavior is intentionally narrow:
 
 - Checksum-valid controller `CONFIG_5` D06 defrost ECO/NORMAL commands produce
-  the fixture-backed heater echo packets.
-- Unknown valid controller packets update diagnostics only.
+  the fixture-backed heater echo packets after the bus-sharing delay.
+- Checksum-valid controller `CONFIG_1` packets update the simulator's internal
+  CONFIG_1 state and are replayed by later heater-originated CONFIG_1 frames.
+- Other valid controller packets update diagnostics only.
 - Invalid checksum or invalid length packets increment the error counter and do
   not emit an echo.
 

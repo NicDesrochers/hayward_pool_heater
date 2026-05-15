@@ -30,11 +30,21 @@ The simulator emits playbook packets with software-timed open-drain GPIO pulses
 and listens for controller-originated packets through ESP-IDF 5 RMT RX on the
 same half-duplex GPIO. Software TX is used because bench testing showed ESP-IDF
 RMT TX could report completion on the simulator node without moving the shared
-GPIO pad, while software GPIO pulses were visible and reliable. The implemented
-wire reaction is deliberately narrow: checksum-valid controller `CONFIG_5` D06
-defrost ECO/NORMAL commands produce the fixture-backed heater echo packets.
-Unknown valid controller packets update diagnostics only; invalid packets
-increment error counters and do not emit an echo.
+GPIO pad, while software GPIO pulses were visible and reliable.
+
+Bus-sharing behavior is modeled after the protocol notes in
+`components/hwp/PoolHeater.h`: heater packets are sent in repeated groups of
+four with about 152 ms idle-high spacing, controller packets are decoded using
+controller polarity and 100 ms repeat spacing, and simulator RX is disabled
+while simulator TX owns the shared half-duplex line. Known command echoes are
+scheduled after the controller burst instead of being emitted immediately.
+
+The implemented wire reaction is deliberately narrow: checksum-valid controller
+`CONFIG_5` D06 defrost ECO/NORMAL commands produce the fixture-backed heater
+echo packets, and checksum-valid controller `CONFIG_1` packets update the
+simulator's internal CONFIG_1 state for later heater-originated replay. Other
+valid controller packets update diagnostics only; invalid packets increment
+error counters and do not emit an echo.
 
 ## Wiring
 

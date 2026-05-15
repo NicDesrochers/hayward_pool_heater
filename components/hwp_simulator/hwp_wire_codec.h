@@ -55,8 +55,12 @@ static constexpr uint32_t FRAME_START_HIGH_US = 5000;
 static constexpr uint32_t BIT_LOW_US = 1000;
 static constexpr uint32_t BIT_SHORT_HIGH_US = 1000;
 static constexpr uint32_t BIT_LONG_HIGH_US = 3000;
+static constexpr uint8_t HEATER_REPEAT_COUNT = 4;
+static constexpr uint8_t CONTROLLER_REPEAT_COUNT = 8;
 static constexpr uint32_t HEATER_FRAME_SPACING_US = 152000;
 static constexpr uint32_t HEATER_GROUP_SPACING_US = 1000000;
+static constexpr uint32_t CONTROLLER_FRAME_SPACING_US = 100000;
+static constexpr uint32_t CONTROLLER_GROUP_SPACING_US = 250000;
 
 enum class PacketSource : uint8_t {
     HEATER,
@@ -128,8 +132,11 @@ inline std::vector<PulseSymbol> encode_packet_symbols(
                 make_symbol(BIT_LOW_US, bit_set ? BIT_LONG_HIGH_US : BIT_SHORT_HIGH_US));
         }
     }
-    symbols.push_back(make_symbol(
-        BIT_LOW_US, group_end ? HEATER_GROUP_SPACING_US : HEATER_FRAME_SPACING_US));
+    const uint32_t frame_spacing =
+        source == PacketSource::HEATER ? HEATER_FRAME_SPACING_US : CONTROLLER_FRAME_SPACING_US;
+    const uint32_t group_spacing =
+        source == PacketSource::HEATER ? HEATER_GROUP_SPACING_US : CONTROLLER_GROUP_SPACING_US;
+    symbols.push_back(make_symbol(BIT_LOW_US, group_end ? group_spacing : frame_spacing));
     return symbols;
 }
 

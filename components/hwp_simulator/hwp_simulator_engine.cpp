@@ -183,7 +183,19 @@ SimulatorStep SimulatorEngine::step_once() {
 
 SimulatorStep SimulatorEngine::normal_idle_step() {
     static const size_t ORDER[] = {7, 9, 1, 0, 8, 2, 10, 11};
-    const auto& packet = catalog_by_index(ORDER[cursor_++ % (sizeof(ORDER) / sizeof(ORDER[0]))]);
+    static constexpr size_t ORDER_LENGTH = sizeof(ORDER) / sizeof(ORDER[0]);
+    const size_t order_index = cursor_++ % ORDER_LENGTH;
+    const auto& packet = catalog_by_index(ORDER[order_index]);
+    if (packet.packet.length == 12 && packet.packet.data[0] == 0xD2) {
+        CatalogPacket drifting_packet = packet;
+        const uint8_t phase = static_cast<uint8_t>((cursor_ / ORDER_LENGTH) % 6);
+        drifting_packet.packet.data[4] = static_cast<uint8_t>(0x56 + phase);
+        drifting_packet.packet.data[5] = static_cast<uint8_t>(0x56 + phase);
+        drifting_packet.packet.data[6] = static_cast<uint8_t>(0x5C + phase);
+        esphome::hwp::wire::refresh_checksum(
+            drifting_packet.packet.data.data(), drifting_packet.packet.length);
+        return packet_step(drifting_packet, "normal_idle", cursor_ % 4 == 0 ? 5000 : 450);
+    }
     return packet_step(packet, "normal_idle", cursor_ % 4 == 0 ? 5000 : 450);
 }
 

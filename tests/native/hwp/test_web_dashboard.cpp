@@ -132,7 +132,12 @@ void test_index_html_contains_annotation_helper() {
     assert_contains(html, "Packets");
     assert_contains(html, "Graphs");
     assert_contains(html, "Recent graph history is retained on the device");
+    assert_contains(html, "graphs.json");
     assert_contains(html, "setInterval(refresh,2500)");
+    assert_contains(html, "function uptime()");
+    assert_contains(html, "state.local_sync_ms=Date.now()");
+    assert_contains(html, "hold:true");
+    assert_contains(html, "visible window");
     assert_contains(html, "devicePixelRatio");
     assert_contains(html, "Setpoints And Limits");
     assert_contains(html, "Differentials And Timers");

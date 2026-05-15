@@ -118,7 +118,9 @@ class SimulatorEngine {
     size_t cursor_{0};
     SimulatorStats stats_{};
     Packet config_1_state_{};
+    Packet config_2_state_{};
     bool config_1_state_valid_{false};
+    bool config_2_state_valid_{false};
 };
 
 } // namespace hwp_simulator

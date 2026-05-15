@@ -200,8 +200,9 @@ In the current implementation, simulator RX behavior is intentionally narrow:
 
 - Checksum-valid controller `CONFIG_5` D06 defrost ECO/NORMAL commands produce
   the fixture-backed heater echo packets after the bus-sharing delay.
-- Checksum-valid controller `CONFIG_1` packets update the simulator's internal
-  CONFIG_1 state and are replayed by later heater-originated CONFIG_1 frames.
+- Checksum-valid controller `CONFIG_1` and `CONFIG_2` packets update the
+  simulator's internal config state and are replayed by later heater-originated
+  config frames.
 - Other valid controller packets update diagnostics only.
 - Invalid checksum or invalid length packets increment the error counter and do
   not emit an echo.

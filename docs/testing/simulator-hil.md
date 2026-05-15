@@ -44,10 +44,10 @@ condition/config clusters, then `CONFIG_3`, `COND_2_B`, and `COND_D`.
 
 The implemented wire reaction is deliberately narrow: checksum-valid controller
 `CONFIG_5` D06 defrost ECO/NORMAL commands produce the fixture-backed heater
-echo packets, and checksum-valid controller `CONFIG_1` packets update the
-simulator's internal CONFIG_1 state for later heater-originated replay. Other
-valid controller packets update diagnostics only; invalid packets increment
-error counters and do not emit an echo.
+echo packets, and checksum-valid controller `CONFIG_1` and `CONFIG_2` packets
+update the simulator's internal config state for later heater-originated replay.
+Other valid controller packets update diagnostics only; invalid packets
+increment error counters and do not emit an echo.
 
 ## Wiring
 

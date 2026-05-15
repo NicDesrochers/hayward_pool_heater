@@ -148,7 +148,9 @@ void SimulatorEngine::reset() {
     cursor_ = 0;
     stats_ = {};
     config_1_state_ = {};
+    config_2_state_ = {};
     config_1_state_valid_ = false;
+    config_2_state_valid_ = false;
 }
 
 SimulatorStep SimulatorEngine::packet_step(
@@ -158,6 +160,9 @@ SimulatorStep SimulatorEngine::packet_step(
     step.packet = packet.packet;
     if (config_1_state_valid_ && std::strcmp(packet.id, "base-config-1") == 0) {
         step.packet = config_1_state_;
+    }
+    if (config_2_state_valid_ && std::strcmp(packet.id, "base-config-2") == 0) {
+        step.packet = config_2_state_;
     }
     step.packet_id = packet.id;
     step.label = packet.label;
@@ -264,6 +269,12 @@ bool SimulatorEngine::update_config_state_(const Packet& packet) {
         config_1_state_ = packet;
         config_1_state_.source = PacketSource::HEATER;
         config_1_state_valid_ = true;
+        return true;
+    }
+    if (packet.length == 12 && packet.data[0] == 0x82) {
+        config_2_state_ = packet;
+        config_2_state_.source = PacketSource::HEATER;
+        config_2_state_valid_ = true;
         return true;
     }
     return false;

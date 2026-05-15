@@ -472,6 +472,9 @@ bool HWPSimulator::process_rx_symbols_(
         const auto result = engine_.receive_controller_packet(packet);
         status = result.status;
         accepted = accepted || result.accepted;
+        ESP_LOGI(TAG, "RX controller %s frame=0x%02X len=%u status=%s",
+            result.accepted ? "accepted" : "ignored", packet.length > 0 ? packet.data[0] : 0,
+            static_cast<unsigned>(packet.length), result.status);
         publish_rx_packet_(packet, result.status);
         if (result.has_echo) {
             pending_step_ = result.echo;

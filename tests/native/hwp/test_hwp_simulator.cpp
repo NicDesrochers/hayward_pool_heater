@@ -345,6 +345,43 @@ void test_receive_controller_config1_updates_replayed_state() {
     assert(saw_config_1);
 }
 
+void test_receive_controller_config2_updates_replayed_state() {
+    const auto* config_2 = find_catalog_packet("base-config-2");
+    assert(config_2 != nullptr);
+    Packet command = config_2->packet;
+    command.source = PacketSource::CONTROLLER;
+    command.data[3] = 0x04;
+    refresh_checksum(command.data.data(), command.length);
+    assert(command.data[11] == 0x99);
+
+    SimulatorEngine engine;
+    auto result = engine.receive_controller_packet(command);
+
+    assert(result.accepted);
+    assert(!result.has_echo);
+    assert(std::string(result.status) == "updated simulator state");
+    assert(engine.stats().rx_packet_count == 1);
+    assert(engine.stats().echo_count == 0);
+    assert(engine.stats().error_count == 0);
+
+    engine.set_playbook(Playbook::NORMAL_IDLE);
+    engine.set_active(true);
+    bool saw_config_2 = false;
+    for (int index = 0; index < 12; ++index) {
+        auto step = engine.step_once();
+        assert(step.has_packet);
+        if (step.packet.length == 12 && step.packet.data[0] == 0x82) {
+            saw_config_2 = true;
+            assert(step.packet.source == PacketSource::HEATER);
+            assert(step.packet.data[3] == 0x04);
+            assert(step.packet.data[11] == 0x99);
+            assert(checksum_valid(step.packet.data.data(), step.packet.length));
+            break;
+        }
+    }
+    assert(saw_config_2);
+}
+
 void test_receive_controller_config1_group_updates_replayed_state() {
     const auto* config_1 = find_catalog_packet("base-config-1");
     assert(config_1 != nullptr);
@@ -434,6 +471,7 @@ int main() {
     test_receive_controller_config5_normal_echo();
     test_receive_controller_unknown_valid_packet_records_without_echo();
     test_receive_controller_config1_updates_replayed_state();
+    test_receive_controller_config2_updates_replayed_state();
     test_receive_controller_config1_group_updates_replayed_state();
     test_receive_controller_rejects_invalid_packets_without_echo();
     test_stress_playbook_counts_invalid_checksum();

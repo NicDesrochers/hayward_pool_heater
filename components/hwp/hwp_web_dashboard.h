@@ -45,7 +45,8 @@ namespace hwp {
 
 static constexpr size_t HWP_WEB_DEFAULT_PACKET_BUFFER_SIZE = 80;
 static constexpr size_t HWP_WEB_DEFAULT_GRAPH_HISTORY_SIZE = 240;
-static constexpr size_t HWP_WEB_MAX_GRAPH_HISTORY_SIZE = 80;
+static constexpr size_t HWP_WEB_MAX_PACKET_BUFFER_SIZE = 24;
+static constexpr size_t HWP_WEB_MAX_GRAPH_HISTORY_SIZE = 24;
 
 struct HWPWebConfig {
     bool enabled{false};

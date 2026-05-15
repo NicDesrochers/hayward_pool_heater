@@ -83,7 +83,7 @@ void test_field_snapshot_and_graph_trim() {
     assert_contains(json, "\"value\":\"13.5\"");
     assert_contains(json, "\"changed\":true");
     assert_contains(json, "\"bus_mode\":\"RX\"");
-    assert_contains(json, "\"t\":");
+    assert_contains(json, "\"graphs\":{}");
 
     const auto event_json = dashboard.event_json();
     assert_contains(event_json, "\"packet_sequence\":");

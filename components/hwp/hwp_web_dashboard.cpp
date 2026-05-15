@@ -154,6 +154,8 @@ void HWPWebDashboard::loop() {}
 
 void HWPWebDashboard::configure(const HWPWebConfig& config) {
     this->config_ = config;
+    this->config_.packet_buffer_size =
+        std::min(this->config_.packet_buffer_size, HWP_WEB_MAX_PACKET_BUFFER_SIZE);
     this->config_.graph_history_size =
         std::min(this->config_.graph_history_size, HWP_WEB_MAX_GRAPH_HISTORY_SIZE);
 }
@@ -289,11 +291,7 @@ std::string HWPWebDashboard::state_json_(bool include_graphs) const {
     out << "\"fields\":" << fields_json() << ",";
     out << "\"frames\":" << frames_json() << ",";
     out << "\"packets\":" << packets_json();
-    if (include_graphs) {
-        out << ",\"graphs\":" << graph_json();
-    } else {
-        out << ",\"graphs\":{}";
-    }
+    out << ",\"graphs\":{}";
     out << "}";
     return out.str();
 }

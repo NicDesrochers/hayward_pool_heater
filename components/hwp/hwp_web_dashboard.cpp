@@ -172,7 +172,6 @@ void HWPWebDashboard::record_packet(const BaseFrame& frame, const std::string& k
     record.length = frame.packet.data_len;
     record.checksum_valid = frame.packet.is_checksum_valid();
     record.changed = frame.is_changed();
-    record.formatted = frame.header_format(kind, false) + frame.format();
     record.bytes.reserve(frame.packet.data_len);
     for (size_t i = 0; i < frame.packet.data_len; i++) {
         record.bytes.push_back(frame.packet.data[i]);
@@ -284,13 +283,36 @@ std::string HWPWebDashboard::event_json() const {
 }
 
 std::string HWPWebDashboard::state_json_(bool include_graphs) const {
-    std::lock_guard<std::mutex> lock(this->data_mutex_);
+    std::vector<HWPWebField> fields;
+    std::vector<PacketRecord> frames;
+    std::vector<PacketRecord> packets;
+    std::map<std::string, std::vector<GraphPoint>> graphs;
+    std::string status;
+    bus_mode_t bus_mode;
+    {
+        std::lock_guard<std::mutex> lock(this->data_mutex_);
+        fields = this->fields_;
+        packets = this->packets_;
+        frames.reserve(this->latest_frames_.size());
+        for (const auto& entry : this->latest_frames_) {
+            frames.push_back(entry.second);
+        }
+        if (include_graphs) {
+            graphs = this->graph_history_;
+        }
+        status = this->last_status_;
+        bus_mode = this->last_bus_mode_;
+    }
+
     std::ostringstream out;
     out << "{";
-    out << "\"meta\":" << meta_json(this->last_status_, this->last_bus_mode_) << ",";
-    out << "\"fields\":" << fields_json() << ",";
-    out << "\"frames\":" << frames_json() << ",";
-    out << "\"packets\":" << packets_json();
+    out << "\"meta\":" << meta_json(status, bus_mode) << ",";
+    out << "\"fields\":";
+    append_fields_json(out, fields);
+    out << ",\"frames\":";
+    append_packets_json(out, frames);
+    out << ",\"packets\":";
+    append_packets_json(out, packets);
     out << ",\"graphs\":{}";
     out << "}";
     return out.str();
@@ -308,9 +330,15 @@ size_t HWPWebDashboard::latest_frame_count() const {
 
 std::string HWPWebDashboard::fields_json() const {
     std::ostringstream out;
+    append_fields_json(out, this->fields_);
+    return out.str();
+}
+
+void HWPWebDashboard::append_fields_json(
+    std::ostringstream& out, const std::vector<HWPWebField>& fields) {
     out << "[";
-    for (size_t i = 0; i < this->fields_.size(); i++) {
-        const auto& field = this->fields_[i];
+    for (size_t i = 0; i < fields.size(); i++) {
+        const auto& field = fields[i];
         if (i) out << ",";
         out << "{";
         append_json_pair(out, "id", field.id);
@@ -328,18 +356,22 @@ std::string HWPWebDashboard::fields_json() const {
         out << "}";
     }
     out << "]";
-    return out.str();
 }
 
 std::string HWPWebDashboard::packets_json() const {
     std::ostringstream out;
+    append_packets_json(out, this->packets_);
+    return out.str();
+}
+
+void HWPWebDashboard::append_packets_json(
+    std::ostringstream& out, const std::vector<PacketRecord>& packets) {
     out << "[";
-    for (size_t i = 0; i < this->packets_.size(); i++) {
+    for (size_t i = 0; i < packets.size(); i++) {
         if (i) out << ",";
-        append_packet_json(out, this->packets_[i]);
+        append_packet_json(out, packets[i]);
     }
     out << "]";
-    return out.str();
 }
 
 std::string HWPWebDashboard::frames_json() const {
@@ -377,9 +409,15 @@ void HWPWebDashboard::append_packet_json(std::ostringstream& out, const PacketRe
 
 std::string HWPWebDashboard::graph_json() const {
     std::ostringstream out;
+    append_graph_json(out, this->graph_history_);
+    return out.str();
+}
+
+void HWPWebDashboard::append_graph_json(
+    std::ostringstream& out, const std::map<std::string, std::vector<GraphPoint>>& graphs) {
     out << "{";
     size_t field_index = 0;
-    for (const auto& entry : this->graph_history_) {
+    for (const auto& entry : graphs) {
         if (field_index++) out << ",";
         out << "\"" << escape_json(entry.first) << "\":[";
         for (size_t i = 0; i < entry.second.size(); i++) {
@@ -390,7 +428,6 @@ std::string HWPWebDashboard::graph_json() const {
         out << "]";
     }
     out << "}";
-    return out.str();
 }
 
 std::string HWPWebDashboard::meta_json(const std::string& status, bus_mode_t bus_mode) const {

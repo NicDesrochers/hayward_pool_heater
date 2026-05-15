@@ -111,7 +111,6 @@ class HWPWebDashboard {
         bool changed{false};
         std::vector<uint8_t> bytes;
         std::vector<bool> changed_bytes;
-        std::string formatted;
     };
 
     struct GraphPoint {
@@ -150,6 +149,10 @@ class HWPWebDashboard {
     std::string packets_json() const;
     std::string frames_json() const;
     static void append_packet_json(std::ostringstream& out, const PacketRecord& packet);
+    static void append_fields_json(std::ostringstream& out, const std::vector<HWPWebField>& fields);
+    static void append_packets_json(std::ostringstream& out, const std::vector<PacketRecord>& packets);
+    static void append_graph_json(
+        std::ostringstream& out, const std::map<std::string, std::vector<GraphPoint>>& graphs);
     std::string fields_json() const;
     std::string graph_json() const;
     std::string state_json_(bool include_graphs) const;

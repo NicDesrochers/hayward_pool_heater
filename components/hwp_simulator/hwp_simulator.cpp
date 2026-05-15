@@ -455,11 +455,9 @@ void HWPSimulator::process_rx_() {
 
 bool HWPSimulator::process_rx_symbols_(
     const esphome::hwp::wire::PulseSymbol* symbols, size_t symbol_count) {
-    Packet packet;
-    const bool decoded =
-        esphome::hwp::wire::decode_packet_symbols(
-            symbols, symbol_count, esphome::hwp::wire::PacketSource::CONTROLLER, packet);
-    if (!decoded) {
+    const auto packets = esphome::hwp::wire::decode_packet_group_symbols(
+        symbols, symbol_count, esphome::hwp::wire::PacketSource::CONTROLLER);
+    if (packets.empty()) {
         engine_.record_error();
         if (status_sensor_ != nullptr) {
             status_sensor_->publish_state("invalid controller packet");
@@ -468,20 +466,26 @@ bool HWPSimulator::process_rx_symbols_(
         return false;
     }
 
-    const auto result = engine_.receive_controller_packet(packet);
-    publish_rx_packet_(packet, result.status);
-    if (status_sensor_ != nullptr) {
-        status_sensor_->publish_state(result.status);
-    }
-    if (result.has_echo) {
-        pending_step_ = result.echo;
-        next_step_ms_ = millis() + result.echo.delay_ms;
-        if (last_echo_sensor_ != nullptr) {
-            last_echo_sensor_->publish_state(format_packet_(result.echo) + " pending");
+    bool accepted = false;
+    const char* status = "accepted controller packet";
+    for (const auto& packet : packets) {
+        const auto result = engine_.receive_controller_packet(packet);
+        status = result.status;
+        accepted = accepted || result.accepted;
+        publish_rx_packet_(packet, result.status);
+        if (result.has_echo) {
+            pending_step_ = result.echo;
+            next_step_ms_ = millis() + result.echo.delay_ms;
+            if (last_echo_sensor_ != nullptr) {
+                last_echo_sensor_->publish_state(format_packet_(result.echo) + " pending");
+            }
         }
     }
+    if (status_sensor_ != nullptr) {
+        status_sensor_->publish_state(status);
+    }
     publish_status_();
-    return result.accepted;
+    return accepted;
 }
 
 bool HWPSimulator::emit_packet_(const SimulatorStep& step) {

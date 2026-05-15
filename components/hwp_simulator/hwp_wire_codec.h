@@ -166,6 +166,60 @@ inline bool decode_packet_symbols(
     return checksum_valid(out.data.data(), out.length);
 }
 
+inline size_t packet_symbol_count(size_t length) {
+    return is_supported_length(length) ? 1 + length * 8 + 1 : 0;
+}
+
+inline bool same_packet(const Packet& left, const Packet& right) {
+    if (left.length != right.length || left.source != right.source) {
+        return false;
+    }
+    for (size_t index = 0; index < left.length; ++index) {
+        if (left.data[index] != right.data[index]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+inline std::vector<Packet> decode_packet_group_symbols(
+    const PulseSymbol* symbols, size_t symbol_count, PacketSource source) {
+    std::vector<Packet> packets;
+    if (symbols == nullptr) {
+        return packets;
+    }
+
+    const size_t long_count = packet_symbol_count(LONG_PACKET_LENGTH);
+    const size_t short_count = packet_symbol_count(SHORT_PACKET_LENGTH);
+    Packet previous;
+    bool have_previous = false;
+
+    for (size_t offset = 0; offset < symbol_count;) {
+        Packet packet;
+        size_t consumed = 0;
+        if (offset + long_count <= symbol_count &&
+            decode_packet_symbols(symbols + offset, long_count, source, packet)) {
+            consumed = long_count;
+        } else if (offset + short_count <= symbol_count &&
+                   decode_packet_symbols(symbols + offset, short_count, source, packet)) {
+            consumed = short_count;
+        }
+
+        if (consumed == 0) {
+            ++offset;
+            continue;
+        }
+
+        if (!have_previous || !same_packet(previous, packet)) {
+            packets.push_back(packet);
+            previous = packet;
+            have_previous = true;
+        }
+        offset += consumed;
+    }
+    return packets;
+}
+
 } // namespace wire
 } // namespace hwp
 } // namespace esphome

@@ -34,10 +34,13 @@
 
 #include <cassert>
 #include <string>
+#include <vector>
 
 using esphome::hwp::wire::Packet;
 using esphome::hwp::wire::PacketSource;
 using esphome::hwp::wire::checksum_valid;
+using esphome::hwp::wire::CONTROLLER_REPEAT_COUNT;
+using esphome::hwp::wire::decode_packet_group_symbols;
 using esphome::hwp::wire::decode_packet_symbols;
 using esphome::hwp::wire::encode_packet_symbols;
 using esphome::hwp::wire::refresh_checksum;
@@ -110,6 +113,33 @@ void test_wire_codec_round_trip_controller_command() {
     assert(decoded.data[0] == 0x85);
     assert(decoded.data[2] == 0x40);
     assert(decoded.data[11] == 0x85);
+}
+
+void test_wire_codec_decodes_repeated_controller_group_once() {
+    const auto* config_1 = find_catalog_packet("base-config-1");
+    assert(config_1 != nullptr);
+    Packet command = config_1->packet;
+    command.source = PacketSource::CONTROLLER;
+    command.data[8] = 0x3C;
+    refresh_checksum(command.data.data(), command.length);
+    assert(command.data[11] == 0xA6);
+
+    std::vector<esphome::hwp::wire::PulseSymbol> group_symbols;
+    for (uint8_t repeat = 0; repeat < CONTROLLER_REPEAT_COUNT; ++repeat) {
+        auto symbols = encode_packet_symbols(
+            command.data.data(), command.length, PacketSource::CONTROLLER,
+            repeat + 1 == CONTROLLER_REPEAT_COUNT);
+        group_symbols.insert(group_symbols.end(), symbols.begin(), symbols.end());
+    }
+
+    const auto packets = decode_packet_group_symbols(
+        group_symbols.data(), group_symbols.size(), PacketSource::CONTROLLER);
+    assert(packets.size() == 1);
+    assert(packets[0].source == PacketSource::CONTROLLER);
+    assert(packets[0].length == 12);
+    assert(packets[0].data[0] == 0x81);
+    assert(packets[0].data[8] == 0x3C);
+    assert(packets[0].data[11] == 0xA6);
 }
 
 void test_playbook_mapping() {
@@ -315,6 +345,49 @@ void test_receive_controller_config1_updates_replayed_state() {
     assert(saw_config_1);
 }
 
+void test_receive_controller_config1_group_updates_replayed_state() {
+    const auto* config_1 = find_catalog_packet("base-config-1");
+    assert(config_1 != nullptr);
+    Packet command = config_1->packet;
+    command.source = PacketSource::CONTROLLER;
+    command.data[8] = 0x3C;
+    refresh_checksum(command.data.data(), command.length);
+
+    std::vector<esphome::hwp::wire::PulseSymbol> group_symbols;
+    for (uint8_t repeat = 0; repeat < CONTROLLER_REPEAT_COUNT; ++repeat) {
+        auto symbols = encode_packet_symbols(
+            command.data.data(), command.length, PacketSource::CONTROLLER,
+            repeat + 1 == CONTROLLER_REPEAT_COUNT);
+        group_symbols.insert(group_symbols.end(), symbols.begin(), symbols.end());
+    }
+    const auto packets = decode_packet_group_symbols(
+        group_symbols.data(), group_symbols.size(), PacketSource::CONTROLLER);
+
+    SimulatorEngine engine;
+    for (const auto& packet : packets) {
+        auto result = engine.receive_controller_packet(packet);
+        assert(result.accepted);
+        assert(std::string(result.status) == "updated simulator state");
+    }
+    assert(engine.stats().rx_packet_count == 1);
+
+    engine.set_playbook(Playbook::NORMAL_IDLE);
+    engine.set_active(true);
+    bool saw_config_1 = false;
+    for (int index = 0; index < 12; ++index) {
+        auto step = engine.step_once();
+        assert(step.has_packet);
+        if (step.packet.length == 12 && step.packet.data[0] == 0x81) {
+            saw_config_1 = true;
+            assert(step.packet.source == PacketSource::HEATER);
+            assert(step.packet.data[8] == 0x3C);
+            assert(step.packet.data[11] == 0xA6);
+            break;
+        }
+    }
+    assert(saw_config_1);
+}
+
 void test_receive_controller_rejects_invalid_packets_without_echo() {
     const auto* config_5 = find_catalog_packet("base-config-5-normal");
     assert(config_5 != nullptr);
@@ -350,6 +423,7 @@ int main() {
     test_wire_codec_source_spacing();
     test_wire_codec_round_trip_short_packet();
     test_wire_codec_round_trip_controller_command();
+    test_wire_codec_decodes_repeated_controller_group_once();
     test_playbook_mapping();
     test_normal_idle_steps();
     test_normal_idle_realistic_frame_order();
@@ -360,6 +434,7 @@ int main() {
     test_receive_controller_config5_normal_echo();
     test_receive_controller_unknown_valid_packet_records_without_echo();
     test_receive_controller_config1_updates_replayed_state();
+    test_receive_controller_config1_group_updates_replayed_state();
     test_receive_controller_rejects_invalid_packets_without_echo();
     test_stress_playbook_counts_invalid_checksum();
     return 0;

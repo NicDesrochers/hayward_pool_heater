@@ -94,6 +94,35 @@ const CatalogPacket& catalog_by_index(size_t index) {
     return CATALOG[index % (sizeof(CATALOG) / sizeof(CATALOG[0]))];
 }
 
+const CatalogPacket* catalog_config_by_frame(uint8_t frame) {
+    for (const auto& packet : CATALOG) {
+        if (packet.packet.length == 12 && packet.packet.data[0] == frame) {
+            return &packet;
+        }
+    }
+    return nullptr;
+}
+
+bool is_config_registry_frame(const Packet& packet) {
+    return packet.length == 12 && packet.data[0] >= 0x81 && packet.data[0] <= 0x86;
+}
+
+size_t config_registry_index(const Packet& packet) {
+    return static_cast<size_t>(packet.data[0] - 0x81);
+}
+
+bool packet_bytes_equal(const Packet& left, const Packet& right) {
+    if (left.length != right.length) {
+        return false;
+    }
+    for (size_t index = 0; index < left.length; ++index) {
+        if (left.data[index] != right.data[index]) {
+            return false;
+        }
+    }
+    return true;
+}
+
 } // namespace
 
 const char* playbook_to_string(Playbook playbook) {
@@ -147,10 +176,20 @@ void SimulatorEngine::set_interval_scale(float value) {
 void SimulatorEngine::reset() {
     cursor_ = 0;
     stats_ = {};
-    config_1_state_ = {};
-    config_2_state_ = {};
-    config_1_state_valid_ = false;
-    config_2_state_valid_ = false;
+    config_registry_ = {};
+}
+
+std::optional<Packet> SimulatorEngine::current_registry_packet_(const CatalogPacket& packet) const {
+    if (!is_config_registry_frame(packet.packet)) {
+        return std::nullopt;
+    }
+    const auto& stored = config_registry_[config_registry_index(packet.packet)];
+    if (stored.has_value()) {
+        return stored.value();
+    }
+    Packet registry_packet = packet.packet;
+    registry_packet.source = PacketSource::HEATER;
+    return registry_packet;
 }
 
 SimulatorStep SimulatorEngine::packet_step(
@@ -158,11 +197,8 @@ SimulatorStep SimulatorEngine::packet_step(
     SimulatorStep step;
     step.has_packet = true;
     step.packet = packet.packet;
-    if (config_1_state_valid_ && std::strcmp(packet.id, "base-config-1") == 0) {
-        step.packet = config_1_state_;
-    }
-    if (config_2_state_valid_ && std::strcmp(packet.id, "base-config-2") == 0) {
-        step.packet = config_2_state_;
+    if (auto registry_packet = current_registry_packet_(packet); registry_packet.has_value()) {
+        step.packet = registry_packet.value();
     }
     step.packet_id = packet.id;
     step.label = packet.label;
@@ -253,31 +289,38 @@ SimulatorStep SimulatorEngine::rx_stress_step() {
 }
 
 std::optional<SimulatorStep> SimulatorEngine::handle_controller_packet(const Packet& packet) {
-    if (packet.length != 12 || packet.data[0] != 0x85) {
-        return std::nullopt;
-    }
-    const bool eco = (packet.data[2] & 0x40) != 0;
-    const auto* echo = find_catalog_packet(eco ? "base-config-5-eco-echo" : "base-config-5-normal");
-    if (echo == nullptr) {
-        return std::nullopt;
-    }
-    return packet_step(*echo, "command_echo", 2000);
+    return update_config_registry_(packet);
 }
 
-bool SimulatorEngine::update_config_state_(const Packet& packet) {
-    if (packet.length == 12 && packet.data[0] == 0x81) {
-        config_1_state_ = packet;
-        config_1_state_.source = PacketSource::HEATER;
-        config_1_state_valid_ = true;
-        return true;
+std::optional<SimulatorStep> SimulatorEngine::update_config_registry_(const Packet& packet) {
+    if (!is_config_registry_frame(packet)) {
+        return std::nullopt;
     }
-    if (packet.length == 12 && packet.data[0] == 0x82) {
-        config_2_state_ = packet;
-        config_2_state_.source = PacketSource::HEATER;
-        config_2_state_valid_ = true;
-        return true;
+
+    Packet stored_packet = packet;
+    stored_packet.source = PacketSource::HEATER;
+    const size_t index = config_registry_index(stored_packet);
+    const auto* default_packet = catalog_config_by_frame(stored_packet.data[0]);
+    const Packet* current_packet = config_registry_[index].has_value()
+                                       ? &config_registry_[index].value()
+                                       : (default_packet != nullptr ? &default_packet->packet : nullptr);
+    const bool changed =
+        current_packet == nullptr || !packet_bytes_equal(*current_packet, stored_packet);
+    config_registry_[index] = stored_packet;
+    if (!changed) {
+        return std::nullopt;
     }
-    return false;
+
+    SimulatorStep echo;
+    echo.has_packet = true;
+    echo.packet = stored_packet;
+    echo.packet_id = "config-registry";
+    echo.label = "CONFIG";
+    echo.event = "command_echo";
+    echo.delay_ms = static_cast<uint32_t>(2000 * interval_scale_);
+    stats_.step++;
+    stats_.packet_count++;
+    return echo;
 }
 
 ControllerPacketResult SimulatorEngine::receive_controller_packet(const Packet& packet) {
@@ -292,17 +335,13 @@ ControllerPacketResult SimulatorEngine::receive_controller_packet(const Packet& 
     }
 
     stats_.rx_packet_count++;
-    if (update_config_state_(packet)) {
-        return ControllerPacketResult{true, false, {}, "updated simulator state"};
-    }
-
     auto echo = handle_controller_packet(packet);
     if (!echo.has_value()) {
         return ControllerPacketResult{true, false, {}, "accepted controller packet"};
     }
 
     stats_.echo_count++;
-    return ControllerPacketResult{true, true, *echo, "echoed controller packet"};
+    return ControllerPacketResult{true, true, *echo, "updated simulator registry"};
 }
 
 } // namespace hwp_simulator

@@ -241,10 +241,10 @@ void test_config5_command_echo() {
     auto echo = engine.handle_controller_packet(controller_packet);
     assert(echo.has_value());
     assert(echo->has_packet);
-    assert(std::string(echo->packet_id) == "base-config-5-eco-echo");
+    assert(std::string(echo->packet_id) == "config-registry");
     assert(echo->packet.data[2] == 0x40);
-    assert(echo->packet.data[4] == 0x4A);
-    assert(echo->packet.data[11] == 0xB1);
+    assert(echo->packet.data[4] == 0x1E);
+    assert(echo->packet.data[11] == 0x85);
 }
 
 void test_receive_controller_config5_eco_echo() {
@@ -261,11 +261,11 @@ void test_receive_controller_config5_eco_echo() {
 
     assert(result.accepted);
     assert(result.has_echo);
-    assert(std::string(result.status) == "echoed controller packet");
-    assert(std::string(result.echo.packet_id) == "base-config-5-eco-echo");
+    assert(std::string(result.status) == "updated simulator registry");
+    assert(std::string(result.echo.packet_id) == "config-registry");
     assert(result.echo.packet.data[2] == 0x40);
-    assert(result.echo.packet.data[4] == 0x4A);
-    assert(result.echo.packet.data[11] == 0xB1);
+    assert(result.echo.packet.data[4] == 0x1E);
+    assert(result.echo.packet.data[11] == 0x85);
     assert(engine.stats().rx_packet_count == 1);
     assert(engine.stats().echo_count == 1);
 }
@@ -285,13 +285,14 @@ void test_receive_controller_config5_normal_echo() {
 
     assert(result.accepted);
     assert(result.has_echo);
-    assert(std::string(result.echo.packet_id) == "base-config-5-normal");
+    assert(std::string(result.status) == "updated simulator registry");
+    assert(std::string(result.echo.packet_id) == "config-registry");
     assert(result.echo.packet.data[2] == 0x00);
-    assert(result.echo.packet.data[4] == 0x1E);
-    assert(result.echo.packet.data[11] == 0x45);
+    assert(result.echo.packet.data[4] == 0x4A);
+    assert(result.echo.packet.data[11] == 0x71);
 }
 
-void test_receive_controller_unknown_valid_packet_records_without_echo() {
+void test_receive_controller_same_config_records_without_echo() {
     const auto* config_3 = find_catalog_packet("base-config-3");
     assert(config_3 != nullptr);
     Packet command = config_3->packet;
@@ -321,10 +322,12 @@ void test_receive_controller_config1_updates_replayed_state() {
     auto result = engine.receive_controller_packet(command);
 
     assert(result.accepted);
-    assert(!result.has_echo);
-    assert(std::string(result.status) == "updated simulator state");
+    assert(result.has_echo);
+    assert(std::string(result.status) == "updated simulator registry");
+    assert(result.echo.packet.data[10] == 0x2D);
+    assert(result.echo.packet.data[11] == 0xA2);
     assert(engine.stats().rx_packet_count == 1);
-    assert(engine.stats().echo_count == 0);
+    assert(engine.stats().echo_count == 1);
     assert(engine.stats().error_count == 0);
 
     engine.set_playbook(Playbook::NORMAL_IDLE);
@@ -358,10 +361,12 @@ void test_receive_controller_config2_updates_replayed_state() {
     auto result = engine.receive_controller_packet(command);
 
     assert(result.accepted);
-    assert(!result.has_echo);
-    assert(std::string(result.status) == "updated simulator state");
+    assert(result.has_echo);
+    assert(std::string(result.status) == "updated simulator registry");
+    assert(result.echo.packet.data[3] == 0x04);
+    assert(result.echo.packet.data[11] == 0x99);
     assert(engine.stats().rx_packet_count == 1);
-    assert(engine.stats().echo_count == 0);
+    assert(engine.stats().echo_count == 1);
     assert(engine.stats().error_count == 0);
 
     engine.set_playbook(Playbook::NORMAL_IDLE);
@@ -380,6 +385,31 @@ void test_receive_controller_config2_updates_replayed_state() {
         }
     }
     assert(saw_config_2);
+}
+
+void test_receive_controller_config3_registry_write_echoes_once() {
+    const auto* config_3 = find_catalog_packet("base-config-3");
+    assert(config_3 != nullptr);
+    Packet command = config_3->packet;
+    command.source = PacketSource::CONTROLLER;
+    command.data[8] = 0x84;
+    refresh_checksum(command.data.data(), command.length);
+
+    SimulatorEngine engine;
+    auto first = engine.receive_controller_packet(command);
+    auto repeat = engine.receive_controller_packet(command);
+
+    assert(first.accepted);
+    assert(first.has_echo);
+    assert(first.echo.packet.source == PacketSource::HEATER);
+    assert(first.echo.packet.data[0] == 0x83);
+    assert(first.echo.packet.data[8] == 0x84);
+    assert(checksum_valid(first.echo.packet.data.data(), first.echo.packet.length));
+    assert(repeat.accepted);
+    assert(!repeat.has_echo);
+    assert(std::string(repeat.status) == "accepted controller packet");
+    assert(engine.stats().rx_packet_count == 2);
+    assert(engine.stats().echo_count == 1);
 }
 
 void test_receive_controller_config1_group_updates_replayed_state() {
@@ -404,7 +434,7 @@ void test_receive_controller_config1_group_updates_replayed_state() {
     for (const auto& packet : packets) {
         auto result = engine.receive_controller_packet(packet);
         assert(result.accepted);
-        assert(std::string(result.status) == "updated simulator state");
+        assert(std::string(result.status) == "updated simulator registry");
     }
     assert(engine.stats().rx_packet_count == 1);
 
@@ -469,9 +499,10 @@ int main() {
     test_config5_command_echo();
     test_receive_controller_config5_eco_echo();
     test_receive_controller_config5_normal_echo();
-    test_receive_controller_unknown_valid_packet_records_without_echo();
+    test_receive_controller_same_config_records_without_echo();
     test_receive_controller_config1_updates_replayed_state();
     test_receive_controller_config2_updates_replayed_state();
+    test_receive_controller_config3_registry_write_echoes_once();
     test_receive_controller_config1_group_updates_replayed_state();
     test_receive_controller_rejects_invalid_packets_without_echo();
     test_stress_playbook_counts_invalid_checksum();

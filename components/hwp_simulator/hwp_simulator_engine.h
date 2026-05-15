@@ -110,17 +110,15 @@ class SimulatorEngine {
     SimulatorStep config_refresh_step();
     SimulatorStep active_defrost_step();
     SimulatorStep rx_stress_step();
-    bool update_config_state_(const Packet& packet);
+    std::optional<SimulatorStep> update_config_registry_(const Packet& packet);
+    std::optional<Packet> current_registry_packet_(const CatalogPacket& packet) const;
 
     Playbook playbook_{Playbook::PAUSED};
     bool active_{false};
     float interval_scale_{1.0f};
     size_t cursor_{0};
     SimulatorStats stats_{};
-    Packet config_1_state_{};
-    Packet config_2_state_{};
-    bool config_1_state_valid_{false};
-    bool config_2_state_valid_{false};
+    std::array<std::optional<Packet>, 6> config_registry_{};
 };
 
 } // namespace hwp_simulator

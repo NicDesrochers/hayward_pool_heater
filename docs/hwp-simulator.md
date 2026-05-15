@@ -111,9 +111,10 @@ production component:
   sends controller packets in groups of eight.
 - The simulator disables RX while it is transmitting, then re-enables RX on the
   same shared GPIO after the transmit burst.
-- Known command echoes are delayed before transmit so the simulator does not
-  talk over the controller burst. CONFIG_5 D06 echo uses the documented
-  post-controller delay boundary instead of responding immediately.
+- Config registry echoes are delayed before transmit so the simulator does not
+  talk over the controller burst. The first changed registry packet is echoed
+  after the documented post-controller delay boundary instead of responding
+  immediately.
 - The default `normal_idle` playbook models the higher-level packet order seen
   in real heater logs: slower config/status groups are interleaved with repeated
   `COND_1`, `COND_2`, `CONFIG_2`, `CONFIG_1`, and `COND_1B` clusters.
@@ -196,13 +197,16 @@ same configured GPIO. Software TX is used because bench testing showed ESP-IDF
 RMT TX could report completion on the simulator node without moving the shared
 GPIO pad, while software GPIO pulses were visible and reliable.
 
-In the current implementation, simulator RX behavior is intentionally narrow:
+In the current implementation, simulator RX behavior follows the bus family
+split used by the heat pump:
 
-- Checksum-valid controller `CONFIG_5` D06 defrost ECO/NORMAL commands produce
-  the fixture-backed heater echo packets after the bus-sharing delay.
-- Checksum-valid controller `CONFIG_1` and `CONFIG_2` packets update the
-  simulator's internal config state and are replayed by later heater-originated
-  config frames.
+- Checksum-valid controller packets for config registries `CONFIG_1` through
+  `CONFIG_6` update the simulator's internal registry state.
+- If the registry value changed, the simulator schedules the first changed
+  packet as a heater-originated echo after the bus-sharing delay.
+- Later heater-originated config frames replay the stored registry value.
+- Sensor/status families remain simulator-owned playbook data and are not
+  overwritten by controller traffic.
 - Other valid controller packets update diagnostics only.
 - Invalid checksum or invalid length packets increment the error counter and do
   not emit an echo.

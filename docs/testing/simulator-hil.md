@@ -42,10 +42,12 @@ The default `normal_idle` playbook also follows the observed real-device packet
 cadence: `CONFIG_6`, `CONFIG_4`, and `CONFIG_5` are interleaved with repeated
 condition/config clusters, then `CONFIG_3`, `COND_2_B`, and `COND_D`.
 
-The implemented wire reaction is deliberately narrow: checksum-valid controller
-`CONFIG_5` D06 defrost ECO/NORMAL commands produce the fixture-backed heater
-echo packets, and checksum-valid controller `CONFIG_1` and `CONFIG_2` packets
-update the simulator's internal config state for later heater-originated replay.
+The implemented wire reaction follows the heat-pump split between sensor/status
+families and config registries. Checksum-valid controller writes to `CONFIG_1`
+through `CONFIG_6` update the simulator's internal registry state; if the value
+changed, the simulator schedules the first changed config packet as a delayed
+heater-originated echo. Later heater-originated config frames replay the stored
+registry values. Sensor/status packets remain simulator-owned playbook data.
 Other valid controller packets update diagnostics only; invalid packets
 increment error counters and do not emit an echo.
 

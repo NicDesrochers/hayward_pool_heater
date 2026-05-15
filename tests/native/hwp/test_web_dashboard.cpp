@@ -84,6 +84,9 @@ void test_field_snapshot_and_graph_trim() {
     assert_contains(json, "\"changed\":true");
     assert_contains(json, "\"bus_mode\":\"RX\"");
     assert_contains(json, "\"t\":");
+
+    const auto event_json = dashboard.event_json();
+    assert_contains(event_json, "\"graphs\":{}");
 }
 
 void test_field_snapshot_retains_previous_fields_on_partial_update() {

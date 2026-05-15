@@ -79,7 +79,7 @@ const char HWP_WEB_INDEX[] =
     "function drawGraphs(){drawOne('g1',['t02_inlet','t03_outlet','t04_coil','t06_exhaust','t_aux_cond2']);drawOne('g2',['r01_setpoint_cooling','r02_setpoint_heating','r03_setpoint_auto','r08_min_cool_setpoint','r09_max_cooling_setpoint','r10_min_heating_setpoint','r11_max_heating_setpoint']);drawOne('g3',['r04_return_diff_cooling','r05_shutdown_temp_diff_when_cooling','r06_return_diff_heating','r07_shutdown_diff_heating','d03_defrosting_cycle_time_minutes','d04_max_defrost_time_minutes','d05_min_economy_defrost_time_minutes']);drawOne('g4',['f02_fan_high_speed_cool_setpoint','f03_fan_low_speed_temp_in_cooling_set_point','f04_fan_stop_temp_in_cooling_set_point','f05_fan_high_speed_temp_in_heating_set_point','f06_fan_low_speed_temp_in_heating_set_point','f07_fan_stop_temp_in_heating_set_point','f08_fan_low_speed_running_time','f09_fan_stop_low_speed_running_time','f12_min_fan_voltage_pct','f13_max_fan_voltage_pct'])}"
     "let base=location.pathname.replace(/\\/$/,'');"
     "async function load(){state=await fetch(base+'/state.json').then(r=>r.json());render()}"
-    "saveAnns(anns());load();setInterval(render,1000);addEventListener('resize',drawGraphs);let es=new EventSource(base+'/events');es.addEventListener('state',e=>{state=JSON.parse(e.data);state.fields.forEach(f=>{if(f.changed)changed[f.id]=Date.now()+4000});render()});"
+    "saveAnns(anns());load();setInterval(render,1000);addEventListener('resize',drawGraphs);let es=new EventSource(base+'/events');es.addEventListener('state',e=>{let next=JSON.parse(e.data);if(!Object.keys(next.graphs||{}).length)next.graphs=state.graphs;state=next;state.fields.forEach(f=>{if(f.changed)changed[f.id]=Date.now()+4000});render()});"
     "</script></body></html>";
 
 void append_json_pair(std::ostringstream& out, const char* key, const std::string& value, bool comma = true) {
@@ -138,7 +138,7 @@ void HWPWebDashboard::loop() {
         should_send = this->dirty_ && millis() - this->last_event_ms_ >= 250;
     }
     if (this->events_ != nullptr && should_send) {
-        auto payload = this->state_json();
+        auto payload = this->event_json();
         this->events_->try_send_nodefer(payload.c_str(), "state");
         {
             std::lock_guard<std::mutex> lock(this->data_mutex_);
@@ -263,14 +263,26 @@ void HWPWebDashboard::append_field(std::vector<HWPWebField>& fields, HWPWebField
 }
 
 std::string HWPWebDashboard::state_json() const {
+    return this->state_json_(true);
+}
+
+std::string HWPWebDashboard::event_json() const {
+    return this->state_json_(false);
+}
+
+std::string HWPWebDashboard::state_json_(bool include_graphs) const {
     std::lock_guard<std::mutex> lock(this->data_mutex_);
     std::ostringstream out;
     out << "{";
     out << "\"meta\":" << meta_json(this->last_status_, this->last_bus_mode_) << ",";
     out << "\"fields\":" << fields_json() << ",";
     out << "\"frames\":" << frames_json() << ",";
-    out << "\"packets\":" << packets_json() << ",";
-    out << "\"graphs\":" << graph_json();
+    out << "\"packets\":" << packets_json();
+    if (include_graphs) {
+        out << ",\"graphs\":" << graph_json();
+    } else {
+        out << ",\"graphs\":{}";
+    }
     out << "}";
     return out.str();
 }

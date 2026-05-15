@@ -89,6 +89,7 @@ class HWPWebDashboard {
     void update_fields(const heat_pump_data_t& data, const std::string& status, bus_mode_t bus_mode);
 
     std::string state_json() const;
+    std::string event_json() const;
     size_t packet_count() const;
     size_t latest_frame_count() const;
     size_t graph_point_count(const std::string& field_id) const;
@@ -149,6 +150,7 @@ class HWPWebDashboard {
     static void append_packet_json(std::ostringstream& out, const PacketRecord& packet);
     std::string fields_json() const;
     std::string graph_json() const;
+    std::string state_json_(bool include_graphs) const;
     std::string meta_json(const std::string& status, bus_mode_t bus_mode) const;
     static std::string bus_mode_to_string(bus_mode_t mode);
     static std::string frame_source_to_string(frame_source_t source);

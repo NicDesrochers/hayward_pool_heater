@@ -72,8 +72,10 @@ void test_field_snapshot_and_graph_trim() {
     data.t02_temperature_inlet = 12.5f;
     data.t04_temperature_coil = 4.0f;
     dashboard.update_fields(data, "Connected", hwp::BUSMODE_RX);
+    const auto first_json = dashboard.state_json();
     data.t02_temperature_inlet = 13.0f;
     dashboard.update_fields(data, "Connected", hwp::BUSMODE_RX);
+    const auto unchanged_json = dashboard.state_json();
     data.t02_temperature_inlet = 13.5f;
     dashboard.update_fields(data, "Connected", hwp::BUSMODE_RX);
 
@@ -84,6 +86,14 @@ void test_field_snapshot_and_graph_trim() {
     assert_contains(json, "\"changed\":true");
     assert_contains(json, "\"bus_mode\":\"RX\"");
     assert_contains(json, "\"graphs\":{}");
+    const auto first_seen = first_json.find("\"seen_ms\":");
+    assert(first_seen != std::string::npos);
+    assert(unchanged_json.find(first_json.substr(first_seen, 20)) != std::string::npos);
+
+    const auto graphs = dashboard.graph_state_json();
+    assert_contains(graphs, "\"graphs\":{");
+    assert_contains(graphs, "\"t02_inlet\":[");
+    assert_contains(graphs, "\"value\":13.5");
 
     const auto event_json = dashboard.event_json();
     assert_contains(event_json, "\"packet_sequence\":");

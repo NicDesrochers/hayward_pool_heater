@@ -76,11 +76,11 @@ const char HWP_WEB_INDEX[] =
     "function render(){document.getElementById('meta').textContent=`${state.meta.status||''} ${state.meta.bus_mode||''} ${state.meta.revision||''}`;let now=Date.now();valueRows.innerHTML=state.fields.map(f=>`<tr class='${changed[f.id]>now?'changed':''}'><td>${f.label}</td><td>${f.value} ${f.unit||''}</td><td>${age(f.seen_ms)}</td><td>${f.source}</td><td>${f.frame}</td><td>${f.raw}</td></tr>`).join('');frameRows.innerHTML=(state.frames||[]).slice().reverse().map(packetHtml).join('');packetRows.innerHTML=state.packets.slice().reverse().map(packetHtml).join('');drawGraphs()}"
     "function fmeta(){let m={};state.fields.forEach(f=>m[f.id]=f);return m}"
     "function resizeCanvas(c){let r=c.getBoundingClientRect(),d=window.devicePixelRatio||1,w=Math.max(320,Math.floor(r.width)),h=Math.max(220,Math.floor(r.height));if(c.width!==Math.floor(w*d)||c.height!==Math.floor(h*d)){c.width=Math.floor(w*d);c.height=Math.floor(h*d)}let x=c.getContext('2d');x.setTransform(d,0,0,d,0,0);return{x,w,h}}"
-    "function drawOne(id,names){let c=document.getElementById(id),{x,w,h}=resizeCanvas(c),m=fmeta();x.clearRect(0,0,w,h);let series=names.map(n=>({id:n,label:(m[n]&&m[n].label)||n,unit:(m[n]&&m[n].unit)||'',p:state.graphs[n]||[]})).filter(s=>s.p.length);let note=document.getElementById(id+'m');if(!series.length){note.textContent='Waiting for retained samples from the device.';return}let vals=series.flatMap(s=>s.p.map(p=>p.value));let times=series.flatMap(s=>s.p.map(p=>p.t||p.sequence||0));let lo=Math.min(...vals),hi=Math.max(...vals),t0=Math.min(...times),t1=Math.max(...times);if(lo===hi){lo-=1;hi+=1}let pad=(hi-lo)*0.08;lo-=pad;hi+=pad;if(t0===t1)t0-=1;let l=48,r=Math.max(120,Math.min(260,w*0.32)),top=18,b=h-34,gw=w-l-r,gh=b-top;let colors=['#1d6fb8','#c45f1a','#2e7d32','#7b1fa2','#a00030','#00838f','#6d4c41','#455a64'];x.strokeStyle='#dce3eb';x.lineWidth=1;x.fillStyle='#5b6773';x.font='12px system-ui';for(let i=0;i<=4;i++){let y=top+gh*i/4;x.beginPath();x.moveTo(l,y);x.lineTo(l+gw,y);x.stroke();let v=hi-(hi-lo)*i/4;x.fillText(v.toFixed(1),6,y+4)}x.strokeStyle='#93a4b5';x.strokeRect(l,top,gw,gh);series.forEach((s,si)=>{x.strokeStyle=colors[si%colors.length];x.lineWidth=2;x.beginPath();s.p.forEach((p,i)=>{let tt=p.t||p.sequence||0,px=l+(tt-t0)*gw/(t1-t0),py=top+gh-(p.value-lo)*gh/(hi-lo);if(i)x.lineTo(px,py);else x.moveTo(px,py)});x.stroke();let last=s.p[s.p.length-1];let y=24+si*18;x.fillStyle=x.strokeStyle;x.fillRect(w-r+8,y-8,9,9);x.fillText(`${s.label}: ${last.value.toFixed(1)}${s.unit?' '+s.unit:''}`,w-r+22,y)});let span=Math.max(0,Math.round((t1-t0)/1000));note.textContent=`${series.length} series, ${span}s retained window, ${Math.max(...series.map(s=>s.p.length))} samples max`}"
+    "function drawOne(id,names){let c=document.getElementById(id),{x,w,h}=resizeCanvas(c),m=fmeta();x.clearRect(0,0,w,h);let series=names.map(n=>({id:n,label:(m[n]&&m[n].label)||n,unit:(m[n]&&m[n].unit)||'',p:state.graphs[n]||[]})).filter(s=>s.p.length);let note=document.getElementById(id+'m');if(!series.length){note.textContent='Waiting for retained samples from the device.';return}let vals=series.flatMap(s=>s.p.map(p=>p.value));let times=series.flatMap(s=>s.p.map(p=>p.t||p.sequence||0));let lo=Math.min(...vals),hi=Math.max(...vals),t0=Math.min(...times),t1=Math.max(...times);if(lo===hi){lo-=1;hi+=1}let pad=(hi-lo)*0.08;lo-=pad;hi+=pad;if(t0===t1)t0-=1;let l=48,r=Math.max(120,Math.min(260,w*0.32)),top=18,b=h-34,gw=w-l-r,gh=b-top;let colors=['#1d6fb8','#c45f1a','#2e7d32','#7b1fa2','#a00030','#00838f','#6d4c41','#455a64'];x.strokeStyle='#dce3eb';x.lineWidth=1;x.fillStyle='#5b6773';x.font='12px system-ui';for(let i=0;i<=4;i++){let y=top+gh*i/4;x.beginPath();x.moveTo(l,y);x.lineTo(l+gw,y);x.stroke();let v=hi-(hi-lo)*i/4;x.fillText(v.toFixed(1),6,y+4)}x.strokeStyle='#93a4b5';x.strokeRect(l,top,gw,gh);series.forEach((s,si)=>{x.strokeStyle=colors[si%colors.length];x.lineWidth=2;x.beginPath();s.p.forEach((p,i)=>{let tt=p.t||p.sequence||0,px=l+(tt-t0)*gw/(t1-t0),py=top+gh-(p.value-lo)*gh/(hi-lo);if(i)x.lineTo(px,py);else x.moveTo(px,py)});x.stroke();if(s.p.length===1){let p=s.p[0],tt=p.t||p.sequence||0,px=l+(tt-t0)*gw/(t1-t0),py=top+gh-(p.value-lo)*gh/(hi-lo);x.beginPath();x.arc(px,py,3,0,Math.PI*2);x.fill()}let last=s.p[s.p.length-1];let y=24+si*18;x.fillStyle=x.strokeStyle;x.fillRect(w-r+8,y-8,9,9);x.fillText(`${s.label}: ${last.value.toFixed(1)}${s.unit?' '+s.unit:''}`,w-r+22,y)});let span=Math.max(0,Math.round((t1-t0)/1000));note.textContent=`${series.length} series, ${span}s retained window, ${Math.max(...series.map(s=>s.p.length))} samples max`}"
     "function drawGraphs(){drawOne('g1',['t02_inlet','t03_outlet','t04_coil','t06_exhaust','t_aux_cond2']);drawOne('g2',['r01_setpoint_cooling','r02_setpoint_heating','r03_setpoint_auto','r08_min_cool_setpoint','r09_max_cooling_setpoint','r10_min_heating_setpoint','r11_max_heating_setpoint']);drawOne('g3',['r04_return_diff_cooling','r05_shutdown_temp_diff_when_cooling','r06_return_diff_heating','r07_shutdown_diff_heating','d03_defrosting_cycle_time_minutes','d04_max_defrost_time_minutes','d05_min_economy_defrost_time_minutes']);drawOne('g4',['f02_fan_high_speed_cool_setpoint','f03_fan_low_speed_temp_in_cooling_set_point','f04_fan_stop_temp_in_cooling_set_point','f05_fan_high_speed_temp_in_heating_set_point','f06_fan_low_speed_temp_in_heating_set_point','f07_fan_stop_temp_in_heating_set_point','f08_fan_low_speed_running_time','f09_fan_stop_low_speed_running_time','f12_min_fan_voltage_pct','f13_max_fan_voltage_pct'])}"
     "let base=location.pathname.replace(/\\/$/,'');"
     "async function load(){state=await fetch(base+'/state.json').then(r=>r.json());render()}"
-    "async function refresh(){if(refreshPending)return;refreshPending=true;try{let prev=state.graphs||{};let next=await fetch(base+'/state.json').then(r=>r.json());if(!Object.keys(next.graphs||{}).length)next.graphs=prev;state=next;state.fields.forEach(f=>{if(f.changed)changed[f.id]=Date.now()+4000});render()}finally{refreshPending=false}}saveAnns(anns());refresh();setInterval(refresh,2500);setInterval(render,1000);addEventListener('resize',drawGraphs);"
+    "async function refresh(){if(refreshPending)return;refreshPending=true;try{let prev=state.graphs||{};let next=await fetch(base+'/state.json').then(r=>r.json());if(!Object.keys(next.graphs||{}).length)next.graphs=prev;state=next;state.fields.forEach(f=>{if(f.changed)changed[f.id]=Date.now()+4000});render()}finally{refreshPending=false}}async function refreshGraphs(){try{let g=await fetch(base+'/graphs.json').then(r=>r.json());state.graphs=g.graphs||{};render()}catch(e){}}saveAnns(anns());refresh().then(refreshGraphs);setInterval(refresh,2500);setInterval(refreshGraphs,10000);setInterval(render,1000);addEventListener('resize',drawGraphs);"
     "</script></body></html>";
 
 void append_json_pair(std::ostringstream& out, const char* key, const std::string& value, bool comma = true) {
@@ -100,13 +100,19 @@ class HWPWebHandler : public AsyncWebHandler {
         if (request->method() != HTTP_GET) return false;
         char url_buf[AsyncWebServerRequest::URL_BUF_SIZE];
         auto url = request->url_to(url_buf);
-        return url == path_ || url == path_ + "/" || url == path_ + "/state.json";
+        return url == path_ || url == path_ + "/" || url == path_ + "/state.json" ||
+               url == path_ + "/graphs.json";
     }
     void handleRequest(AsyncWebServerRequest* request) override {
         char url_buf[AsyncWebServerRequest::URL_BUF_SIZE];
         auto url = request->url_to(url_buf);
         if (url == path_ + "/state.json") {
             auto payload = dashboard_->state_json();
+            request->send(200, "application/json", payload.c_str());
+            return;
+        }
+        if (url == path_ + "/graphs.json") {
+            auto payload = dashboard_->graph_state_json();
             request->send(200, "application/json", payload.c_str());
             return;
         }
@@ -203,7 +209,8 @@ void HWPWebDashboard::update_fields(
     }
     this->last_bus_mode_ = bus_mode;
     std::vector<HWPWebField> fields;
-    append_field(fields, make_string_field("actual_status", "Actual Status", status, "status", "", "", "local"));
+    const auto status_value = status.empty() ? this->last_status_ : status;
+    append_field(fields, make_string_field("actual_status", "Actual Status", status_value, "status", "", "", "local"));
     append_field(fields, make_string_field("bus_mode", "Bus Mode", bus_mode_to_string(bus_mode), "status", "", "", "local"));
     append_field(fields, make_float_field("t02_inlet", "T02 Inlet", data.t02_temperature_inlet, "C", "temperatures", "COND_1B", "D1[9]", "heater"));
     append_field(fields, make_float_field("t03_outlet", "T03 Outlet", data.t03_temperature_outlet, "C", "temperatures", "COND_2", "D2[3]", "heater"));
@@ -261,15 +268,42 @@ void HWPWebDashboard::update_fields(
 void HWPWebDashboard::append_field(std::vector<HWPWebField>& fields, HWPWebField field) {
     if (field.id.empty()) return;
     auto previous = this->previous_field_values_.find(field.id);
-    field.changed = previous != this->previous_field_values_.end() && previous->second != field.value;
-    field.seen_ms = millis();
-    this->previous_field_values_[field.id] = field.value;
+    const bool first_seen = previous == this->previous_field_values_.end();
+    field.changed = !first_seen && previous->second != field.value;
+    if (first_seen || field.changed) {
+        field.seen_ms = millis();
+        this->previous_field_values_[field.id] = field.value;
+        this->previous_field_seen_ms_[field.id] = field.seen_ms;
+        this->append_graph_point(field);
+    } else {
+        auto previous_seen = this->previous_field_seen_ms_.find(field.id);
+        field.seen_ms = previous_seen == this->previous_field_seen_ms_.end() ? millis()
+                                                                             : previous_seen->second;
+    }
     fields.push_back(field);
-    this->append_graph_point(field);
 }
 
 std::string HWPWebDashboard::state_json() const {
     return this->state_json_(true);
+}
+
+std::string HWPWebDashboard::graph_state_json() const {
+    std::map<std::string, std::vector<GraphPoint>> graphs;
+    std::string status;
+    bus_mode_t bus_mode;
+    {
+        std::lock_guard<std::mutex> lock(this->data_mutex_);
+        graphs = this->graph_history_;
+        status = this->last_status_;
+        bus_mode = this->last_bus_mode_;
+    }
+    std::ostringstream out;
+    out << "{";
+    out << "\"meta\":" << meta_json(status, bus_mode) << ",";
+    out << "\"graphs\":";
+    append_graph_json(out, graphs);
+    out << "}";
+    return out.str();
 }
 
 std::string HWPWebDashboard::event_json() const {

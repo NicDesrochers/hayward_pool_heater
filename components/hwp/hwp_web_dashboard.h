@@ -91,6 +91,7 @@ class HWPWebDashboard {
     void update_fields(const heat_pump_data_t& data, const std::string& status, bus_mode_t bus_mode);
 
     std::string state_json() const;
+    std::string graph_state_json() const;
     std::string event_json() const;
     size_t packet_count() const;
     size_t latest_frame_count() const;
@@ -125,6 +126,7 @@ class HWPWebDashboard {
     std::vector<HWPWebField> fields_{};
     std::map<std::string, PacketRecord> latest_frames_{};
     std::map<std::string, std::string> previous_field_values_{};
+    std::map<std::string, uint32_t> previous_field_seen_ms_{};
     std::map<std::string, std::vector<uint8_t>> previous_packet_bytes_{};
     std::map<std::string, std::vector<GraphPoint>> graph_history_{};
     uint32_t packet_sequence_{0};

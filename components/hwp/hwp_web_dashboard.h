@@ -45,6 +45,7 @@ namespace hwp {
 
 static constexpr size_t HWP_WEB_DEFAULT_PACKET_BUFFER_SIZE = 80;
 static constexpr size_t HWP_WEB_DEFAULT_GRAPH_HISTORY_SIZE = 240;
+static constexpr size_t HWP_WEB_MAX_GRAPH_HISTORY_SIZE = 80;
 
 struct HWPWebConfig {
     bool enabled{false};
@@ -70,7 +71,7 @@ struct HWPWebField {
 
 class HWPWebDashboard {
   public:
-    void configure(const HWPWebConfig& config) { this->config_ = config; }
+    void configure(const HWPWebConfig& config);
 #ifndef HWP_NATIVE_TEST
 #ifdef USE_WEBSERVER
     void setup(web_server::WebServer* web_server);

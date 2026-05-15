@@ -86,7 +86,10 @@ void test_field_snapshot_and_graph_trim() {
     assert_contains(json, "\"t\":");
 
     const auto event_json = dashboard.event_json();
-    assert_contains(event_json, "\"graphs\":{}");
+    assert_contains(event_json, "\"packet_sequence\":");
+    assert(event_json.find("\"fields\"") == std::string::npos);
+    assert(event_json.find("\"packets\"") == std::string::npos);
+    assert(event_json.find("\"graphs\"") == std::string::npos);
 }
 
 void test_field_snapshot_retains_previous_fields_on_partial_update() {
@@ -119,6 +122,7 @@ void test_index_html_contains_annotation_helper() {
     assert_contains(html, "Packets");
     assert_contains(html, "Graphs");
     assert_contains(html, "Recent graph history is retained on the device");
+    assert_contains(html, "setInterval(refresh,2500)");
     assert_contains(html, "devicePixelRatio");
     assert_contains(html, "Setpoints And Limits");
     assert_contains(html, "Differentials And Timers");

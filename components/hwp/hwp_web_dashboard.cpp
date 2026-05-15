@@ -24,6 +24,7 @@
 #include "hwp_version.h"
 
 #include <algorithm>
+#include <cinttypes>
 #include <cstdio>
 #include <map>
 #include <utility>
@@ -61,7 +62,7 @@ const char HWP_WEB_INDEX[] =
     "<div class=chart><h3>Fan Values</h3><p class=meta id=g4m></p><canvas id=g4></canvas></div></section>"
     "<section class=annotate><strong>Annotate</strong> <input id=annNote placeholder='label or note'><button id=annStart>Start</button><button id=annEvent>Mark Event</button><button id=annEnd>End</button><button id=annExport>Export JSON</button><button id=annClear>Clear</button><span id=annCount class=meta></span></section>"
     "<script>"
-    "const ANN_KEY='hwp.web.annotations.v1';let state={fields:[],frames:[],packets:[],graphs:{},meta:{}};let changed={};let tab='values';"
+    "const ANN_KEY='hwp.web.annotations.v1';let state={fields:[],frames:[],packets:[],graphs:{},meta:{}};let changed={};let tab='values';let refreshPending=false;"
     "function anns(){try{return JSON.parse(localStorage.getItem(ANN_KEY)||'[]')}catch(e){return[]}}"
     "function saveAnns(a){localStorage.setItem(ANN_KEY,JSON.stringify(a));annCount.textContent=a.length+' annotations'}"
     "function latestPacket(){return state.packets.length?state.packets[state.packets.length-1]:null}"
@@ -79,7 +80,7 @@ const char HWP_WEB_INDEX[] =
     "function drawGraphs(){drawOne('g1',['t02_inlet','t03_outlet','t04_coil','t06_exhaust','t_aux_cond2']);drawOne('g2',['r01_setpoint_cooling','r02_setpoint_heating','r03_setpoint_auto','r08_min_cool_setpoint','r09_max_cooling_setpoint','r10_min_heating_setpoint','r11_max_heating_setpoint']);drawOne('g3',['r04_return_diff_cooling','r05_shutdown_temp_diff_when_cooling','r06_return_diff_heating','r07_shutdown_diff_heating','d03_defrosting_cycle_time_minutes','d04_max_defrost_time_minutes','d05_min_economy_defrost_time_minutes']);drawOne('g4',['f02_fan_high_speed_cool_setpoint','f03_fan_low_speed_temp_in_cooling_set_point','f04_fan_stop_temp_in_cooling_set_point','f05_fan_high_speed_temp_in_heating_set_point','f06_fan_low_speed_temp_in_heating_set_point','f07_fan_stop_temp_in_heating_set_point','f08_fan_low_speed_running_time','f09_fan_stop_low_speed_running_time','f12_min_fan_voltage_pct','f13_max_fan_voltage_pct'])}"
     "let base=location.pathname.replace(/\\/$/,'');"
     "async function load(){state=await fetch(base+'/state.json').then(r=>r.json());render()}"
-    "saveAnns(anns());load();setInterval(render,1000);addEventListener('resize',drawGraphs);let es=new EventSource(base+'/events');es.addEventListener('state',e=>{let next=JSON.parse(e.data);if(!Object.keys(next.graphs||{}).length)next.graphs=state.graphs;state=next;state.fields.forEach(f=>{if(f.changed)changed[f.id]=Date.now()+4000});render()});"
+    "async function refresh(){if(refreshPending)return;refreshPending=true;try{let prev=state.graphs||{};let next=await fetch(base+'/state.json').then(r=>r.json());if(!Object.keys(next.graphs||{}).length)next.graphs=prev;state=next;state.fields.forEach(f=>{if(f.changed)changed[f.id]=Date.now()+4000});render()}finally{refreshPending=false}}saveAnns(anns());refresh();setInterval(refresh,2500);setInterval(render,1000);addEventListener('resize',drawGraphs);"
     "</script></body></html>";
 
 void append_json_pair(std::ostringstream& out, const char* key, const std::string& value, bool comma = true) {
@@ -123,8 +124,6 @@ void HWPWebDashboard::setup(web_server::WebServer* web_server) {
     if (base == nullptr || web_server == nullptr) return;
     this->web_server_ = web_server;
     base->add_handler(new HWPWebHandler(this, this->config_.path));
-    this->events_ = new web_server_idf::AsyncEventSource(this->config_.path + "/events", web_server);
-    base->add_handler(this->events_);
     this->handlers_registered_ = true;
 }
 
@@ -152,6 +151,12 @@ void HWPWebDashboard::loop() {
 void HWPWebDashboard::loop() {}
 #endif
 #endif
+
+void HWPWebDashboard::configure(const HWPWebConfig& config) {
+    this->config_ = config;
+    this->config_.graph_history_size =
+        std::min(this->config_.graph_history_size, HWP_WEB_MAX_GRAPH_HISTORY_SIZE);
+}
 
 void HWPWebDashboard::record_packet(const BaseFrame& frame, const std::string& kind) {
     if (!this->config_.enabled) return;
@@ -267,7 +272,13 @@ std::string HWPWebDashboard::state_json() const {
 }
 
 std::string HWPWebDashboard::event_json() const {
-    return this->state_json_(false);
+    std::lock_guard<std::mutex> lock(this->data_mutex_);
+    char buffer[160];
+    snprintf(buffer, sizeof(buffer),
+        "{\"revision\":\"%s\",\"packet_sequence\":%" PRIu32 ",\"field_sequence\":%" PRIu32
+        ",\"uptime_ms\":%" PRIu32 "}",
+        HWP_COMPONENT_VERSION, this->packet_sequence_, this->field_sequence_, millis());
+    return std::string(buffer);
 }
 
 std::string HWPWebDashboard::state_json_(bool include_graphs) const {

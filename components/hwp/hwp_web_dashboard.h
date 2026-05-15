@@ -27,6 +27,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <map>
+#include <mutex>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -88,8 +89,8 @@ class HWPWebDashboard {
     void update_fields(const heat_pump_data_t& data, const std::string& status, bus_mode_t bus_mode);
 
     std::string state_json() const;
-    size_t packet_count() const { return this->packets_.size(); }
-    size_t latest_frame_count() const { return this->latest_frames_.size(); }
+    size_t packet_count() const;
+    size_t latest_frame_count() const;
     size_t graph_point_count(const std::string& field_id) const;
     static const char* index_html();
     static std::string escape_json(const std::string& value);
@@ -117,6 +118,7 @@ class HWPWebDashboard {
     };
 
     HWPWebConfig config_{};
+    mutable std::mutex data_mutex_{};
     std::vector<PacketRecord> packets_{};
     std::vector<HWPWebField> fields_{};
     std::map<std::string, PacketRecord> latest_frames_{};

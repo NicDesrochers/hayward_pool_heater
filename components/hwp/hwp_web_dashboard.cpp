@@ -132,11 +132,19 @@ void HWPWebDashboard::loop() {
     if (this->events_ != nullptr) {
         this->events_->loop();
     }
-    if (this->events_ != nullptr && this->dirty_ && millis() - this->last_event_ms_ >= 250) {
+    bool should_send = false;
+    {
+        std::lock_guard<std::mutex> lock(this->data_mutex_);
+        should_send = this->dirty_ && millis() - this->last_event_ms_ >= 250;
+    }
+    if (this->events_ != nullptr && should_send) {
         auto payload = this->state_json();
         this->events_->try_send_nodefer(payload.c_str(), "state");
-        this->dirty_ = false;
-        this->last_event_ms_ = millis();
+        {
+            std::lock_guard<std::mutex> lock(this->data_mutex_);
+            this->dirty_ = false;
+            this->last_event_ms_ = millis();
+        }
     }
 }
 #endif
@@ -163,6 +171,7 @@ void HWPWebDashboard::record_packet(const BaseFrame& frame, const std::string& k
         record.bytes.push_back(frame.packet.data[i]);
     }
     auto key = bytes_to_key(frame);
+    std::lock_guard<std::mutex> lock(this->data_mutex_);
     auto previous = this->previous_packet_bytes_.find(key);
     for (size_t i = 0; i < record.bytes.size(); i++) {
         record.changed_bytes.push_back(previous != this->previous_packet_bytes_.end() &&
@@ -182,6 +191,7 @@ const char* HWPWebDashboard::index_html() {
 void HWPWebDashboard::update_fields(
     const heat_pump_data_t& data, const std::string& status, bus_mode_t bus_mode) {
     if (!this->config_.enabled) return;
+    std::lock_guard<std::mutex> lock(this->data_mutex_);
     if (!status.empty()) {
         this->last_status_ = status;
     }
@@ -253,6 +263,7 @@ void HWPWebDashboard::append_field(std::vector<HWPWebField>& fields, HWPWebField
 }
 
 std::string HWPWebDashboard::state_json() const {
+    std::lock_guard<std::mutex> lock(this->data_mutex_);
     std::ostringstream out;
     out << "{";
     out << "\"meta\":" << meta_json(this->last_status_, this->last_bus_mode_) << ",";
@@ -262,6 +273,16 @@ std::string HWPWebDashboard::state_json() const {
     out << "\"graphs\":" << graph_json();
     out << "}";
     return out.str();
+}
+
+size_t HWPWebDashboard::packet_count() const {
+    std::lock_guard<std::mutex> lock(this->data_mutex_);
+    return this->packets_.size();
+}
+
+size_t HWPWebDashboard::latest_frame_count() const {
+    std::lock_guard<std::mutex> lock(this->data_mutex_);
+    return this->latest_frames_.size();
 }
 
 std::string HWPWebDashboard::fields_json() const {
@@ -384,6 +405,7 @@ void HWPWebDashboard::trim_graph(const std::string& field_id) {
 }
 
 size_t HWPWebDashboard::graph_point_count(const std::string& field_id) const {
+    std::lock_guard<std::mutex> lock(this->data_mutex_);
     auto found = this->graph_history_.find(field_id);
     return found == this->graph_history_.end() ? 0 : found->second.size();
 }

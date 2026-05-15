@@ -38,6 +38,8 @@ namespace hwp {
 
 namespace {
 
+static constexpr size_t HWP_WEB_STATE_PACKET_LIMIT = 24;
+
 const char HWP_WEB_INDEX[] =
     "<!doctype html><html><head><meta charset=utf-8><meta name=viewport "
     "content='width=device-width,initial-scale=1'><title>HWP</title><style>"
@@ -88,6 +90,57 @@ const char HWP_WEB_INDEX[] =
 void append_json_pair(std::ostringstream& out, const char* key, const std::string& value, bool comma = true) {
     out << "\"" << key << "\":\"" << HWPWebDashboard::escape_json(value) << "\"";
     if (comma) out << ",";
+}
+
+void append_json_string(std::string& out, const std::string& value) {
+    out += "\"";
+    for (char ch : value) {
+        switch (ch) {
+        case '"': out += "\\\""; break;
+        case '\\': out += "\\\\"; break;
+        case '\n': out += "\\n"; break;
+        case '\r': out += "\\r"; break;
+        case '\t': out += "\\t"; break;
+        default:
+            if (static_cast<unsigned char>(ch) >= 0x20) out += ch;
+        }
+    }
+    out += "\"";
+}
+
+void append_json_pair(std::string& out, const char* key, const std::string& value, bool comma = true) {
+    out += "\"";
+    out += key;
+    out += "\":";
+    append_json_string(out, value);
+    if (comma) out += ",";
+}
+
+void append_uint(std::string& out, uint32_t value) {
+    char buffer[16];
+    snprintf(buffer, sizeof(buffer), "%" PRIu32, value);
+    out += buffer;
+}
+
+void append_float(std::string& out, float value) {
+    char buffer[24];
+    snprintf(buffer, sizeof(buffer), "%.6g", value);
+    out += buffer;
+}
+
+void append_bool(std::string& out, bool value) {
+    out += value ? "true" : "false";
+}
+
+void append_bytes_json(std::string& out, const std::vector<uint8_t>& bytes) {
+    out += "[";
+    for (size_t i = 0; i < bytes.size(); i++) {
+        if (i) out += ",";
+        char buffer[8];
+        snprintf(buffer, sizeof(buffer), "%u", static_cast<unsigned>(bytes[i]));
+        out += buffer;
+    }
+    out += "]";
 }
 
 } // namespace
@@ -286,7 +339,7 @@ void HWPWebDashboard::append_field(std::vector<HWPWebField>& fields, HWPWebField
 }
 
 std::string HWPWebDashboard::state_json() const {
-    return this->state_json_(true);
+    return this->state_json_(false);
 }
 
 std::string HWPWebDashboard::graph_state_json() const {
@@ -340,18 +393,24 @@ std::string HWPWebDashboard::state_json_(bool include_graphs) const {
         bus_mode = this->last_bus_mode_;
     }
 
-    std::ostringstream out;
-    out << "{";
-    out << "\"meta\":" << meta_json(status, bus_mode) << ",";
-    out << "\"fields\":";
+    if (packets.size() > HWP_WEB_STATE_PACKET_LIMIT) {
+        packets.erase(packets.begin(), packets.end() - HWP_WEB_STATE_PACKET_LIMIT);
+    }
+
+    std::string out;
+    out.reserve(16384);
+    out += "{";
+    out += "\"meta\":";
+    out += meta_json(status, bus_mode);
+    out += ",\"fields\":";
     append_fields_json(out, fields);
-    out << ",\"frames\":";
+    out += ",\"frames\":";
     append_packets_json(out, frames);
-    out << ",\"packets\":";
+    out += ",\"packets\":";
     append_packets_json(out, packets);
-    out << ",\"graphs\":{}";
-    out << "}";
-    return out.str();
+    out += ",\"graphs\":{}";
+    out += "}";
+    return out;
 }
 
 size_t HWPWebDashboard::packet_count() const {
@@ -394,6 +453,34 @@ void HWPWebDashboard::append_fields_json(
     out << "]";
 }
 
+void HWPWebDashboard::append_fields_json(
+    std::string& out, const std::vector<HWPWebField>& fields) {
+    out += "[";
+    for (size_t i = 0; i < fields.size(); i++) {
+        const auto& field = fields[i];
+        if (i) out += ",";
+        out += "{";
+        append_json_pair(out, "id", field.id);
+        append_json_pair(out, "label", field.label);
+        append_json_pair(out, "value", field.value);
+        append_json_pair(out, "unit", field.unit);
+        append_json_pair(out, "group", field.group);
+        append_json_pair(out, "frame", field.frame);
+        append_json_pair(out, "raw", field.raw_location);
+        append_json_pair(out, "source", field.source);
+        out += "\"numeric\":";
+        append_bool(out, field.numeric);
+        out += ",\"numeric_value\":";
+        append_float(out, field.numeric_value);
+        out += ",\"changed\":";
+        append_bool(out, field.changed);
+        out += ",\"seen_ms\":";
+        append_uint(out, field.seen_ms);
+        out += "}";
+    }
+    out += "]";
+}
+
 std::string HWPWebDashboard::packets_json() const {
     std::ostringstream out;
     append_packets_json(out, this->packets_);
@@ -408,6 +495,16 @@ void HWPWebDashboard::append_packets_json(
         append_packet_json(out, packets[i]);
     }
     out << "]";
+}
+
+void HWPWebDashboard::append_packets_json(
+    std::string& out, const std::vector<PacketRecord>& packets) {
+    out += "[";
+    for (size_t i = 0; i < packets.size(); i++) {
+        if (i) out += ",";
+        append_packet_json(out, packets[i]);
+    }
+    out += "]";
 }
 
 std::string HWPWebDashboard::frames_json() const {
@@ -441,6 +538,33 @@ void HWPWebDashboard::append_packet_json(std::ostringstream& out, const PacketRe
     }
     out << "]";
     out << "}";
+}
+
+void HWPWebDashboard::append_packet_json(std::string& out, const PacketRecord& packet) {
+    out += "{";
+    out += "\"sequence\":";
+    append_uint(out, packet.sequence);
+    out += ",\"seen_ms\":";
+    append_uint(out, packet.seen_ms);
+    out += ",";
+    append_json_pair(out, "kind", packet.kind);
+    append_json_pair(out, "label", packet.label);
+    append_json_pair(out, "source", packet.source);
+    append_json_pair(out, "frame", packet.frame);
+    out += "\"length\":";
+    append_uint(out, packet.length);
+    out += ",\"checksum_valid\":";
+    append_bool(out, packet.checksum_valid);
+    out += ",\"changed\":";
+    append_bool(out, packet.changed);
+    out += ",\"bytes\":";
+    append_bytes_json(out, packet.bytes);
+    out += ",\"changed_bytes\":[";
+    for (size_t i = 0; i < packet.changed_bytes.size(); i++) {
+        if (i) out += ",";
+        append_bool(out, packet.changed_bytes[i]);
+    }
+    out += "]}";
 }
 
 std::string HWPWebDashboard::graph_json() const {

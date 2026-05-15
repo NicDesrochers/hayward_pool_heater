@@ -153,6 +153,9 @@ class HWPWebDashboard {
     static void append_packet_json(std::ostringstream& out, const PacketRecord& packet);
     static void append_fields_json(std::ostringstream& out, const std::vector<HWPWebField>& fields);
     static void append_packets_json(std::ostringstream& out, const std::vector<PacketRecord>& packets);
+    static void append_fields_json(std::string& out, const std::vector<HWPWebField>& fields);
+    static void append_packets_json(std::string& out, const std::vector<PacketRecord>& packets);
+    static void append_packet_json(std::string& out, const PacketRecord& packet);
     static void append_graph_json(
         std::ostringstream& out, const std::map<std::string, std::vector<GraphPoint>>& graphs);
     std::string fields_json() const;

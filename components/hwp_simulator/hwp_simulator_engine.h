@@ -39,6 +39,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace esphome {
 namespace hwp_simulator {
@@ -101,6 +102,7 @@ class SimulatorEngine {
     SimulatorStep step_once();
     std::optional<SimulatorStep> handle_controller_packet(const Packet& packet);
     ControllerPacketResult receive_controller_packet(const Packet& packet);
+    ControllerPacketResult receive_controller_packets(const std::vector<Packet>& packets);
     void record_error() { stats_.error_count++; }
     const SimulatorStats& stats() const { return stats_; }
 

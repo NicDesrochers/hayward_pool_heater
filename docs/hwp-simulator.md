@@ -115,6 +115,9 @@ production component:
   talk over the controller burst. The first changed registry packet is echoed
   after the documented post-controller delay boundary instead of responding
   immediately.
+- If one decoded controller burst contains multiple changed config packets, all
+  registry values are stored, but only the first changed packet is scheduled as
+  the immediate echo.
 - The default `normal_idle` playbook models the higher-level packet order seen
   in real heater logs: slower config/status groups are interleaved with repeated
   `COND_1`, `COND_2`, `CONFIG_2`, `CONFIG_1`, and `COND_1B` clusters.
@@ -205,6 +208,8 @@ split used by the heat pump:
 - If the registry value changed, the simulator schedules the first changed
   packet as a heater-originated echo after the bus-sharing delay.
 - Later heater-originated config frames replay the stored registry value.
+- Registry persistence is runtime-only; simulator reset or reboot returns to
+  fixture/catalog defaults.
 - Sensor/status families remain simulator-owned playbook data and are not
   overwritten by controller traffic.
 - Other valid controller packets update diagnostics only.
@@ -213,6 +218,9 @@ split used by the heat pump:
 
 This boundary keeps the simulator useful for stability testing without
 inventing unproven heater behavior.
+
+The current registry inventory is tracked in
+[`docs/protocol/simulator-config-registry-inventory.md`](protocol/simulator-config-registry-inventory.md).
 
 ## Orchestration CLI
 

@@ -467,21 +467,20 @@ bool HWPSimulator::process_rx_symbols_(
     }
 
     bool accepted = false;
-    const char* status = "accepted controller packet";
+    const auto group_result = engine_.receive_controller_packets(packets);
+    accepted = group_result.accepted;
+    const char* status = group_result.status;
     for (const auto& packet : packets) {
-        const auto result = engine_.receive_controller_packet(packet);
-        status = result.status;
-        accepted = accepted || result.accepted;
         ESP_LOGI(TAG, "RX controller %s frame=0x%02X len=%u status=%s",
-            result.accepted ? "accepted" : "ignored", packet.length > 0 ? packet.data[0] : 0,
-            static_cast<unsigned>(packet.length), result.status);
-        publish_rx_packet_(packet, result.status);
-        if (result.has_echo) {
-            pending_step_ = result.echo;
-            next_step_ms_ = millis() + result.echo.delay_ms;
-            if (last_echo_sensor_ != nullptr) {
-                last_echo_sensor_->publish_state(format_packet_(result.echo) + " pending");
-            }
+            accepted ? "accepted" : "ignored", packet.length > 0 ? packet.data[0] : 0,
+            static_cast<unsigned>(packet.length), status);
+        publish_rx_packet_(packet, status);
+    }
+    if (group_result.has_echo && !pending_step_.has_value()) {
+        pending_step_ = group_result.echo;
+        next_step_ms_ = millis() + group_result.echo.delay_ms;
+        if (last_echo_sensor_ != nullptr) {
+            last_echo_sensor_->publish_state(format_packet_(group_result.echo) + " pending");
         }
     }
     if (status_sensor_ != nullptr) {

@@ -45,9 +45,14 @@ condition/config clusters, then `CONFIG_3`, `COND_2_B`, and `COND_D`.
 The implemented wire reaction follows the heat-pump split between sensor/status
 families and config registries. Checksum-valid controller writes to `CONFIG_1`
 through `CONFIG_6` update the simulator's internal registry state; if the value
-changed, the simulator schedules the first changed config packet as a delayed
-heater-originated echo. Later heater-originated config frames replay the stored
-registry values. Sensor/status packets remain simulator-owned playbook data.
+changed, the simulator schedules the first changed config packet in the decoded
+burst as a delayed heater-originated echo. Later changed packets in the same
+burst update registry state but do not replace that first pending echo. Later
+heater-originated config frames replay the stored registry values.
+Sensor/status packets remain simulator-owned playbook data. Registry persistence
+is runtime-only and resets to fixture/catalog defaults on simulator reset or
+reboot. The writable-field inventory is tracked in
+`docs/protocol/simulator-config-registry-inventory.md`.
 Other valid controller packets update diagnostics only; invalid packets
 increment error counters and do not emit an echo.
 

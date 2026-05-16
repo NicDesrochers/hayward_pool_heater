@@ -324,24 +324,47 @@ std::optional<SimulatorStep> SimulatorEngine::update_config_registry_(const Pack
 }
 
 ControllerPacketResult SimulatorEngine::receive_controller_packet(const Packet& packet) {
-    if (packet.source != PacketSource::CONTROLLER) {
-        stats_.error_count++;
-        return ControllerPacketResult{false, false, {}, "ignored non-controller packet"};
-    }
-    if (!esphome::hwp::wire::is_supported_length(packet.length) ||
-        !esphome::hwp::wire::checksum_valid(packet.data.data(), packet.length)) {
-        stats_.error_count++;
-        return ControllerPacketResult{false, false, {}, "invalid controller packet"};
+    std::vector<Packet> packets;
+    packets.push_back(packet);
+    return receive_controller_packets(packets);
+}
+
+ControllerPacketResult SimulatorEngine::receive_controller_packets(const std::vector<Packet>& packets) {
+    bool accepted = false;
+    std::optional<SimulatorStep> first_echo;
+    const char* status = "accepted controller packet";
+
+    for (const auto& packet : packets) {
+        if (packet.source != PacketSource::CONTROLLER) {
+            stats_.error_count++;
+            status = "ignored non-controller packet";
+            continue;
+        }
+        if (!esphome::hwp::wire::is_supported_length(packet.length) ||
+            !esphome::hwp::wire::checksum_valid(packet.data.data(), packet.length)) {
+            stats_.error_count++;
+            status = "invalid controller packet";
+            continue;
+        }
+
+        stats_.rx_packet_count++;
+        accepted = true;
+        auto echo = handle_controller_packet(packet);
+        if (echo.has_value()) {
+            status = "updated simulator registry";
+            if (!first_echo.has_value()) {
+                first_echo = *echo;
+            }
+        } else if (!first_echo.has_value()) {
+            status = "accepted controller packet";
+        }
     }
 
-    stats_.rx_packet_count++;
-    auto echo = handle_controller_packet(packet);
-    if (!echo.has_value()) {
-        return ControllerPacketResult{true, false, {}, "accepted controller packet"};
+    if (!first_echo.has_value()) {
+        return ControllerPacketResult{accepted, false, {}, status};
     }
-
     stats_.echo_count++;
-    return ControllerPacketResult{true, true, *echo, "updated simulator registry"};
+    return ControllerPacketResult{true, true, *first_echo, "updated simulator registry"};
 }
 
 } // namespace hwp_simulator

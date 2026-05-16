@@ -33,6 +33,7 @@
 #include "hwp_simulator_engine.h"
 
 #include <cassert>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -49,6 +50,35 @@ using esphome::hwp_simulator::SimulatorEngine;
 using esphome::hwp_simulator::find_catalog_packet;
 using esphome::hwp_simulator::playbook_from_string;
 using esphome::hwp_simulator::playbook_to_string;
+
+Packet controller_command(
+    const char* catalog_id, const std::function<void(Packet&)>& mutate) {
+    const auto* catalog_packet = find_catalog_packet(catalog_id);
+    assert(catalog_packet != nullptr);
+    Packet command = catalog_packet->packet;
+    command.source = PacketSource::CONTROLLER;
+    mutate(command);
+    refresh_checksum(command.data.data(), command.length);
+    assert(checksum_valid(command.data.data(), command.length));
+    return command;
+}
+
+void assert_replayed_config(
+    SimulatorEngine& engine, uint8_t frame, const std::function<void(const Packet&)>& check) {
+    engine.set_playbook(Playbook::CONFIG_REFRESH);
+    engine.set_active(true);
+    for (int index = 0; index < 16; ++index) {
+        auto step = engine.step_once();
+        assert(step.has_packet);
+        if (step.packet.length == 12 && step.packet.data[0] == frame) {
+            assert(step.packet.source == PacketSource::HEATER);
+            assert(checksum_valid(step.packet.data.data(), step.packet.length));
+            check(step.packet);
+            return;
+        }
+    }
+    assert(false && "expected config frame was not replayed");
+}
 
 void test_wire_codec_round_trip_heater_long_packet() {
     const auto* packet = find_catalog_packet("base-config-5-normal");
@@ -412,6 +442,175 @@ void test_receive_controller_config3_registry_write_echoes_once() {
     assert(engine.stats().echo_count == 1);
 }
 
+void test_config1_writable_inventory_persists_and_replays() {
+    Packet command = controller_command("base-config-1", [](Packet& packet) {
+        packet.data[2] = 0x18;  // power/mode/H02 byte
+        packet.data[3] = 0x70;  // R01
+        packet.data[4] = 0x54;  // R02
+        packet.data[5] = 0x74;  // R03
+        packet.data[6] = 0x40;  // R04
+        packet.data[7] = 0x41;  // R05
+        packet.data[8] = 0x42;  // R06
+        packet.data[9] = 0x43;  // R07
+        packet.data[10] = 0x2D; // F12
+    });
+
+    SimulatorEngine engine;
+    auto result = engine.receive_controller_packet(command);
+
+    assert(result.accepted);
+    assert(result.has_echo);
+    assert(result.echo.packet.data[0] == 0x81);
+    assert(result.echo.packet.data[10] == 0x2D);
+    assert_replayed_config(engine, 0x81, [](const Packet& packet) {
+        assert(packet.data[2] == 0x18);
+        assert(packet.data[3] == 0x70);
+        assert(packet.data[4] == 0x54);
+        assert(packet.data[5] == 0x74);
+        assert(packet.data[6] == 0x40);
+        assert(packet.data[7] == 0x41);
+        assert(packet.data[8] == 0x42);
+        assert(packet.data[9] == 0x43);
+        assert(packet.data[10] == 0x2D);
+    });
+}
+
+void test_config2_writable_inventory_persists_and_replays() {
+    Packet command = controller_command("base-config-2", [](Packet& packet) {
+        packet.data[2] = 0x1E;  // F01/F10
+        packet.data[3] = 0x04;  // D01
+        packet.data[4] = 0x58;  // D02
+        packet.data[5] = 0x46;  // D03
+        packet.data[6] = 0x12;  // D04
+        packet.data[10] = 0x63; // F13
+    });
+
+    SimulatorEngine engine;
+    auto result = engine.receive_controller_packet(command);
+
+    assert(result.accepted);
+    assert(result.has_echo);
+    assert(result.echo.packet.data[0] == 0x82);
+    assert(result.echo.packet.data[3] == 0x04);
+    assert_replayed_config(engine, 0x82, [](const Packet& packet) {
+        assert(packet.data[2] == 0x1E);
+        assert(packet.data[3] == 0x04);
+        assert(packet.data[4] == 0x58);
+        assert(packet.data[5] == 0x46);
+        assert(packet.data[6] == 0x12);
+        assert(packet.data[10] == 0x63);
+    });
+}
+
+void test_config4_writable_inventory_persists_and_replays() {
+    Packet command = controller_command("base-config-4", [](Packet& packet) {
+        packet.data[2] = 0x8A; // F02
+        packet.data[3] = 0x5B; // F03
+        packet.data[4] = 0x52; // F04
+        packet.data[5] = 0x54; // F05
+        packet.data[6] = 0x66; // F06
+        packet.data[7] = 0x76; // F07
+        packet.data[8] = 0x01; // F08
+        packet.data[9] = 0x02; // F09
+    });
+
+    SimulatorEngine engine;
+    auto result = engine.receive_controller_packet(command);
+
+    assert(result.accepted);
+    assert(result.has_echo);
+    assert(result.echo.packet.data[0] == 0x84);
+    assert_replayed_config(engine, 0x84, [](const Packet& packet) {
+        assert(packet.data[2] == 0x8A);
+        assert(packet.data[3] == 0x5B);
+        assert(packet.data[4] == 0x52);
+        assert(packet.data[5] == 0x54);
+        assert(packet.data[6] == 0x66);
+        assert(packet.data[7] == 0x76);
+        assert(packet.data[8] == 0x01);
+        assert(packet.data[9] == 0x02);
+    });
+}
+
+void test_config5_writable_inventory_persists_and_replays() {
+    Packet command = controller_command("base-config-5-normal", [](Packet& packet) {
+        packet.data[2] = 0x4C;  // U01/D06/F11 flags
+        packet.data[3] = 0x08;  // D05
+        packet.data[9] = 0x01;  // U02 high byte
+        packet.data[10] = 0x00; // U02 low byte
+    });
+
+    SimulatorEngine engine;
+    auto result = engine.receive_controller_packet(command);
+
+    assert(result.accepted);
+    assert(result.has_echo);
+    assert(result.echo.packet.data[0] == 0x85);
+    assert_replayed_config(engine, 0x85, [](const Packet& packet) {
+        assert(packet.data[2] == 0x4C);
+        assert(packet.data[3] == 0x08);
+        assert(packet.data[9] == 0x01);
+        assert(packet.data[10] == 0x00);
+    });
+}
+
+void test_config3_and_config6_raw_registry_packets_persist_and_replay() {
+    Packet config_3 = controller_command("base-config-3", [](Packet& packet) {
+        packet.data[7] = 0x4E;
+        packet.data[8] = 0x84;
+        packet.data[9] = 0x48;
+        packet.data[10] = 0x8A;
+    });
+    Packet config_6 = controller_command("base-config-6", [](Packet& packet) {
+        packet.data[2] = 0x01;
+        packet.data[10] = 0x02;
+    });
+
+    SimulatorEngine engine;
+    auto first = engine.receive_controller_packet(config_3);
+    auto second = engine.receive_controller_packet(config_6);
+
+    assert(first.accepted);
+    assert(first.has_echo);
+    assert(second.accepted);
+    assert(second.has_echo);
+    assert_replayed_config(engine, 0x83, [](const Packet& packet) {
+        assert(packet.data[7] == 0x4E);
+        assert(packet.data[8] == 0x84);
+        assert(packet.data[9] == 0x48);
+        assert(packet.data[10] == 0x8A);
+    });
+    assert_replayed_config(engine, 0x86, [](const Packet& packet) {
+        assert(packet.data[2] == 0x01);
+        assert(packet.data[10] == 0x02);
+    });
+}
+
+void test_multiple_changed_controller_packets_echo_first_and_store_all() {
+    Packet config_2 = controller_command("base-config-2", [](Packet& packet) {
+        packet.data[3] = 0x04;
+    });
+    Packet config_1 = controller_command("base-config-1", [](Packet& packet) {
+        packet.data[10] = 0x2D;
+    });
+
+    SimulatorEngine engine;
+    auto result = engine.receive_controller_packets({config_2, config_1});
+
+    assert(result.accepted);
+    assert(result.has_echo);
+    assert(result.echo.packet.data[0] == 0x82);
+    assert(result.echo.packet.data[3] == 0x04);
+    assert(engine.stats().rx_packet_count == 2);
+    assert(engine.stats().echo_count == 1);
+    assert_replayed_config(engine, 0x82, [](const Packet& packet) {
+        assert(packet.data[3] == 0x04);
+    });
+    assert_replayed_config(engine, 0x81, [](const Packet& packet) {
+        assert(packet.data[10] == 0x2D);
+    });
+}
+
 void test_receive_controller_config1_group_updates_replayed_state() {
     const auto* config_1 = find_catalog_packet("base-config-1");
     assert(config_1 != nullptr);
@@ -503,6 +702,12 @@ int main() {
     test_receive_controller_config1_updates_replayed_state();
     test_receive_controller_config2_updates_replayed_state();
     test_receive_controller_config3_registry_write_echoes_once();
+    test_config1_writable_inventory_persists_and_replays();
+    test_config2_writable_inventory_persists_and_replays();
+    test_config4_writable_inventory_persists_and_replays();
+    test_config5_writable_inventory_persists_and_replays();
+    test_config3_and_config6_raw_registry_packets_persist_and_replay();
+    test_multiple_changed_controller_packets_echo_first_and_store_all();
     test_receive_controller_config1_group_updates_replayed_state();
     test_receive_controller_rejects_invalid_packets_without_echo();
     test_stress_playbook_counts_invalid_checksum();

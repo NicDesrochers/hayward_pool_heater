@@ -179,7 +179,7 @@ def create_throttle_avg_filter(sensor_name):
     }
 
 
-BASE_SCHEMA = climate.CLIMATE_SCHEMA.extend(
+BASE_SCHEMA = climate.climate_schema.extend(
     {
         cv.GenerateID(CONF_ID): cv.declare_id(PoolHeater),
         cv.Required(CONF_GPIO_NETPIN): pins.gpio_pin_schema(

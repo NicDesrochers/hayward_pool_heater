@@ -300,8 +300,8 @@ class PoolHeater : public climate::Climate, public PollingComponent {
 #endif
     HeaterStatus heater_status_;
     std::string actual_status_;
-    bool passive_mode_ = true;
-    bool update_active_ = false;
+    bool passive_mode_ = false;
+    bool update_active_ = true;
     bool start_bus_on_setup_ = true;
     text_sensor::TextSensor* actual_status_sensor_{nullptr};
     text_sensor::TextSensor* heater_status_code_sensor_{nullptr};

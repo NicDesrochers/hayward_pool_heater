@@ -40,6 +40,16 @@ namespace esphome {
 namespace hwp {
 constexpr char TAG[] = "hwp";
 CLASS_ID_DECLARATION(esphome::hwp::FrameConf1);
+namespace {
+constexpr uint8_t kPc1000PowerBit = 0x80;
+constexpr uint8_t kPc1000HeatBit = 0x08;
+constexpr uint8_t kPc1000AutoBit = 0x04;
+constexpr uint8_t kModeRestrictionMask = 0x0C;
+
+inline bool has_pc1000_style_mode_bit(const hp_mode_t& mode, uint8_t bit) {
+    return (mode.raw.raw & bit) != 0;
+}
+}  // namespace
 std::shared_ptr<BaseFrame> FrameConf1::create() {
     return std::make_shared<FrameConf1>(); //  Create a FrameConf1 if type matches
 }
@@ -213,20 +223,13 @@ void FrameConf1::set_target_auto(float temperature) {
 climate::ClimateMode FrameConf1::get_climate_mode() const {
     switch (get_active_mode()) {
     case STATE_AUTO_MODE:
-        ESP_LOGW(TAG_TEMP, "Need more analysis to figure out what the heat pump is doing");
         return climate::CLIMATE_MODE_AUTO;
-        break;
     case STATE_COOLING_MODE:
-        ESP_LOGW(TAG_TEMP, "Need more analysis to figure out what the heat pump is doing");
         return climate::CLIMATE_MODE_COOL;
-        break;
     case STATE_HEATING_MODE:
-        ESP_LOGW(TAG_TEMP, "Need more analysis to figure out what the heat pump is doing");
         return climate::CLIMATE_MODE_HEAT;
-        break;
     default:
         return climate::CLIMATE_MODE_OFF;
-        break;
     }
 }
 float FrameConf1::get_target_temperature() const {
@@ -251,16 +254,22 @@ active_modes_t FrameConf1::get_active_mode(const FrameConf1& frame) {
 }
 bool FrameConf1::is_power_on() const { return is_power_on(data_->mode); }
 
-bool FrameConf1::is_power_on(hp_mode_t mode) { return mode.power; }
+bool FrameConf1::is_power_on(hp_mode_t mode) {
+    return mode.power || has_pc1000_style_mode_bit(mode, kPc1000PowerBit);
+}
 
 active_modes_t FrameConf1::get_active_mode(hp_mode_t mode) {
-    if (!mode.power) {
+    const bool power = is_power_on(mode);
+    const bool auto_mode = mode.auto_mode || has_pc1000_style_mode_bit(mode, kPc1000AutoBit);
+    const bool heat = mode.heat || has_pc1000_style_mode_bit(mode, kPc1000HeatBit);
+
+    if (!power) {
         return STATE_OFF;
     }
-    if (mode.auto_mode) {
+    if (auto_mode) {
         return STATE_AUTO_MODE;
     }
-    if (mode.heat) {
+    if (heat) {
         return STATE_HEATING_MODE;
     }
     return STATE_COOLING_MODE;
@@ -326,23 +335,27 @@ std::string FrameConf1::format(const conf_1_t& val, const conf_1_t& prev) const 
     return oss.str();
 }
 void FrameConf1::set_mode(climate::ClimateMode mode) {
-    data_->mode.power = false;
-    data_->mode.heat = false;
-    data_->mode.auto_mode = false;
+    const uint8_t preserved_restrictions = static_cast<uint8_t>(data_->mode.raw.raw & kModeRestrictionMask);
+    data_->mode.raw.raw = preserved_restrictions;
+
     switch (mode) {
     case climate::CLIMATE_MODE_AUTO:
         data_->mode.auto_mode = true;
         data_->mode.power = true;
+        data_->mode.raw.raw |= (kPc1000PowerBit | kPc1000AutoBit | preserved_restrictions);
         break;
     case climate::CLIMATE_MODE_HEAT:
         data_->mode.heat = true;
         data_->mode.power = true;
+        data_->mode.raw.raw |= (kPc1000PowerBit | kPc1000HeatBit | preserved_restrictions);
         break;
     case climate::CLIMATE_MODE_COOL:
         data_->mode.power = true;
+        data_->mode.raw.raw |= (kPc1000PowerBit | preserved_restrictions);
         break;
     default:
         data_->mode.power = false;
+        data_->mode.raw.raw = preserved_restrictions;
         break;
     }
 }
